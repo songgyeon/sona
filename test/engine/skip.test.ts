@@ -34,7 +34,7 @@ async function setup(parts: Partial<Record<Purpose, Part>>, film: unknown = TWO_
   const playId = uid();
   await enter(ctx, filmId, playId);
   const send = (text: string, room = 'c1') => say(ctx, playId, { room, text, requestId: uid() });
-  const away = (kind: 'short' | 'errand' | 'sleep', requestId = uid()) => skip(ctx, playId, { kind, requestId });
+  const away = (kind: 'short' | 'errand' | 'evening' | 'sleep', requestId = uid()) => skip(ctx, playId, { kind, requestId });
   const calls = (purpose: Purpose) => ctx.model.calls.filter((c) => c.purpose === purpose);
   const setElapsed = (elapsed: number) => ctx.db.run('UPDATE plays SET elapsed = ? WHERE id = ?', elapsed, playId);
   return { ctx, playId, send, away, calls, setElapsed };
@@ -56,6 +56,16 @@ describe('자리 비우기와 시계', () => {
     expect((await away('short')).elapsed).toBe(20);
     expect((await away('errand')).elapsed).toBe(140);
     expect(at((await away('sleep')).elapsed)).toBe('토요일 오전 7:00');
+  });
+
+  it('저녁으로 넘기면 다음에 오는 저녁 7시가 된다', async () => {
+    const { away } = await setup({});
+    // 금요일 오후 4시에 시작한다
+    expect(at((await away('evening')).elapsed)).toBe('금요일 오후 7:00');
+    // 이미 저녁이면 다음 날 저녁을 향해 가는데, 첫 하루가 그 전에 끝난다. 거기서 멈춘다
+    const v = await away('evening');
+    expect(at(v.elapsed)).toBe('토요일 오후 4:00');
+    expect(v.ended).toBe(true);
   });
 
   it('첫 하루를 넘겨서 건너뛰지 않는다', async () => {

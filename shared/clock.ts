@@ -74,6 +74,11 @@ export function nextWake(c: Clock, from = c.elapsed): number {
   return nextAt(c, RULES.skip.wakeMin, from);
 }
 
+/** 저녁으로 — 다음에 오는 저녁 */
+export function nextEvening(c: Clock, from = c.elapsed): number {
+  return nextAt(c, RULES.skip.eveningMin, from);
+}
+
 /** 하루 중 분이 [from, to) 구간에 드는가. 자정을 넘기는 구간(from > to)도 받는다 */
 export function inSpan(min: number, from: number, to: number): boolean {
   if (from === to) return false;

@@ -2,7 +2,7 @@
    시계는 접수할 때 간다. 그 사이의 일을 못 만들어도 시계는 돌아가지 않는다 —
    그 구간은 조용한 구간으로 남는다. */
 
-import { nextWake, trialOver } from '../../shared/clock';
+import { nextEvening, nextWake, trialOver } from '../../shared/clock';
 import { RULES } from '../../shared/rules';
 import type { Cast, PlayView } from '../../shared/types';
 import { isUniqueError, newId, q, type Stmt } from '../db';
@@ -17,12 +17,12 @@ import { pingHeld, pingSlots } from './ping';
 import { lastTurn, loadPlay, messagesOf, type Play, viewOf } from './store';
 import { ask, bubbles, errText, eventsFor, logStmt, toLines } from './talk';
 
-export type SkipKind = 'short' | 'errand' | 'sleep';
+export type SkipKind = 'short' | 'errand' | 'evening' | 'sleep';
 
 export async function skip(ctx: Ctx, playId: string, input: { kind: unknown; requestId: unknown }): Promise<PlayView> {
   if (!isUuid(input.requestId)) throw new Fail(400, 'bad_request_id', '전송 표가 맞지 않아.');
   const kind = input.kind;
-  if (kind !== 'short' && kind !== 'errand' && kind !== 'sleep') {
+  if (kind !== 'short' && kind !== 'errand' && kind !== 'evening' && kind !== 'sleep') {
     throw new Fail(400, 'bad_skip', '그렇게는 자리를 비울 수 없어.');
   }
   const play = await loadPlay(ctx, playId);
@@ -41,7 +41,13 @@ export async function skip(ctx: Ctx, playId: string, input: { kind: unknown; req
 
   const from = play.elapsed;
   const want =
-    kind === 'short' ? from + RULES.skip.short : kind === 'errand' ? from + RULES.skip.errand : nextWake(play);
+    kind === 'short'
+      ? from + RULES.skip.short
+      : kind === 'errand'
+        ? from + RULES.skip.errand
+        : kind === 'evening'
+          ? nextEvening(play)
+          : nextWake(play);
   // 첫 하루를 넘겨서 건너뛰지 않는다
   const to = Math.min(want, RULES.trialMinutes);
   const turnId = newId();

@@ -118,7 +118,7 @@ export const api = {
   play: (id: string) => call<PlayView>('GET', `/api/plays/${id}`),
   say: (id: string, room: string, text: string, requestId: string) =>
     call<PlayView>('POST', `/api/plays/${id}/say`, { room, text, requestId }),
-  skip: (id: string, kind: 'short' | 'errand' | 'sleep', requestId: string) =>
+  skip: (id: string, kind: 'evening' | 'sleep', requestId: string) =>
     call<PlayView>('POST', `/api/plays/${id}/skip`, { kind, requestId }),
   retry: (id: string) => call<PlayView>('POST', `/api/plays/${id}/retry`, {}),
 };

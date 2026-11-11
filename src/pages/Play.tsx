@@ -1,12 +1,12 @@
 import { type FormEvent, Fragment, useEffect, useRef, useState } from 'react';
-import { formatWorld } from '../../shared/clock';
+import { formatWorld, worldAt } from '../../shared/clock';
 import { RULES } from '../../shared/rules';
 import type { MessageView, PlayView } from '../../shared/types';
 import { ApiFail, api, imgUrl, newId } from '../api';
 import { Arrow, Back, SkipFill } from '../icons';
 import { Face } from '../poster';
 
-type SkipKind = 'short' | 'errand' | 'sleep';
+type SkipKind = 'evening' | 'sleep';
 
 interface Outgoing {
   room: string;
@@ -14,12 +14,18 @@ interface Outgoing {
   requestId: string;
 }
 
-/** 시간을 넘기는 단추. 넘긴 사이에도 캐스트는 자기 하루를 보낸다 */
-const SKIPS: { kind: SkipKind; label: string }[] = [
-  { kind: 'short', label: `${RULES.skip.short}분 뒤로` },
-  { kind: 'errand', label: `${RULES.skip.errand / 60}시간 뒤로` },
-  { kind: 'sleep', label: '다음 날 아침으로' },
-];
+/** 시간을 넘기는 단추. 넘긴 사이에도 캐스트는 자기 하루를 보낸다.
+    낮에는 저녁과 다음 날 아침으로, 저녁이 지나면 아침으로만 갈 수 있다 */
+function skipsAt(min: number): { kind: SkipKind; label: string }[] {
+  if (min < RULES.skip.wakeMin) return [{ kind: 'sleep', label: '아침으로' }];
+  if (min < RULES.skip.eveningMin) {
+    return [
+      { kind: 'evening', label: '저녁으로' },
+      { kind: 'sleep', label: '다음 날 아침으로' },
+    ];
+  }
+  return [{ kind: 'sleep', label: '다음 날 아침으로' }];
+}
 
 /** 앞 대사와 이만큼 벌어지면 그 사이에 시각을 적는다(작중 분) */
 const CUT_AFTER = 30;
@@ -280,7 +286,7 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
         {err && <p className="warn">{err}</p>}
         {!view.ended && (
           <div className="skips">
-            {SKIPS.map((s) => (
+            {skipsAt(worldAt(clock).min).map((s) => (
               <button key={s.kind} className="skip" disabled={locked} onClick={() => leave({ kind: s.kind, requestId: newId() })}>
                 {s.label}
                 <SkipFill />
