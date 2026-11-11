@@ -52,6 +52,14 @@ describe('글 속의 이름 바꾸기', () => {
     expect(renameIn('문리현이라는 사람', '문리현', '수아')).toBe('수아라는 사람');
   });
 
+  it('부르는 말(「~아/야」)도 새 이름의 받침에 맞춘다', () => {
+    expect(renameIn('수아야, 그건 이쪽 칸이야.', '수아', '문리현')).toBe('문리현아, 그건 이쪽 칸이야.');
+    expect(renameIn('문리현아!', '문리현', '수아')).toBe('수아야!');
+    expect(renameIn('리현아 왔어?', '리현', '한설')).toBe('한설아 왔어?');
+    // 다른 낱말로 이어지면 부르는 말로 보지 않는다
+    expect(renameIn('수아야구장', '수아', '문리현')).toBe('문리현야구장');
+  });
+
   it('ㄹ 받침 뒤에는 「로」가 온다', () => {
     expect(renameIn('수아로 왔다.', '수아', '하늘')).toBe('하늘로 왔다.');
     expect(renameIn('하늘로 왔다.', '하늘', '문리현')).toBe('문리현으로 왔다.');
@@ -101,15 +109,41 @@ describe('내 배역 고치기', () => {
     ]);
   });
 
-  it('이름을 바꾼 뒤에는 캐스트에게 전의 이름도 알려 준다. 지나간 장면에는 그 이름이 남아 있다', async () => {
-    const { ctx, playId } = await setup();
+  it('이름을 바꾼 뒤에 캐스트는 전의 이름을 모른다. 지나간 말 속의 이름도 지금 이름으로 건네진다', async () => {
+    const ctx = testCtx((call) => (call.purpose === 'reply' ? '고개를 든다.\n"수아 씨, 거기 말고요."' : ''));
+    const { id: filmId } = await createFilm(ctx, FILM);
+    const playId = uid();
+    await enter(ctx, filmId, playId);
     await say(ctx, playId, { room: 'c1', text: '어느 칸이요?', requestId: uid() });
     await setMine(ctx, playId, { name: '문리현', line: '', face: '' });
-    await say(ctx, playId, { room: 'c1', text: '여기요?', requestId: uid() });
+    const v = await say(ctx, playId, { room: 'c1', text: '여기요?', requestId: uid() });
+
     const { cast, scene } = ctx.model.calls.at(-1)!.layers;
-    expect(cast).toContain('[상대]\n문리현\n(전에는 「수아」라고 불렸다. 같은 사람이다. 지금은 문리현이라고 부른다.)');
+    expect(cast).toContain('[상대]\n문리현');
     expect(cast).toContain('문리현을 부르는 말: 문리현 씨');
     expect(scene).toContain('문리현: 어느 칸이요?');
+    // 이름을 바꾸기 전에 한서가 한 말. 캐스트에게는 지금 이름으로 건네진다
+    expect(scene).toContain('한서: "문리현 씨, 거기 말고요."');
+    // 전의 이름은 어디에도 실리지 않는다
+    expect(`${cast}\n${scene}`).not.toContain('수아');
+    // 저장된 말은 그대로다. 화면에는 그때 한 말 그대로 남아 있다
+    expect(v.messages.find((m) => m.speaker === 'c1')!.text).toBe('수아 씨, 거기 말고요.');
+  });
+
+  it('부르는 말에 이름만 적혀 있어도 새 이름으로 바뀐다', async () => {
+    const ctx = testCtx();
+    const film = {
+      ...FILM,
+      persona: { name: '문리현', line: '이번 주에 새로 온 서점 알바' },
+      casts: [{ ...FILM.casts[0], callsUser: '리현아' }, { ...FILM.casts[1], callsUser: '문리현 씨' }],
+    };
+    const { id: filmId } = await createFilm(ctx, film);
+    const playId = uid();
+    await enter(ctx, filmId, playId);
+    const v = await setMine(ctx, playId, { name: '윤한설', line: '', face: '' });
+    expect(v.film.casts.map((c) => c.callsUser)).toEqual(['한설아', '윤한설 씨']);
+    // 성이 없는 이름으로 바꾸면 그 이름을 통째로 쓴다
+    expect((await setMine(ctx, playId, { name: '사샤', line: '', face: '' })).film.casts.map((c) => c.callsUser)).toEqual(['사샤야', '사샤 씨']);
   });
 
   it('이름을 다시 바꾸면 그 이름으로 또 바뀐다. 전의 이름들은 겹치지 않게 적힌다', async () => {
@@ -139,9 +173,15 @@ describe('내 배역 고치기', () => {
     const { ctx, filmId, playId } = await setup();
     await setMine(ctx, playId, { name: '문리현', line: '새로 온 알바', face: FACE });
 
-    const again = await enter(ctx, filmId, uid());
-    expect(again.film.persona).toEqual({ name: '문리현', line: '새로 온 알바', face: FACE, formerly: ['수아'] });
+    // 새로 들어간 삶에서 캐스트는 처음부터 그 이름으로 안다. 전의 이름은 남기지 않는다
+    const againId = uid();
+    const again = await enter(ctx, filmId, againId);
+    expect(again.film.persona).toEqual({ name: '문리현', line: '새로 온 알바', face: FACE });
     expect(again.film.casts[0]!.callsUser).toBe('문리현 씨');
+    await say(ctx, againId, { room: 'c1', text: '내 이름이 뭐예요?', requestId: uid() });
+    const { cast, scene } = ctx.model.calls.at(-1)!.layers;
+    expect(cast).toContain('[상대]\n문리현 — 새로 온 알바');
+    expect(`${cast}\n${scene}`).not.toContain('수아');
 
     const guest = await enter({ ...ctx, visitor: OTHER_VISITOR }, filmId, uid());
     expect(guest.film.persona).toMatchObject({ name: '수아', face: '' });

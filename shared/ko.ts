@@ -37,11 +37,13 @@ const AFTER_NAME: [string, string][] = [
   ['을', '를'],
   ['은', '는'],
   ['과', '와'],
+  // 부르는 말: 「리현아」, 「수아야」
+  ['아', '야'],
 ];
 
 /** 글 속의 이름을 새 이름으로 바꾼다. 이름 바로 뒤에 붙은 조사는 새 이름의 받침에 맞춘다.
     keep에 든 이름(캐스트의 이름)의 한 토막일 때는 건드리지 않는다.
-    부르는 말(「~아/야」)이나 줄여 부른 이름은 알아보지 못한다 — 그런 곳은 적힌 그대로 남는다 */
+    줄여 부른 이름은 알아보지 못한다 — 그런 곳은 적힌 그대로 남는다 */
 export function renameIn(text: string, from: string, to: string, keep: string[] = []): string {
   if (!from || from === to || !text.includes(from)) return text;
   const fromB = hasBatchim(from);
@@ -68,7 +70,7 @@ export function renameIn(text: string, from: string, to: string, keep: string[] 
       const was = withB === '으로' ? (fromB && !endsWithRieul(from) ? '으로' : '로') : fromB ? withB : without;
       if (!text.startsWith(was, rest)) continue;
       // 한 글자 조사 뒤에 한글이 바로 이어지면 다른 낱말일 수 있다. 그때는 이름만 바꾼다
-      const single = withB === '이' || withB === '을' || withB === '은' || withB === '과';
+      const single = withB === '이' || withB === '을' || withB === '은' || withB === '과' || withB === '아';
       if (single && /[가-힣]/.test(text[rest + 1] ?? '')) continue;
       particle = withB === '으로' ? (toB && !endsWithRieul(to) ? '으로' : '로') : toB ? withB : without;
       rest += was.length;

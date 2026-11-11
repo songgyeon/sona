@@ -15,6 +15,7 @@ import { PING_SYSTEM } from '../prompt/system';
 import { ASIDE_CUE, asideLayers, asideMemory, asideSlot, parseAside, pickPair } from './aside';
 import { type Ctx, Fail } from './ctx';
 import { GAP_CUE, type GapItem, gapLayers, parseGap, parsePresent, presentLayers, presentUser } from './gap';
+import { asNow } from './persona';
 import { pingHeld, pingSlots } from './ping';
 import { lastTurn, loadPlay, messagesOf, type Play, sceneMessages, viewOf } from './store';
 import { ask, bubbles, errText, eventsFor, logStmt, toLines } from './talk';
@@ -159,15 +160,17 @@ async function meanwhile(ctx: Ctx, play: Play, turnId: string, from: number, to:
   );
   const nameOf = (key: string) => film.casts.find((c) => c.key === key)?.name ?? key;
   const knows = (r: { known_by: string }, who: Cast) => (JSON.parse(r.known_by) as string[]).includes(who.key);
+  // 내 배역의 이름을 바꾸기 전에 적힌 글은 지금 이름으로 건넨다
+  const now = asNow(film);
   const told = (r: { at: number; kind: string; actor: string; text: string }) => ({
     at: r.at,
-    text: r.kind === 'post' ? `${nameOf(r.actor)}의 피드에 올라온 글: 「${r.text}」` : r.text,
+    text: r.kind === 'post' ? `${nameOf(r.actor)}의 피드에 올라온 글: 「${now(r.text)}」` : now(r.text),
   });
   const said = (lines: MessageView[]) =>
     lines
       .filter((m) => m.speaker !== 'tell' && m.at <= at)
       .slice(-6)
-      .map((m) => ({ speaker: m.speaker === 'persona' ? film.persona.name : nameOf(m.speaker), text: m.text }));
+      .map((m) => ({ speaker: m.speaker === 'persona' ? film.persona.name : nameOf(m.speaker), text: now(m.text) }));
   const talked = async (who: Cast) => said(await messagesOf(ctx.db, play.id, who.key));
   // 두 사람이 유저의 인물과 한자리에 있던 사이라면, 그 자리에서 오간 말은 둘 다 들었다
   const sameScene = sceneOf(film, a.key).includes(b.key);
@@ -305,7 +308,7 @@ async function lived(
       room
         .filter((m) => m.speaker !== 'tell')
         .slice(-6)
-        .map((m) => ({ speaker: nameOf(m.speaker), text: m.text })),
+        .map((m) => ({ speaker: nameOf(m.speaker), text: asNow(film)(m.text) })),
     ),
     user: GAP_CUE,
     temperature: 0.8,

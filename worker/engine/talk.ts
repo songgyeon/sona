@@ -11,6 +11,7 @@ import { castLayer } from '../prompt/cast';
 import { sceneLayer, type SceneEvent, type SceneLine } from '../prompt/scene';
 import { SCENE_SYSTEM } from '../prompt/system';
 import { type Ctx, Fail } from './ctx';
+import { asNow } from './persona';
 import { type Play, sceneMessages } from './store';
 
 /** 줄바꿈 하나가 메시지 하나다. 줄을 지우거나 고치지 않는다 — 빈 줄만 걷는다 */
@@ -50,10 +51,12 @@ export function pieces(raw: string): Piece[] {
 /** 지나간 장면을 프롬프트에 적을 모양으로 바꾼다. 한자리에 여럿이 있었으면 누가 한 말인지 이름으로 적힌다 */
 export function toLines(play: Play, messages: MessageView[]): SceneLine[] {
   const nameOf = (key: string) => play.film.casts.find((c) => c.key === key)?.name ?? key;
+  // 내 배역의 이름을 바꾸기 전에 오간 말에는 전의 이름이 남아 있다. 캐스트에게는 지금 이름으로 건넨다
+  const now = asNow(play.film);
   return messages.map((m) => {
-    if (m.speaker === 'tell') return { kind: 'tell', speaker: '', text: m.text, mine: false, at: m.at };
+    if (m.speaker === 'tell') return { kind: 'tell', speaker: '', text: now(m.text), mine: false, at: m.at };
     const mine = m.speaker === 'persona';
-    return { kind: m.kind === 'ping' ? 'msg' : 'say', speaker: mine ? play.film.persona.name : nameOf(m.speaker), text: m.text, mine, at: m.at };
+    return { kind: m.kind === 'ping' ? 'msg' : 'say', speaker: mine ? play.film.persona.name : nameOf(m.speaker), text: now(m.text), mine, at: m.at };
   });
 }
 
@@ -100,14 +103,15 @@ export async function eventsFor(ctx: Ctx, play: Play, castKey: string, upTo = In
     play.id,
   );
   const nameOf = (key: string) => play.film.casts.find((c) => c.key === key)?.name ?? key;
+  const now = asNow(play.film);
   return rows
     .filter((r) => withScene || r.kind !== 'scene')
     .filter((r) => r.at <= upTo && (JSON.parse(r.known_by) as string[]).includes(castKey))
     .map((r) => {
-      if (r.kind !== 'post') return { at: r.at, text: r.text };
+      if (r.kind !== 'post') return { at: r.at, text: now(r.text) };
       return {
         at: r.at,
-        text: r.actor === castKey ? `피드에 올렸다: 「${r.text}」` : `${nameOf(r.actor)}의 피드에서 봤다: 「${r.text}」`,
+        text: r.actor === castKey ? `피드에 올렸다: 「${now(r.text)}」` : `${nameOf(r.actor)}의 피드에서 봤다: 「${now(r.text)}」`,
       };
     });
 }

@@ -33,11 +33,6 @@ export function castLayer(film: Film, cast: Cast): string {
   out.push('');
   out.push('[상대]');
   out.push(film.persona.line ? `${me} — ${film.persona.line}` : me);
-  const before = film.persona.formerly ?? [];
-  if (before.length > 0) {
-    const last = before[before.length - 1]!;
-    out.push(`(전에는 「${before.join('」, 「')}」${pick(last, '이라고', '라고')} 불렸다. 같은 사람이다. 지금은 ${josa(me, '이라고', '라고')} 부른다.)`);
-  }
 
   const others = film.casts.filter((c) => c.key !== cast.key);
   if (others.length > 0) {

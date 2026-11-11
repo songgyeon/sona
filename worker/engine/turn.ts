@@ -27,7 +27,8 @@ export async function enter(ctx: Ctx, filmId: string, playId: unknown): Promise<
   const made = (await loadFilm(ctx, filmId)).film;
   // 이 사람이 이 필름에서 쓰던 내 배역이 있으면 그것으로 들어간다
   const mine = await savedMine(ctx.db, ctx.visitor, filmId);
-  const film = mine ? applyMine(made, mine) : made;
+  // 새로 들어가는 삶이다. 캐스트는 처음부터 이 이름으로 안다
+  const film = mine ? applyMine(made, mine, true) : made;
   const fs = film.firstScene;
   const cast = film.casts.find((c) => c.key === fs.room)!;
   const turnId = newId();
