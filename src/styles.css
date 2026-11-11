@@ -181,7 +181,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .castrow strong { display: block; font-size: 16.5px; font-weight: 600; letter-spacing: -0.01em; }
 .castrow small { display: block; margin-top: 3px; font-size: 13px; color: var(--ink-3); }
 .castrow svg { width: 18px; height: 18px; color: var(--ink-4); }
-.prose { margin-top: 14px; font-family: var(--serif); font-size: 15px; line-height: 1.86; font-weight: 400; letter-spacing: 0.005em; color: rgba(255, 255, 255, 0.7); white-space: pre-wrap; text-wrap: pretty; }
+.prose { margin-top: 14px; font-family: var(--serif); font-size: 15px; line-height: 1.86; font-weight: 400; letter-spacing: 0.005em; color: rgba(255, 255, 255, 0.7); white-space: pre-line; text-align: justify; word-break: normal; text-wrap: pretty; }
 .info .bill { margin: 40px var(--pad) 0; padding: 16px 0 44px; }
 
 /* ── 캐스트 프로필 ── */
@@ -254,7 +254,8 @@ button:disabled { opacity: 0.4; cursor: default; }
 /* 위로 지나간 줄은 가장자리에서 스르르 사라진다 */
 .flow { position: relative; flex: 1; min-height: 0; overflow-y: auto; padding: 24px var(--pad) 46px; scrollbar-width: none; -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 22px); mask-image: linear-gradient(180deg, transparent 0, #000 22px); }
 .flow::-webkit-scrollbar { display: none; }
-.tell { font-family: var(--serif); font-size: 15px; line-height: 1.86; font-weight: 400; letter-spacing: 0.005em; color: rgba(255, 255, 255, 0.7); white-space: pre-wrap; text-wrap: pretty; }
+/* 지문은 책처럼 짠다: 양쪽을 맞추고, 줄은 글자 단위로 바꾼다. 낱말 단위로 바꾸면 띄어쓰기가 듬성듬성 벌어진다 */
+.tell { font-family: var(--serif); font-size: 15px; line-height: 1.86; font-weight: 400; letter-spacing: 0.005em; color: rgba(255, 255, 255, 0.7); white-space: pre-line; text-align: justify; word-break: normal; text-wrap: pretty; }
 .tell + .tell { margin-top: 12px; }
 .say { margin: 24px 0; display: grid; grid-template-columns: 38px 1fr; column-gap: 14px; align-items: center; text-align: left; width: 100%; }
 .say:first-child { margin-top: 0; }
@@ -446,7 +447,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .blk .none { padding: 3px 0; font-size: 13px; line-height: 1.6; color: var(--ink-3); }
 .peek { display: block; width: 100%; text-align: left; }
 /* 지문은 세 줄까지만 보이고, 고르면 다 보인다 */
-.blk .tell { font-size: 13.5px; line-height: 1.75; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.blk .tell { font-size: 13.5px; line-height: 1.75; white-space: pre-wrap; text-align: left; word-break: keep-all; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .blk .say { margin: 0; grid-template-columns: 30px 1fr; column-gap: 11px; }
 .blk .say .face { width: 30px; height: 30px; font-size: 12px; }
 .blk .say small { font-size: 10px; }
