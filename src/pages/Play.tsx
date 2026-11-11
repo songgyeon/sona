@@ -3,9 +3,9 @@ import { dayEnd, dayName, formatWorld, worldAt } from '../../shared/clock';
 import { josa } from '../../shared/ko';
 import { cutsOf, hasLines } from '../../shared/opening';
 import { RULES } from '../../shared/rules';
-import type { Film, MessageView, PlayView } from '../../shared/types';
+import type { AsideView, Film, MessageView, PlayView } from '../../shared/types';
 import { ApiFail, api, imgUrl, newId } from '../api';
-import { Arrow, Back, Down, SkipFill } from '../icons';
+import { Arrow, Back, Down, PlayFill, SkipFill } from '../icons';
 import { Face, titleClass } from '../poster';
 
 type SkipKind = 'evening' | 'sleep';
@@ -33,7 +33,7 @@ function skipsAt(min: number): { kind: SkipKind; label: string }[] {
 const CUT_AFTER = 30;
 
 /** 들어가는 순간 제목이 떠 있는 동안(밀리초) */
-const TITLE_MS = 1900;
+export const TITLE_MS = 1900;
 /** 하루가 끝난 뒤 크레딧이 오르기까지. 마지막 대사를 읽을 틈이다 */
 const CREDITS_AFTER_MS = 2600;
 
@@ -283,7 +283,8 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
       setView(next);
       setAway(null);
       // 돌아와서 보니 와 있는 것들
-      const from = [...new Set(next.messages.filter((m) => !seenMessages.has(m.id)).map((m) => m.room))];
+      // 한편의 줄은 누가 나에게 보낸 것이 아니다
+      const from = [...new Set(next.messages.filter((m) => !seenMessages.has(m.id) && m.kind !== 'aside').map((m) => m.room))];
       const names = from.map((key) => next.film.casts.find((c) => c.key === key)?.name ?? key);
       const posts = next.posts.length - seenPosts;
       const bits = [names.length > 0 ? `${names.join(', ')}의 메시지` : '', posts > 0 ? `새 피드 ${posts}개` : ''].filter(Boolean);
@@ -309,7 +310,13 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
   const pendingHere = out && out.room === cast.key ? out : null;
   const stuckHere = view.stuck && view.stuck.room === cast.key;
   const locked = waiting || view.ended || !!view.stuck || !!out || !!away;
-  const cuts = (m: MessageView, i: number) => i > 0 && m.at - messages[i - 1]!.at >= CUT_AFTER;
+  /** 흐름에 놓이는 것들: 이 사람과 오간 말, 그리고 그 사이사이에 있었던 한편. 작중 시각 순 */
+  const items: ({ at: number; m: MessageView; a?: undefined } | { at: number; a: AsideView; m?: undefined })[] = [
+    ...messages.map((m) => ({ at: m.at, m })),
+    ...view.asides.map((a) => ({ at: a.at, a })),
+  ].sort((x, y) => x.at - y.at);
+  const cuts = (i: number) => i > 0 && items[i]!.at - items[i - 1]!.at >= CUT_AFTER;
+  const castOf = (key: string) => film.casts.find((c) => c.key === key);
   const fs = film.firstScene;
   /** 화면에 거는 그림. 읽는 자리의 컷이 먼저고, 없으면 첫 컷, 그것도 없으면 포스터 */
   const onScreen = shot || cutsOf(film)[0] || (film.stills ?? [])[0] || film.poster || '';
@@ -360,9 +367,32 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
       <section className="flow" aria-live="polite" ref={flow} onScroll={onScroll}>
         {cast.key === fs.room && fs.beats.length > 0 && <Opening film={film} />}
 
-        {messages.map((m, i) => (
+        {items.map(({ m, a }, i) =>
+          a ? (
+            // 한편: 내가 없는 자리에서 두 사람이 나눈 장면. 누르면 읽기만 하는 화면이 열린다
+            <button className="aside" key={a.id} onClick={() => go(`/play/${playId}/aside/${a.id}`)}>
+              <span className="duo">
+                {a.casts.map((key) => (
+                  <Face key={key} id={castOf(key)?.face ?? ''} name={castOf(key)?.name ?? ''} />
+                ))}
+              </span>
+              <span>
+                <b>
+                  한편, {formatWorld(clock, a.at)}
+                  {a.place && ` — ${a.place}`}
+                </b>
+                <small>
+                  {josa(castOf(a.casts[0])?.name ?? '', '과', '와')} {castOf(a.casts[1])?.name}
+                </small>
+              </span>
+              <span className="see">
+                보기
+                <PlayFill />
+              </span>
+            </button>
+          ) : (
           <Fragment key={m.id}>
-            {cuts(m, i) && <p className="cut">{formatWorld(clock, m.at)}</p>}
+            {cuts(i) && <p className="cut">{formatWorld(clock, m.at)}</p>}
             {m.speaker === 'tell' ? (
               // 지문. 말한 사람이 없다
               m.text.split('\n').map((line, j) => (
@@ -396,7 +426,8 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
               </button>
             )}
           </Fragment>
-        ))}
+          ),
+        )}
 
         {pendingHere && (
           <div className="say me sending">

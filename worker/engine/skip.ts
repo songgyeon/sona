@@ -7,10 +7,11 @@ import { RULES } from '../../shared/rules';
 import type { Cast, PlayView } from '../../shared/types';
 import { isUniqueError, newId, q, type Stmt } from '../db';
 import { isUuid } from '../guard';
-import type { ModelCall } from '../model/index';
+import type { ModelCall, ModelOut } from '../model/index';
 import { castLayer } from '../prompt/cast';
 import { sceneLayer, when } from '../prompt/scene';
 import { PING_SYSTEM } from '../prompt/system';
+import { ASIDE_CUE, asideLayers, asideMemory, asideSlot, parseAside, pickPair } from './aside';
 import { type Ctx, Fail } from './ctx';
 import { GAP_CUE, type GapItem, gapLayers, parseGap, parsePresent, presentLayers, presentUser } from './gap';
 import { pingHeld, pingSlots } from './ping';
@@ -93,6 +94,12 @@ export async function settle(ctx: Ctx, play: Play, turnId: string, from: number,
 }
 
 async function between(ctx: Ctx, play: Play, turnId: string, from: number, to: number, stmts: Stmt[]): Promise<void> {
+  await alone(ctx, play, turnId, from, to, stmts);
+  await meanwhile(ctx, play, turnId, from, to, stmts);
+}
+
+/** 캐스트마다 혼자 보낸 시간: 일상, 피드, 먼저 건 연락 */
+async function alone(ctx: Ctx, play: Play, turnId: string, from: number, to: number, stmts: Stmt[]): Promise<void> {
   const film = play.film;
   if (to - from < RULES.gap.minSpanMin || (!film.opens.feed && !film.opens.ping)) return;
 
@@ -125,6 +132,111 @@ async function between(ctx: Ctx, play: Play, turnId: string, from: number, to: n
 
     await reachOut(ctx, play, turnId, cast, from, to, items, stmts);
   }
+}
+
+/** 한편: 유저가 없는 사이에 서로 아는 두 사람이 만난다. 한 번 비운 동안 한 장면까지.
+    누가 언제 만나는지는 코드가 정하고, 모델은 장면만 쓴다 */
+async function meanwhile(ctx: Ctx, play: Play, turnId: string, from: number, to: number, stmts: Stmt[]): Promise<void> {
+  const film = play.film;
+  if (!film.opens.aside || to - from < RULES.aside.minSpanMin) return;
+
+  const had = await ctx.db.all<{ cast_a: string; cast_b: string; n: number }>(
+    'SELECT cast_a, cast_b, COUNT(*) AS n FROM asides WHERE play_id = ? GROUP BY cast_a, cast_b',
+    play.id,
+  );
+  const pair = pickPair(film, new Map(had.map((r) => [`${r.cast_a}+${r.cast_b}`, r.n])));
+  if (!pair) return;
+  const [a, b] = pair;
+  const at = asideSlot(play, a, b, from, to);
+  if (at === null) return;
+
+  const knownTo = async (who: Cast) => {
+    const room = await messagesOf(ctx.db, play.id, who.key);
+    return {
+      events: await eventsFor(ctx, play, who.key, at),
+      recent: room
+        .filter((m) => m.speaker !== 'tell' && m.at <= at)
+        .slice(-6)
+        .map((m) => ({ speaker: m.speaker === 'persona' ? film.persona.name : who.name, text: m.text })),
+    };
+  };
+  const call: ModelCall = {
+    purpose: 'aside',
+    layers: asideLayers(film, a, b, play, at, [await knownTo(a), await knownTo(b)]),
+    user: ASIDE_CUE,
+    temperature: 0.8,
+    maxTokens: 700,
+  };
+
+  let out: ModelOut;
+  try {
+    out = await ask(ctx, call);
+  } catch (e) {
+    stmts.push(logStmt(ctx, play.id, turnId, call, null, false, `한편을 못 받음: ${errText(e)}`));
+    return;
+  }
+
+  const read = parseAside(out.text, film, a, b);
+  const says = read.pieces.filter((p) => p.speaker !== 'tell');
+  let dropped: string | null = null;
+  if (read.personaSpoke) dropped = '유저의 인물이 말해서 장면을 버림';
+  else if (says.length < RULES.aside.minSays) dropped = '대사가 모자라서 장면을 버림';
+  else if (read.pieces.some((p) => p.text.includes(film.persona.name))) {
+    // 유저의 이름이 나온다. 얘기만 하는 것인지, 그 자리에 있는 것인지 묻는다
+    const check: ModelCall = {
+      purpose: 'check',
+      layers: presentLayers(),
+      user: presentUser(`${a.name}, ${b.name}`, film.persona.name, read.pieces.map((p) => p.text).join('\n')),
+      temperature: 0,
+      maxTokens: 20,
+    };
+    let present: boolean | null = null;
+    try {
+      const judged = await ask(ctx, check);
+      present = parsePresent(judged.text);
+      stmts.push(logStmt(ctx, play.id, turnId, check, judged, present !== null, present === true ? '유저가 그 자리에 있어서 장면을 버림' : null));
+    } catch (e) {
+      stmts.push(logStmt(ctx, play.id, turnId, check, null, false, `확인 호출 실패: ${errText(e)}`));
+    }
+    // 못 읽었으면 버린다 — 유저를 대신 움직이는 쪽으로는 틀리지 않는다
+    if (present !== false) dropped = '유저가 그 자리에 있어서 장면을 버림';
+  }
+  stmts.push(logStmt(ctx, play.id, turnId, call, out, dropped === null, dropped));
+  if (dropped) return;
+
+  const id = newId();
+  stmts.push(
+    q(
+      'INSERT INTO asides (id, play_id, turn_id, at, place, cast_a, cast_b, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      id,
+      play.id,
+      turnId,
+      at,
+      read.place,
+      a.key,
+      b.key,
+      ctx.now(),
+    ),
+  );
+  for (const piece of read.pieces) {
+    stmts.push(
+      q(
+        'INSERT INTO messages (id, play_id, turn_id, room, speaker, text, at, kind, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        newId(),
+        play.id,
+        turnId,
+        // 이 장면만의 자리다. 누구와의 방에도 섞이지 않는다
+        id,
+        piece.speaker,
+        piece.text,
+        at,
+        'aside',
+        ctx.now(),
+      ),
+    );
+  }
+  // 그 일은 두 사람만 안다. 유저가 장면을 읽어도 유저의 인물은 모른다
+  stmts.push(eventStmt(ctx, play.id, turnId, at, 'aside', a.key, asideMemory(film, a, b, read), [a.key, b.key]));
 }
 
 function eventStmt(

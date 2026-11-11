@@ -2,7 +2,7 @@
 
 import type { Clock } from '../../shared/clock';
 import { readFilm } from '../../shared/opening';
-import type { Film, MessageView, PlayCard, PlayView, PostView, TurnView } from '../../shared/types';
+import type { AsideView, Film, MessageView, PlayCard, PlayView, PostView, TurnView } from '../../shared/types';
 import type { Db } from '../db';
 import { type Ctx, Fail } from './ctx';
 
@@ -118,11 +118,20 @@ export async function postsOf(db: Db, playId: string): Promise<PostView[]> {
   return rows.map((r) => ({ id: r.id, cast: r.cast_key, text: r.text, at: r.at }));
 }
 
+export async function asidesOf(db: Db, playId: string): Promise<AsideView[]> {
+  const rows = await db.all<{ id: string; at: number; place: string; cast_a: string; cast_b: string }>(
+    'SELECT id, at, place, cast_a, cast_b FROM asides WHERE play_id = ? ORDER BY at, rowid',
+    playId,
+  );
+  return rows.map((r) => ({ id: r.id, at: r.at, place: r.place, casts: [r.cast_a, r.cast_b] }));
+}
+
 export async function viewOf(ctx: Ctx, playId: string): Promise<PlayView> {
   const play = await loadPlay(ctx, playId);
-  const [messages, posts, last, maker] = await Promise.all([
+  const [messages, posts, asides, last, maker] = await Promise.all([
     messagesOf(ctx.db, playId),
     postsOf(ctx.db, playId),
+    asidesOf(ctx.db, playId),
     lastTurn(ctx.db, playId),
     ctx.db.first<{ owner: string }>('SELECT owner FROM films WHERE id = ?', play.filmId),
   ]);
@@ -136,6 +145,7 @@ export async function viewOf(ctx: Ctx, playId: string): Promise<PlayView> {
     mine: maker?.owner === ctx.visitor,
     messages,
     posts,
+    asides,
     stuck: last && last.status !== 'done' ? last : null,
   };
 }
@@ -149,7 +159,8 @@ export async function listPlays(ctx: Ctx): Promise<PlayCard[]> {
   for (const r of rows) {
     const p = toPlay(r);
     const last = await ctx.db.first<{ text: string }>(
-      "SELECT text FROM messages WHERE play_id = ? AND speaker != 'tell' ORDER BY at DESC, rowid DESC LIMIT 1",
+      // 한편의 줄은 내가 나눈 말이 아니다
+      "SELECT text FROM messages WHERE play_id = ? AND speaker != 'tell' AND kind != 'aside' ORDER BY at DESC, rowid DESC LIMIT 1",
       p.id,
     );
     out.push({

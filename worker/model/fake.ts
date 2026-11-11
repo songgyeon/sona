@@ -11,6 +11,7 @@ export const FAKE_DEFAULTS: Record<ModelCall['purpose'], string> = {
   ping: '지금 뭐 해?',
   gap: '',
   check: '판정: 없음',
+  aside: '',
 };
 
 export function fakeModel(script?: Script): Model & { calls: ModelCall[] } {
@@ -34,5 +35,14 @@ const DEMO_DAY = [
   '08:40 | 일상 | 일어나서 커피를 내렸다.',
 ].join('\n');
 
-/** 로컬 화면에서 자리 비우기와 피드를 눌러 볼 수 있게 하는 흉내 */
-export const demoScript: Script = (call) => (call.purpose === 'gap' ? DEMO_DAY : FAKE_DEFAULTS[call.purpose]);
+/** 대역이 적는 "한편". 두 사람의 이름은 받은 카드에서 읽는다 */
+function demoAside(call: ModelCall): string {
+  const names = [...call.layers.cast.matchAll(/^이름: (.+)$/gm)].map((m) => m[1]!);
+  const a = names[0] ?? '가';
+  const b = names[1] ?? '나';
+  return ['장소 | 늘 보던 자리', '둘이 마주 앉아 있다. 창밖이 어둡다.', `${a}: "오늘 어땠어."`, `${b}: "그냥 그랬어."`, `${a}: "그냥?"`, `${b}: "응. 그냥."`, '잠깐 말이 끊긴다.'].join('\n');
+}
+
+/** 로컬 화면에서 자리 비우기와 피드, 한편을 눌러 볼 수 있게 하는 흉내 */
+export const demoScript: Script = (call) =>
+  call.purpose === 'gap' ? DEMO_DAY : call.purpose === 'aside' ? demoAside(call) : FAKE_DEFAULTS[call.purpose];

@@ -15,7 +15,7 @@ export interface Film {
   /** 작중 시작 시각. 하루 중 분(0~1439) */
   startMin: number;
   /** 이 필름이 여는 화면 */
-  opens: { feed: boolean; ping: boolean };
+  opens: { feed: boolean; ping: boolean; /** 한편 — 내가 없는 자리에서 캐스트끼리 나눈 장면을 보여 주는가 */ aside: boolean };
   /** 유저가 맡아 사는 인물 */
   persona: { name: string; line: string };
   casts: Cast[];
@@ -89,8 +89,20 @@ export interface MessageView {
   text: string;
   /** 작중 시각. 시작에서 흐른 분 */
   at: number;
-  kind: 'chat' | 'first' | 'ping';
+  /** aside는 한편의 줄이다. 그때 room은 그 장면의 이름표다 */
+  kind: 'chat' | 'first' | 'ping' | 'aside';
   turnId: string;
+}
+
+/** 한편 — 내가 없는 자리에서 캐스트 둘이 나눈 장면. 줄들은 messages에 room이 이 id인 것들이다 */
+export interface AsideView {
+  id: string;
+  /** 작중 시각. 시작에서 흐른 분 */
+  at: number;
+  /** 두 사람이 있던 곳. 모르면 빈 글자 */
+  place: string;
+  /** 두 사람의 이름표 */
+  casts: [string, string];
 }
 
 /** 일상 피드의 글 */
@@ -124,6 +136,7 @@ export interface PlayView {
   mine: boolean;
   messages: MessageView[];
   posts: PostView[];
+  asides: AsideView[];
   /** 답을 못 받은 턴이 있으면 그 턴. 화면은 '다시 받기'를 보여준다 */
   stuck: TurnView | null;
 }

@@ -72,6 +72,19 @@ export const SCHEMA: string[] = [
   )`,
   `CREATE INDEX IF NOT EXISTS posts_play ON posts(play_id, at)`,
 
+  // 한편: 유저가 없는 자리에서 캐스트 둘이 나눈 장면. 줄들은 messages에 room이 이 id인 것들이다
+  `CREATE TABLE IF NOT EXISTS asides (
+    id TEXT PRIMARY KEY,
+    play_id TEXT NOT NULL,
+    turn_id TEXT NOT NULL,
+    at INTEGER NOT NULL,
+    place TEXT NOT NULL,
+    cast_a TEXT NOT NULL,
+    cast_b TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS asides_play ON asides(play_id, at)`,
+
   // 일어난 일. 추가만 한다. known_by는 아는 사람 목록(JSON 배열)
   `CREATE TABLE IF NOT EXISTS events (
     id TEXT PRIMARY KEY,

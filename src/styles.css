@@ -296,6 +296,26 @@ button:disabled { opacity: 0.4; cursor: default; }
 .opening + .say, .opening + .msg { margin-top: 22px; }
 .mark { display: block; height: 0; }
 
+/* 한편: 내가 없는 자리에서 두 사람이 나눈 장면이 있다고 알리는 줄 */
+.aside { width: 100%; margin: 26px 0 6px; padding: 16px 0 17px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: 14px; text-align: left; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.aside .duo { display: flex; }
+.aside .duo .face { width: 32px; height: 32px; font-size: 12px; box-shadow: 0 0 0 2px #000; }
+.aside .duo .face + .face { margin-left: -9px; }
+.aside b { display: block; font-family: var(--serif); font-size: 14.5px; font-weight: 600; line-height: 1.5; letter-spacing: 0.03em; font-variant-numeric: tabular-nums; }
+.aside small { display: block; margin-top: 4px; font-size: 12.5px; color: var(--ink-3); }
+.aside .see { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.aside .see svg { width: 12px; height: 12px; fill: currentColor; }
+/* 한편을 읽는 화면: 화면에 거는 그림이 없다 — 나는 그 자리에 없다 */
+.away .where { border-top: 1px solid var(--hair); }
+.with.duo > span { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.with.duo .face { opacity: 1; box-shadow: 0 0 0 1px var(--ink); }
+.foot.off { padding-left: var(--pad); padding-right: var(--pad); padding-bottom: max(34px, env(safe-area-inset-bottom)); display: grid; gap: 14px; justify-items: center; }
+.foot.off p { font-size: 12.5px; color: var(--ink-3); }
+/* 사이 제목: 「한편,」과 때·곳 */
+.titlecard .between { display: grid; gap: 18px; justify-items: center; }
+.titlecard .between .title.long { font-size: 34px; padding-left: 0; }
+.titlecard .between p { font-family: var(--serif); font-size: 13px; font-weight: 500; letter-spacing: 0.08em; color: var(--ink-2); font-variant-numeric: tabular-nums; animation: cardin 700ms ease both; }
+
 /* 하루가 끝났다: 말하는 칸 자리에 다음 날로 가는 단추가 선다 */
 .foot.done { padding-left: var(--pad); padding-right: var(--pad); display: grid; gap: 12px; justify-items: center; }
 .foot.done .btn svg, .credits .acts .btn svg { fill: currentColor; }

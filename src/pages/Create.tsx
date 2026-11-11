@@ -439,6 +439,14 @@ export function Create({ go, editId }: { go: (to: string) => void; editId?: stri
             <Card title="캐스트의 하루" sub="시간을 건너뛴 사이에도 캐스트는 자기 하루를 보내요.">
               <Toggle checked={d.feed} onChange={(v) => set('feed', v)} label="프로필에 피드 열기" desc="캐스트가 프로필에 자기 하루를 남겨요." />
               <Toggle checked={d.ping} onChange={(v) => set('ping', v)} label="먼저 연락하기" desc="돌아왔을 때 캐스트의 메시지가 와 있을 수 있어요." />
+              {d.casts.length > 1 && (
+                <>
+                  <Toggle checked={d.aside} onChange={(v) => set('aside', v)} label="한편 보여 주기" desc="내가 없는 자리에서 캐스트끼리 나눈 장면을 읽을 수 있어요." />
+                  {d.aside && !Object.values(d.ties).some((t) => t.relation.trim() || t.calls.trim()) && (
+                    <p className="hint">캐스팅 탭의 「캐스트끼리」에 사이를 적어 둔 두 사람만 만나요.</p>
+                  )}
+                </>
+              )}
             </Card>
           </>
         )}

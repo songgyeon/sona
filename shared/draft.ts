@@ -38,6 +38,8 @@ export interface Draft {
   startTime: string;
   feed: boolean;
   ping: boolean;
+  /** 한편 보여 주기. 캐스트가 둘 이상일 때만 뜻이 있다 */
+  aside: boolean;
   personaName: string;
   personaLine: string;
   casts: DraftCast[];
@@ -72,6 +74,7 @@ export const blankDraft = (): Draft => ({
   startTime: '16:00',
   feed: true,
   ping: true,
+  aside: true,
   personaName: '',
   personaLine: '',
   casts: [blankCast()],
@@ -110,7 +113,7 @@ export function toFilm(d: Draft): unknown {
     setting: d.setting,
     startDow: d.startDow,
     startMin: toMin(d.startTime),
-    opens: { feed: d.feed, ping: d.ping },
+    opens: { feed: d.feed, ping: d.ping, aside: d.aside },
     persona: { name: d.personaName, line: d.personaLine },
     casts: d.casts.map((c) => ({
       name: c.name,
@@ -182,6 +185,8 @@ export function fromFilm(f: Film): Draft {
     startTime: toClock(f.startMin),
     feed: f.opens.feed,
     ping: f.opens.ping,
+    // 캐스트가 한 명인 필름은 나중에 캐스트를 더하면 켜진 채로 시작한다
+    aside: f.casts.length > 1 ? f.opens.aside === true : true,
     personaName: f.persona.name,
     personaLine: f.persona.line,
     casts: f.casts.map((c) => ({

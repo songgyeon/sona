@@ -138,7 +138,8 @@ export function parseFilm(input: unknown): Film {
     setting: text(f.setting, L.setting, '배경'),
     startDow: int(f.startDow ?? 5, 0, 6, '시작 요일'),
     startMin: int(f.startMin ?? 16 * 60, 0, 1439, '시작 시각'),
-    opens: { feed: opens.feed !== false, ping: opens.ping !== false },
+    // 한편은 서로 볼 캐스트가 둘은 있어야 한다
+    opens: { feed: opens.feed !== false, ping: opens.ping !== false, aside: opens.aside === true && casts.length > 1 },
     persona: {
       name: text(persona.name, 20, '내 배역의 이름', true),
       line: text(persona.line, L.short, '내 배역 설명'),
