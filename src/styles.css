@@ -181,7 +181,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .castrow strong { display: block; font-size: 16.5px; font-weight: 600; letter-spacing: -0.01em; }
 .castrow small { display: block; margin-top: 3px; font-size: 13px; color: var(--ink-3); }
 .castrow svg { width: 18px; height: 18px; color: var(--ink-4); }
-.prose { margin-top: 14px; font-family: var(--serif); font-size: 15px; line-height: 1.86; font-weight: 400; letter-spacing: 0.005em; color: rgba(255, 255, 255, 0.7); white-space: pre-line; text-align: justify; word-break: normal; text-wrap: pretty; }
+.prose { margin-top: 14px; font-family: var(--serif); font-size: 15px; line-height: 1.86; font-weight: 400; letter-spacing: 0.005em; color: rgba(255, 255, 255, 0.7); white-space: pre-wrap; text-wrap: pretty; }
 .info .bill { margin: 40px var(--pad) 0; padding: 16px 0 44px; }
 
 /* ── 캐스트 프로필 ── */
