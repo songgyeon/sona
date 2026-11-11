@@ -2,7 +2,7 @@
    시계는 접수할 때 간다. 그 사이의 일을 못 만들어도 시계는 돌아가지 않는다 —
    그 구간은 조용한 구간으로 남는다. */
 
-import { nextEvening, nextWake, trialOver } from '../../shared/clock';
+import { dayEnd, nextEvening, nextWake, trialOver } from '../../shared/clock';
 import { RULES } from '../../shared/rules';
 import type { Cast, PlayView } from '../../shared/types';
 import { isUniqueError, newId, q, type Stmt } from '../db';
@@ -33,7 +33,7 @@ export async function skip(ctx: Ctx, playId: string, input: { kind: unknown; req
     input.requestId,
   );
   if (dup) return viewOf(ctx, playId);
-  if (play.ended) throw new Fail(409, 'ended', '이 필름의 첫 하루가 끝났어요.');
+  if (play.ended) throw new Fail(409, 'ended', '하루가 끝났어요. 다음 날로 이어 살 수 있어요.');
   const last = await lastTurn(ctx.db, playId);
   if (last && last.status !== 'done') {
     throw new Fail(409, 'stuck', '앞의 대사를 아직 받지 못했어요. 다시 받기를 눌러 주세요.');
@@ -48,8 +48,8 @@ export async function skip(ctx: Ctx, playId: string, input: { kind: unknown; req
         : kind === 'evening'
           ? nextEvening(play)
           : nextWake(play);
-  // 첫 하루를 넘겨서 건너뛰지 않는다
-  const to = Math.min(want, RULES.trialMinutes);
+  // 열어 둔 날의 끝을 넘겨서 건너뛰지 않는다
+  const to = Math.min(want, dayEnd(play.days));
   const turnId = newId();
   const turnNo = (last?.no ?? 0) + 1;
 
@@ -88,7 +88,7 @@ export async function settle(ctx: Ctx, play: Play, turnId: string, from: number,
     console.warn('조용한 구간', errText(e));
   }
   stmts.push(q("UPDATE turns SET status = 'done', fail_reason = NULL WHERE id = ?", turnId));
-  if (trialOver(to)) stmts.push(q('UPDATE plays SET ended = 1 WHERE id = ?', play.id));
+  if (trialOver(to, play.days)) stmts.push(q('UPDATE plays SET ended = 1 WHERE id = ?', play.id));
   await ctx.db.batch(stmts);
 }
 
@@ -247,6 +247,7 @@ async function reachOut(
       clock: play,
       cast,
       slot,
+      until: dayEnd(play.days),
       lastContact,
       hasHook: hook !== null,
       alreadySent: sent,

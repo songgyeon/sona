@@ -4,7 +4,8 @@ import { Fail } from '../../worker/engine/ctx';
 import { fromFilm, readDraft, toFilm } from '../../shared/draft';
 import { createFilm, getFilm, listFilms, parseFilm, updateFilm } from '../../worker/engine/films';
 import { viewOf } from '../../worker/engine/store';
-import { enter, retry, say } from '../../worker/engine/turn';
+import { skip } from '../../worker/engine/skip';
+import { enter, nextDay, retry, say } from '../../worker/engine/turn';
 import { FAKE_DEFAULTS, type Script } from '../../worker/model/fake';
 import { DEV_FILM, OTHER_VISITOR, testCtx, uid } from '../helpers/film';
 
@@ -309,5 +310,70 @@ describe('첫 하루의 끝', () => {
     // 그 전송까지는 답을 받는다
     expect(v.messages.at(-1)).toMatchObject({ speaker: 'c1' });
     expect(await failCode(send(ctx, playId, '하나만 더'))).toBe('ended');
+  });
+});
+
+describe('다음 날로 이어 살기', () => {
+  async function atTheEnd() {
+    const s = await setup();
+    await s.ctx.db.run('UPDATE plays SET elapsed = ? WHERE id = ?', RULES.trialMinutes - RULES.minutesPerSend, s.playId);
+    const v = await send(s.ctx, s.playId, '마지막 말');
+    expect(v).toMatchObject({ ended: true, day: 1 });
+    return s;
+  }
+
+  it('하루가 끝난 삶을 이으면 같은 삶, 같은 시각에서 하루가 더 열린다', async () => {
+    const { ctx, playId } = await atTheEnd();
+    const before = await viewOf(ctx, playId);
+
+    const v = await nextDay(ctx, playId);
+    expect(v).toMatchObject({ id: playId, ended: false, day: 2, elapsed: RULES.trialMinutes });
+    expect(v.messages).toEqual(before.messages);
+
+    const said = await send(ctx, playId, '좋은 아침');
+    expect(said.elapsed).toBe(RULES.trialMinutes + RULES.minutesPerSend);
+    expect(said.ended).toBe(false);
+    expect(said.messages.at(-1)).toMatchObject({ speaker: 'c1' });
+  });
+
+  it('둘째 날도 하루가 차면 끝난다', async () => {
+    const { ctx, playId } = await atTheEnd();
+    await nextDay(ctx, playId);
+    await ctx.db.run('UPDATE plays SET elapsed = ? WHERE id = ?', RULES.trialMinutes * 2 - RULES.minutesPerSend, playId);
+    const v = await send(ctx, playId, '오늘의 마지막 말');
+    expect(v).toMatchObject({ ended: true, day: 2, elapsed: RULES.trialMinutes * 2 });
+    expect(await failCode(send(ctx, playId, '하나만 더'))).toBe('ended');
+    expect((await nextDay(ctx, playId)).day).toBe(3);
+  });
+
+  it('시간을 넘겨도 열어 둔 날의 끝을 넘지 않는다', async () => {
+    const { ctx, playId } = await atTheEnd();
+    await nextDay(ctx, playId);
+    // 둘째 날의 끝이 가까울 때 다음 날 아침으로 넘기면 둘째 날의 끝에서 멈춘다
+    await ctx.db.run('UPDATE plays SET elapsed = ? WHERE id = ?', RULES.trialMinutes * 2 - 30, playId);
+    const v = await skip(ctx, playId, { kind: 'sleep', requestId: uid() });
+    expect(v).toMatchObject({ elapsed: RULES.trialMinutes * 2, ended: true, day: 2 });
+  });
+
+  it('끝나지 않은 삶에는 아무 일도 하지 않는다. 두 번 눌러도 하루만 는다', async () => {
+    const { ctx, playId } = await setup();
+    expect(await nextDay(ctx, playId)).toMatchObject({ ended: false, day: 1 });
+
+    const ended = await atTheEnd();
+    await nextDay(ended.ctx, ended.playId);
+    expect(await nextDay(ended.ctx, ended.playId)).toMatchObject({ ended: false, day: 2 });
+  });
+
+  it('남의 삶은 못 잇는다', async () => {
+    const { ctx, playId } = await atTheEnd();
+    expect(await failCode(nextDay({ ...ctx, visitor: OTHER_VISITOR }, playId))).toBe('play_missing');
+    expect((await viewOf(ctx, playId)).ended).toBe(true);
+  });
+
+  it('내가 만든 필름인지 삶에 적혀 온다', async () => {
+    const { ctx, filmId, playId } = await setup();
+    expect((await viewOf(ctx, playId)).mine).toBe(true);
+    const guest = { ...ctx, visitor: OTHER_VISITOR };
+    expect((await enter(guest, filmId, uid())).mine).toBe(false);
   });
 });

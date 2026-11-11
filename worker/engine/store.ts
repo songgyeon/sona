@@ -12,6 +12,8 @@ export interface Play extends Clock {
   owner: string;
   film: Film;
   ended: boolean;
+  /** 지금까지 열어 둔 날 수 */
+  days: number;
 }
 
 interface PlayRow {
@@ -23,6 +25,7 @@ interface PlayRow {
   start_min: number;
   elapsed: number;
   ended: number;
+  days: number | null;
 }
 
 function toPlay(r: PlayRow): Play {
@@ -35,6 +38,7 @@ function toPlay(r: PlayRow): Play {
     startMin: r.start_min,
     elapsed: r.elapsed,
     ended: r.ended === 1,
+    days: r.days ?? 1,
   };
 }
 
@@ -116,10 +120,11 @@ export async function postsOf(db: Db, playId: string): Promise<PostView[]> {
 
 export async function viewOf(ctx: Ctx, playId: string): Promise<PlayView> {
   const play = await loadPlay(ctx, playId);
-  const [messages, posts, last] = await Promise.all([
+  const [messages, posts, last, maker] = await Promise.all([
     messagesOf(ctx.db, playId),
     postsOf(ctx.db, playId),
     lastTurn(ctx.db, playId),
+    ctx.db.first<{ owner: string }>('SELECT owner FROM films WHERE id = ?', play.filmId),
   ]);
   return {
     id: play.id,
@@ -127,6 +132,8 @@ export async function viewOf(ctx: Ctx, playId: string): Promise<PlayView> {
     film: play.film,
     elapsed: play.elapsed,
     ended: play.ended,
+    day: play.days,
+    mine: maker?.owner === ctx.visitor,
     messages,
     posts,
     stuck: last && last.status !== 'done' ? last : null,

@@ -119,7 +119,7 @@ export async function say(ctx: Ctx, playId: string, input: SayInput): Promise<Pl
   );
   if (dup) return viewOf(ctx, playId);
 
-  if (play.ended) throw new Fail(409, 'ended', '이 필름의 첫 하루가 끝났어요.');
+  if (play.ended) throw new Fail(409, 'ended', '하루가 끝났어요. 다음 날로 이어 살 수 있어요.');
 
   const last = await lastTurn(ctx.db, playId);
   if (last && last.status !== 'done') {
@@ -187,6 +187,14 @@ export async function say(ctx: Ctx, playId: string, input: SayInput): Promise<Pl
     { ...play, elapsed: after },
     { id: turnId, no: turnNo, kind: 'say', room: cast.key, status: 'pending', failReason: null },
   );
+  return viewOf(ctx, playId);
+}
+
+/** 하루가 끝난 삶을 다음 날로 잇는다. 같은 삶, 같은 시각에서 하루가 더 열린다.
+    끝나지 않은 삶에는 아무 일도 하지 않는다 — 두 번 눌러도 하루만 는다 */
+export async function nextDay(ctx: Ctx, playId: string): Promise<PlayView> {
+  const play = await loadPlay(ctx, playId);
+  if (play.ended) await ctx.db.run('UPDATE plays SET ended = 0, days = days + 1 WHERE id = ? AND ended = 1', playId);
   return viewOf(ctx, playId);
 }
 

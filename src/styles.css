@@ -296,6 +296,30 @@ button:disabled { opacity: 0.4; cursor: default; }
 .opening + .say, .opening + .msg { margin-top: 22px; }
 .mark { display: block; height: 0; }
 
+/* 하루가 끝났다: 말하는 칸 자리에 다음 날로 가는 단추가 선다 */
+.foot.done { padding-left: var(--pad); padding-right: var(--pad); display: grid; gap: 12px; justify-items: center; }
+.foot.done .btn svg, .credits .acts .btn svg { fill: currentColor; }
+.foot.done .warn { padding: 0; }
+
+/* 하루의 끝: 엔드 크레딧. 마지막 컷이 어둡게 깔리고, 그 위로 이름이 오른다 */
+.credits { position: absolute; inset: 0; z-index: 15; display: flex; flex-direction: column; background: #000; animation: creditsin 900ms ease both; }
+.credits .back { position: absolute; inset: 0; }
+.credits .back img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 22%; }
+.credits .back::before { content: ''; position: absolute; z-index: 1; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.82) 34%, rgba(0, 0, 0, 0.93) 66%, #000 100%); }
+.credits .back.grain::after { z-index: 2; }
+.credits .band { position: relative; z-index: 3; }
+.credits .roll { position: relative; z-index: 3; flex: 1; min-height: 0; overflow-y: auto; display: grid; align-content: center; justify-items: center; padding: 0 var(--pad) 20px; text-align: center; }
+.credits .roll .title { margin-top: 16px; font-size: clamp(30px, 10vw, 38px); padding-left: 0.22em; }
+.credits .roll .title.long { font-size: clamp(22px, 7vw, 28px); padding-left: 0.06em; }
+.credits .span { margin-top: 16px; font-family: var(--serif); font-size: 13px; font-weight: 500; letter-spacing: 0.08em; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.credits .names { margin-top: 46px; display: grid; gap: 16px; }
+.credits .names div { display: grid; grid-template-columns: 96px 1fr; column-gap: 18px; align-items: baseline; }
+.credits .names dt { text-align: right; font-size: 10.5px; font-weight: 600; letter-spacing: 0.3em; color: var(--ink-3); }
+.credits .names dd { min-width: 96px; text-align: left; font-family: var(--serif); font-size: 17px; font-weight: 600; letter-spacing: 0.14em; }
+.credits .acts { position: relative; z-index: 3; flex: none; padding: 0 var(--pad) max(34px, env(safe-area-inset-bottom)); display: grid; gap: 10px; justify-items: center; }
+.credits .acts .textbtn { margin-top: 8px; font-size: 13px; }
+@keyframes creditsin { from { opacity: 0; } }
+
 /* 들어가는 순간: 검은 화면에 제목이 떴다가 걷힌다 */
 .titlecard { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; padding: var(--pad); background: #000; animation: cardout 1900ms ease forwards; }
 .titlecard .title { font-size: clamp(30px, 10vw, 40px); text-align: center; padding-left: 0.22em; animation: cardin 700ms ease both; }
@@ -303,7 +327,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 @keyframes cardin { from { opacity: 0; } }
 @keyframes cardout { 0%, 72% { opacity: 1; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .titlecard, .titlecard .title, .screen img.cutin { animation: none; }
+  .titlecard, .titlecard .title, .screen img.cutin, .credits { animation: none; }
 }
 .safe { height: max(22px, env(safe-area-inset-bottom)); }
 

@@ -1,5 +1,6 @@
 import { type FormEvent, Fragment, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { formatWorld, worldAt } from '../../shared/clock';
+import { dayEnd, dayName, formatWorld, worldAt } from '../../shared/clock';
+import { josa } from '../../shared/ko';
 import { cutsOf, hasLines } from '../../shared/opening';
 import { RULES } from '../../shared/rules';
 import type { Film, MessageView, PlayView } from '../../shared/types';
@@ -33,6 +34,8 @@ const CUT_AFTER = 30;
 
 /** 들어가는 순간 제목이 떠 있는 동안(밀리초) */
 const TITLE_MS = 1900;
+/** 하루가 끝난 뒤 크레딧이 오르기까지. 마지막 대사를 읽을 틈이다 */
+const CREDITS_AFTER_MS = 2600;
 
 /** 오프닝. 디렉터가 쌓은 순서대로 흐른다. 재생 중에는 컷 번호 같은 만드는 말을 보이지 않는다.
     컷은 글 사이에 끼우지 않는다 — 그 컷 바로 다음에 오는 줄에 표시(data-cut)만 달아 두고,
@@ -96,6 +99,10 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
   const [shot, setShot] = useState('');
   const [under, setUnder] = useState('');
   const flow = useRef<HTMLElement>(null);
+  /** 하루의 끝에 오르는 크레딧 */
+  const [credits, setCredits] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const wasEnded = useRef<boolean | null>(null);
   const tick = useRef(0);
   const still = useRef(0);
 
@@ -123,6 +130,44 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
     const t = setTimeout(() => setCard(false), TITLE_MS);
     return () => clearTimeout(t);
   }, [card, view !== null]);
+
+  // 하루가 끝나는 것을 지켜본 자리에서는 크레딧이 저절로 오른다. 끝난 삶을 다시 열었을 때는 오르지 않는다
+  const ended = view?.ended ?? null;
+  useEffect(() => {
+    if (ended === null) return;
+    const before = wasEnded.current;
+    wasEnded.current = ended;
+    if (before !== false || !ended) return;
+    const t = setTimeout(() => setCredits(true), CREDITS_AFTER_MS);
+    return () => clearTimeout(t);
+  }, [ended]);
+
+  /** 같은 삶을 다음 날로 잇는다 */
+  const nextDay = async () => {
+    setClosing(true);
+    setErr('');
+    try {
+      setView(await api.next(playId));
+      setCredits(false);
+    } catch (e) {
+      setErr(e instanceof ApiFail ? e.message : '다음 날로 잇지 못했어요.');
+    }
+    setClosing(false);
+  };
+
+  /** 같은 필름에 처음부터 다시 들어간다 */
+  const again = async () => {
+    if (!view) return;
+    setClosing(true);
+    setErr('');
+    try {
+      const fresh = await api.enter(view.filmId, newId());
+      go(`/play/${fresh.id}?open=1`);
+    } catch (e) {
+      setErr(e instanceof ApiFail ? e.message : '필름에 들어가지 못했어요.');
+      setClosing(false);
+    }
+  };
 
   /** 마지막 줄까지 남은 길이. 흐름 맨 아래의 여백(말하는 칸에 가리는 자리)은 치지 않는다 */
   const restOf = (el: HTMLElement) => {
@@ -271,6 +316,8 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
   /** 첫 장면 안에 있는 동안만 장소를 적는다. 그 뒤로는 어디인지 서버가 모른다 */
   const place = view.elapsed < CUT_AFTER ? fs.place : '';
   const profile = () => go(`/play/${playId}/cast/${cast.key}`);
+  /** 「첫 하루」, 「둘째 날」 … */
+  const today = dayName(view.day);
 
   return (
     <main className="app playing">
@@ -295,8 +342,8 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
           </>
         )}
       </p>
-      <div className="day" role="img" aria-label="첫 하루가 흐른 만큼">
-        <span style={{ width: `${Math.min(100, (view.elapsed / RULES.trialMinutes) * 100)}%` }} />
+      <div className="day" role="img" aria-label={`${josa(today, '이', '가')} 흐른 만큼`}>
+        <span style={{ width: `${Math.min(100, ((view.elapsed - dayEnd(view.day - 1)) / RULES.trialMinutes) * 100)}%` }} />
       </div>
 
       {film.casts.length > 1 && (
@@ -404,7 +451,7 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
         )}
 
         {notice && <p className="note">{notice}</p>}
-        {view.ended && <p className="cut">첫 하루가 끝났어요</p>}
+        {view.ended && <p className="cut">{josa(today, '이', '가')} 끝났어요</p>}
       </section>
 
       {reading ? (
@@ -413,6 +460,19 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
           <button className="ico" onClick={() => flow.current?.scrollBy({ top: flow.current.clientHeight * 0.8, behavior: 'smooth' })} aria-label="이어서 읽기">
             <Down />
           </button>
+        </footer>
+      ) : view.ended ? (
+        // 하루가 끝났다. 말하는 칸 자리에 다음 날로 가는 단추가 선다
+        <footer className="foot done">
+          {err && <p className="warn">{err}</p>}
+          <button className="btn play wide" disabled={closing} onClick={nextDay}>
+            <SkipFill />
+            다음 날 이어 살기
+          </button>
+          <button className="textbtn" onClick={() => setCredits(true)}>
+            크레딧 보기
+          </button>
+          <div className="safe" />
         </footer>
       ) : (
       <footer className="foot">
@@ -446,6 +506,61 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
         </form>
         <div className="safe" />
       </footer>
+      )}
+
+      {credits && (
+        <div className="credits" role="dialog" aria-label="엔드 크레딧">
+          {onScreen && (
+            <div className="back grain">
+              <img src={imgUrl(onScreen)} alt="" />
+            </div>
+          )}
+          <div className="band">
+            <button className="ico" onClick={() => setCredits(false)} aria-label="장면으로 돌아가기">
+              <Back />
+            </button>
+          </div>
+          <div className="roll">
+            <p className="kicker">{today}</p>
+            <h1 className={titleClass(film.title)}>{film.title}</h1>
+            <p className="span">
+              {formatWorld(clock, dayEnd(view.day - 1))} — {formatWorld(clock, dayEnd(view.day))}
+            </p>
+            <dl className="names">
+              <div>
+                <dt>주연</dt>
+                <dd>{film.persona.name}</dd>
+              </div>
+              {film.casts.map((c, i) => (
+                <div key={c.key}>
+                  <dt>{i === 0 ? '캐스트' : ''}</dt>
+                  <dd>{c.name}</dd>
+                </div>
+              ))}
+              {view.mine && (
+                <div>
+                  <dt>디렉터</dt>
+                  <dd>나</dd>
+                </div>
+              )}
+            </dl>
+          </div>
+          <div className="acts">
+            {err && <p className="warn">{err}</p>}
+            {view.ended && (
+              <button className="btn play wide" disabled={closing} onClick={nextDay}>
+                <SkipFill />
+                다음 날 이어 살기
+              </button>
+            )}
+            <button className="btn more wide" disabled={closing} onClick={again}>
+              처음부터 다시 살기
+            </button>
+            <button className="textbtn" onClick={() => go('/')}>
+              홈으로
+            </button>
+          </div>
+        </div>
       )}
 
       {card && (

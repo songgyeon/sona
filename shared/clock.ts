@@ -85,6 +85,15 @@ export function inSpan(min: number, from: number, to: number): boolean {
   return from < to ? min >= from && min < to : min >= from || min < to;
 }
 
-export function trialOver(elapsed: number): boolean {
-  return elapsed >= RULES.trialMinutes;
+/** 이 삶이 지금까지 열어 둔 날의 끝(작중 분). 첫 하루는 하루, 다음 날로 이을 때마다 하루씩 는다 */
+export const dayEnd = (days = 1): number => RULES.trialMinutes * days;
+
+/** 열어 둔 날이 다 찼는가 */
+export function trialOver(elapsed: number, days = 1): boolean {
+  return elapsed >= dayEnd(days);
 }
+
+const DAY_NAMES = ['첫 하루', '둘째 날', '셋째 날', '넷째 날', '다섯째 날', '여섯째 날', '일곱째 날'];
+
+/** 몇째 날인지 부르는 말. 「첫 하루」, 「둘째 날」 … */
+export const dayName = (days: number): string => DAY_NAMES[days - 1] ?? `${days}일째`;

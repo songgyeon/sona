@@ -6,7 +6,7 @@ import { createFilm, getFilm, listFilms, updateFilm } from './engine/films';
 import { loadImage, saveImage } from './engine/images';
 import { skip } from './engine/skip';
 import { listPlays, viewOf } from './engine/store';
-import { enter, retry, say } from './engine/turn';
+import { enter, nextDay, retry, say } from './engine/turn';
 import { checkKey, visitorOf } from './guard';
 import { demoScript, fakeModel } from './model/fake';
 import type { Model } from './model/index';
@@ -64,6 +64,7 @@ const ROUTES: [string, RegExp, Handler][] = [
     (ctx, p, body) => skip(ctx, p[0]!, { kind: body.kind, requestId: body.requestId }),
   ],
   ['POST', /^\/api\/plays\/([^/]+)\/retry$/, (ctx, p) => retry(ctx, p[0]!)],
+  ['POST', /^\/api\/plays\/([^/]+)\/next$/, (ctx, p) => nextDay(ctx, p[0]!)],
 ];
 
 const IMAGE = /^\/api\/img\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;

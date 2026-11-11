@@ -122,4 +122,6 @@ export const api = {
   skip: (id: string, kind: 'evening' | 'sleep', requestId: string) =>
     call<PlayView>('POST', `/api/plays/${id}/skip`, { kind, requestId }),
   retry: (id: string) => call<PlayView>('POST', `/api/plays/${id}/retry`, {}),
+  /** 하루가 끝난 삶을 다음 날로 잇는다 */
+  next: (id: string) => call<PlayView>('POST', `/api/plays/${id}/next`, {}),
 };

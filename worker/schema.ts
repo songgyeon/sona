@@ -26,7 +26,8 @@ export const SCHEMA: string[] = [
     start_min INTEGER NOT NULL,
     elapsed INTEGER NOT NULL DEFAULT 0,
     ended INTEGER NOT NULL DEFAULT 0,
-    created_at INTEGER NOT NULL
+    created_at INTEGER NOT NULL,
+    days INTEGER NOT NULL DEFAULT 1
   )`,
   `CREATE INDEX IF NOT EXISTS plays_owner ON plays(owner, created_at)`,
 
@@ -123,11 +124,31 @@ export const SCHEMA: string[] = [
   )`,
 ];
 
+/** 이미 있는 표에 나중에 붙인 칸. 없을 때만 붙인다 — 먼저 만들어진 저장소도 그대로 이어 쓴다 */
+const ADDED: { table: string; column: string; sql: string }[] = [
+  // 삶이 지금까지 열어 둔 날 수. 하루가 끝난 뒤 다음 날로 이으면 는다
+  { table: 'plays', column: 'days', sql: 'ALTER TABLE plays ADD COLUMN days INTEGER NOT NULL DEFAULT 1' },
+];
+
+export async function addColumns(db: Db): Promise<void> {
+  for (const a of ADDED) {
+    const cols = await db.all<{ name: string }>(`PRAGMA table_info(${a.table})`);
+    if (cols.some((c) => c.name === a.column)) continue;
+    try {
+      await db.run(a.sql);
+    } catch (e) {
+      // 다른 요청이 한발 먼저 붙였다. 그러면 된 것이다
+      if (!/duplicate column/i.test(String((e as Error)?.message ?? e))) throw e;
+    }
+  }
+}
+
 let ready = false;
 
 /** 표가 없으면 만든다. 몇 번 불러도 같다 */
 export async function ensureSchema(db: Db): Promise<void> {
   if (ready) return;
   await db.batch(SCHEMA.map((sql) => q(sql)));
+  await addColumns(db);
   ready = true;
 }

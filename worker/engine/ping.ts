@@ -12,6 +12,8 @@ export interface PingInput {
   cast: Cast;
   /** 걸어 보려는 작중 시각 */
   slot: number;
+  /** 이 삶이 열어 둔 날의 끝. 그 뒤로는 걸지 않는다 */
+  until: number;
   /** 이 방의 마지막 연락 시각. 없으면 null */
   lastContact: number | null;
   /** 건넬 얘깃거리가 있는가 */
@@ -23,7 +25,7 @@ export interface PingInput {
 /** 먼저 연락해도 되는가. 안 되면 까닭을 돌려준다 */
 export function pingHeld(i: PingInput): string | null {
   if (!i.opens) return 'film_closed';
-  if (i.slot >= RULES.trialMinutes) return 'trial_over';
+  if (i.slot >= i.until) return 'trial_over';
   if (inSpan(worldAt(i.clock, i.slot).min, i.cast.sleepFrom, i.cast.sleepTo)) return 'asleep';
   if (i.lastContact !== null && i.slot - i.lastContact < RULES.ping.minGapMin) return 'too_soon';
   if (!i.hasHook) return 'nothing_to_say';

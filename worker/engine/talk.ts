@@ -197,6 +197,6 @@ export async function answer(ctx: Ctx, play: Play, turn: TurnView): Promise<void
   );
   stmts.push(q("UPDATE turns SET status = 'done', fail_reason = NULL WHERE id = ?", turn.id));
   stmts.push(logStmt(ctx, play.id, turn.id, call, out, true, null));
-  if (trialOver(play.elapsed)) stmts.push(q('UPDATE plays SET ended = 1 WHERE id = ?', play.id));
+  if (trialOver(play.elapsed, play.days)) stmts.push(q('UPDATE plays SET ended = 1 WHERE id = ?', play.id));
   await ctx.db.batch(stmts);
 }

@@ -5,7 +5,7 @@ import { createFilm } from '../../worker/engine/films';
 import { enter, say } from '../../worker/engine/turn';
 import type { ModelCall } from '../../worker/model/index';
 import { ModelError, openRouter, readOut } from '../../worker/model/openrouter';
-import { ensureSchema, SCHEMA } from '../../worker/schema';
+import { addColumns, ensureSchema, SCHEMA } from '../../worker/schema';
 import { memoryDb } from '../helpers/db';
 import { DEV_FILM, testCtx, uid } from '../helpers/film';
 
@@ -99,5 +99,19 @@ describe('저장소의 표', () => {
     expect(row!.calls).toBe(7);
     const tables = await db.all<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name");
     expect(tables.map((t) => t.name)).toEqual(['events', 'films', 'gen_log', 'images', 'messages', 'plays', 'posts', 'turns', 'usage']);
+  });
+
+  it('먼저 만들어진 저장소에는 나중에 생긴 칸을 붙인다. 있던 삶은 첫 하루로 읽힌다', async () => {
+    const db = memoryDb();
+    // 날 수를 적는 칸이 없던 때의 표로 되돌린다
+    db.raw.exec('DROP TABLE plays');
+    db.raw.exec(
+      'CREATE TABLE plays (id TEXT PRIMARY KEY, film_id TEXT NOT NULL, owner TEXT NOT NULL, film TEXT NOT NULL, start_dow INTEGER NOT NULL, start_min INTEGER NOT NULL, elapsed INTEGER NOT NULL DEFAULT 0, ended INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL)',
+    );
+    db.raw.exec("INSERT INTO plays (id, film_id, owner, film, start_dow, start_min, created_at) VALUES ('p', 'f', 'o', '{}', 5, 960, 1)");
+
+    await addColumns(db);
+    await addColumns(db); // 두 번 불러도 같다
+    expect(await db.first<{ days: number }>("SELECT days FROM plays WHERE id = 'p'")).toEqual({ days: 1 });
   });
 });

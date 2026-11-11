@@ -172,6 +172,7 @@ describe('먼저 오는 연락', () => {
       clock: clock(0),
       cast: { sleepFrom: 0, sleepTo: 6 * 60 } as any,
       slot: 210,
+      until: RULES.trialMinutes,
       lastContact: 3,
       hasHook: true,
       alreadySent: false,

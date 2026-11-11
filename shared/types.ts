@@ -116,7 +116,12 @@ export interface PlayView {
   film: Film;
   /** 시작에서 흐른 작중 분 */
   elapsed: number;
+  /** 열어 둔 날이 다 찼다. 다음 날로 이으면 다시 열린다 */
   ended: boolean;
+  /** 지금 몇째 날인가. 첫 하루가 1 */
+  day: number;
+  /** 내가 만든 필름인가 */
+  mine: boolean;
   messages: MessageView[];
   posts: PostView[];
   /** 답을 못 받은 턴이 있으면 그 턴. 화면은 '다시 받기'를 보여준다 */
