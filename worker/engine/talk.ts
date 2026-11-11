@@ -3,6 +3,7 @@
    누가 나오고 누가 말할지도 장면에 맞게 정한다. 유저의 인물만은 쓰지 못한다 — 그 사람의 말과 지문은 유저가 쓴다. */
 
 import { trialOver } from '../../shared/clock';
+import { josa } from '../../shared/ko';
 import { hasLines } from '../../shared/opening';
 import { RULES } from '../../shared/rules';
 import type { Film, MessageView, TurnView } from '../../shared/types';
@@ -209,38 +210,36 @@ export function lastShapes(messages: MessageView[], count = 2): string[] {
   return shapes.slice(-count).map((s) => s.join(' → '));
 }
 
-/** 대목을 무엇으로 열고 무엇으로 닫는가. 네 가지다 */
+/** 대목을 짜는 차례. 여섯 가지다. 대사 자리에 누가 말할지, 몇 사람이 말할지는 적지 않는다 */
 const RHYTHMS = [
-  { open: '지문', close: '대사', text: '지문으로 시작해서 대사로 끝낸다' },
-  { open: '대사', close: '지문', text: '대사로 시작해서 지문으로 끝낸다' },
-  { open: '지문', close: '지문', text: '지문으로 시작해서 지문으로 끝낸다. 대사는 그 사이에 둔다' },
-  { open: '대사', close: '대사', text: '대사로 시작해서 대사로 끝낸다. 지문은 그 사이에 둔다' },
+  ['지문', '대사', '지문', '대사'],
+  ['대사', '지문', '대사', '지문'],
+  ['지문', '대사', '대사', '지문'],
+  ['대사', '지문', '대사'],
+  ['지문', '대사', '지문', '대사', '지문'],
+  ['대사', '지문', '대사', '지문', '대사'],
 ] as const;
 
-/** 이번 대목을 어떻게 열고 닫을지 고른다. 바로 앞 대목과 같은 것은 고르지 않는다.
-    「다르게 써라」는 말만으로는 모델이 한 가지 모양으로 굳어서, 그때그때 하나를 짚어 준다.
-    고르는 것은 열고 닫는 차례뿐이다 — 누가 나오고 무엇을 말할지는 모델이 정한다.
+/** 이번 대목을 어떤 차례로 짤지 고른다. 바로 앞 대목과 열고 닫는 것이 같은 차례는 고르지 않는다.
+    「다르게 써라」, 「네 줄에서 여섯 줄」 같은 말만으로는 모델이 한 가지 모양으로 굳고 늘 가장 짧게 쓴다.
+    그래서 그때그때 하나를 짚어 준다. 고르는 것은 지문과 대사가 놓이는 차례뿐이다 —
+    누가 나오고 무엇을 말할지는 모델이 정한다.
     같은 턴이면 늘 같은 것을 고른다. 다시 받아도 바뀌지 않는다 */
 export function rhythmFor(messages: MessageView[], seed: string): string {
   const last = (lastShapes(messages, 1)[0] ?? '').split(' → ').filter(Boolean);
-  const pool = RHYTHMS.filter((r) => last.length === 0 || r.open !== last[0] || r.close !== last[last.length - 1]);
+  const pool = RHYTHMS.filter((r) => last.length === 0 || r[0] !== last[0] || r[r.length - 1] !== last[last.length - 1]);
   let n = 0;
   for (const ch of seed) n = (n * 31 + ch.charCodeAt(0)) >>> 0;
-  return pool[n % pool.length]!.text;
-}
-
-/** 이번 대목의 길이. 「네 줄에서 여섯 줄」이라고만 이르면 모델은 늘 가장 짧게 쓴다. 그래서 그때그때 하나를 짚어 준다.
-    같은 턴이면 늘 같은 것을 고른다 */
-const LENGTHS = ['네 줄쯤', '다섯 줄쯤', '여섯 줄쯤'] as const;
-export function lengthFor(seed: string): string {
-  let n = 7;
-  for (const ch of seed) n = (n * 33 + ch.charCodeAt(0)) >>> 0;
-  return LENGTHS[n % LENGTHS.length]!;
+  return pool[n % pool.length]!.join(' → ');
 }
 
 /** 이번 대목의 모양을 이르는 말. 유저가 쓴 것 바로 뒤에 붙인다 */
 export const shapeCue = (messages: MessageView[], seed: string): string =>
-  `(이번 대목의 모양: ${rhythmFor(messages, seed)}. 지문과 대사를 합쳐 ${lengthFor(seed)}으로 쓴다.)`;
+  `(이번 대목은 대략 이 차례로 쓴다: ${rhythmFor(messages, seed)}. 지문 한 덩이는 한두 문장이다.)`;
+
+/** 유저가 지문을 썼을 때 붙이는 말. 그 지문에서 자리를 옮겼으면 곳도 따라 옮겨 적게 한다.
+    자리를 옮겼는지는 코드가 가리지 않는다 — 읽고 가리는 것은 작가다 */
+export const placeCue = (film: Film): string => `(위 지문에서 ${josa(film.persona.name, '이', '가')} 자리를 옮겼으면 첫 줄의 곳을 옮겨 간 곳으로 적는다.)`;
 
 /** 요즘 대목들에 자주 나온 말을 알려 준다. 지문과 대사를 따로 센다.
     같은 말이 돌기 시작하면 모델은 스스로 못 빠져나온다 — 앞에 쓴 것을 보고 또 쓴다.
@@ -294,7 +293,8 @@ export async function answer(ctx: Ctx, play: Play, turn: TurnView): Promise<void
     if (mine.length === 0) throw new Fail(500, 'no_user_line', '답할 대사를 찾을 수 없어요.');
     purpose = 'reply';
     before = all.filter((m) => m.turnId !== turn.id);
-    user = [toLines(play, mine).map(lineOf).join('\n'), shapeCue(before, turn.id), echoCue(before, film)].filter(Boolean).join('\n');
+    const moved = mine.some((m) => m.kind === 'act') ? placeCue(film) : '';
+    user = [toLines(play, mine).map(lineOf).join('\n'), shapeCue(before, turn.id), moved, echoCue(before, film)].filter(Boolean).join('\n');
   }
 
   const layers: Layers = {
