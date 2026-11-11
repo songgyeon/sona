@@ -10,31 +10,31 @@ const L = RULES.limits;
 
 function text(v: unknown, max: number, name: string, required = false): string {
   const s = typeof v === 'string' ? v.trim() : '';
-  if (required && s.length === 0) throw new Fail(400, 'film_invalid', `${name} 칸이 비었어.`);
-  if (s.length > max) throw new Fail(400, 'film_invalid', `${name} 칸은 ${max}자까지야.`);
+  if (required && s.length === 0) throw new Fail(400, 'film_invalid', `${name} 칸을 채워 주세요.`);
+  if (s.length > max) throw new Fail(400, 'film_invalid', `${name} 칸은 ${max}자까지 쓸 수 있어요.`);
   return s;
 }
 
 function int(v: unknown, min: number, max: number, name: string): number {
   const n = Number(v);
   if (!Number.isInteger(n) || n < min || n > max) {
-    throw new Fail(400, 'film_invalid', `${name} 값이 맞지 않아.`);
+    throw new Fail(400, 'film_invalid', `${name} 값이 올바르지 않아요.`);
   }
   return n;
 }
 
 function list(v: unknown, maxItems: number, maxLen: number, name: string): string[] {
   if (v == null) return [];
-  if (!Array.isArray(v)) throw new Fail(400, 'film_invalid', `${name} 칸이 맞지 않아.`);
+  if (!Array.isArray(v)) throw new Fail(400, 'film_invalid', `${name} 칸이 올바르지 않아요.`);
   const out = v.map((x) => text(x, maxLen, name)).filter((s) => s.length > 0);
-  if (out.length > maxItems) throw new Fail(400, 'film_invalid', `${name}은 ${maxItems}개까지야.`);
+  if (out.length > maxItems) throw new Fail(400, 'film_invalid', `${name}: ${maxItems}개까지 넣을 수 있어요.`);
   return out;
 }
 
 /** 올려 둔 그림을 가리키는 값. 비어 있어도 된다 */
 function image(v: unknown, name: string): string {
   if (v == null || v === '') return '';
-  if (!isUuid(v)) throw new Fail(400, 'film_invalid', `${name} 그림이 맞지 않아.`);
+  if (!isUuid(v)) throw new Fail(400, 'film_invalid', `${name} 그림이 올바르지 않아요.`);
   return v;
 }
 
@@ -49,8 +49,8 @@ export function parseFilm(input: unknown): Film {
   const fs = obj(f.firstScene);
 
   const rawCasts = Array.isArray(f.casts) ? f.casts : [];
-  if (rawCasts.length < 1) throw new Fail(400, 'film_invalid', '캐스트가 한 명은 있어야 해.');
-  if (rawCasts.length > L.casts) throw new Fail(400, 'film_invalid', `캐스트는 ${L.casts}명까지야.`);
+  if (rawCasts.length < 1) throw new Fail(400, 'film_invalid', '캐스트가 한 명은 있어야 해요.');
+  if (rawCasts.length > L.casts) throw new Fail(400, 'film_invalid', `캐스트는 ${L.casts}명까지 넣을 수 있어요.`);
 
   const casts: Cast[] = rawCasts.map((raw, i) => {
     const c = obj(raw);
@@ -59,7 +59,7 @@ export function parseFilm(input: unknown): Film {
       name: text(c.name, 20, '캐스트 이름', true),
       face: image(c.face, '캐스트'),
       aliases: list(c.aliases, 6, 20, '불리는 이름'),
-      role: text(c.role, L.short, '나에게 누구인가'),
+      role: text(c.role, L.short, '캐스트 설명'),
       callsUser: text(c.callsUser, 20, '나를 부르는 말'),
       speech: text(c.speech, L.short, '말투'),
       samples: list(c.samples, 3, L.sample, '예시 대사'),
@@ -69,7 +69,7 @@ export function parseFilm(input: unknown): Film {
     };
   });
   const names = new Set(casts.map((c) => c.name));
-  if (names.size !== casts.length) throw new Fail(400, 'film_invalid', '캐스트 이름이 겹쳐.');
+  if (names.size !== casts.length) throw new Fail(400, 'film_invalid', '캐스트 이름이 겹쳐요.');
   const keys = new Set(casts.map((c) => c.key));
 
   // 화면은 캐스트를 순서(c1, c2 …)로 가리킨다
@@ -86,19 +86,19 @@ export function parseFilm(input: unknown): Film {
     .filter((t) => t.relation.length > 0 || t.calls.length > 0);
   for (const t of ties) {
     if (!keys.has(t.from) || !keys.has(t.to) || t.from === t.to) {
-      throw new Fail(400, 'film_invalid', '캐스트끼리의 사이가 맞지 않아.');
+      throw new Fail(400, 'film_invalid', '캐스트끼리의 사이가 올바르지 않아요.');
     }
   }
 
   const room = text(fs.room, 4, '첫 장면의 상대') || casts[0]!.key;
-  if (!keys.has(room)) throw new Fail(400, 'film_invalid', '첫 장면의 상대가 캐스트에 없어.');
+  if (!keys.has(room)) throw new Fail(400, 'film_invalid', '첫 장면의 상대가 캐스트에 없어요.');
 
   const stills = (Array.isArray(f.stills) ? f.stills : []).map((s) => image(s, '컷')).filter((s) => s.length > 0);
-  if (stills.length > L.stills) throw new Fail(400, 'film_invalid', `컷은 ${L.stills}장까지야.`);
+  if (stills.length > L.stills) throw new Fail(400, 'film_invalid', `컷은 ${L.stills}장까지 넣을 수 있어요.`);
 
   return {
     title: text(f.title, L.title, '제목', true),
-    logline: text(f.logline, L.logline, '한 줄 소개'),
+    logline: text(f.logline, L.logline, '한 줄'),
     poster: image(f.poster, '포스터'),
     stills,
     setting: text(f.setting, L.setting, '배경'),
@@ -106,17 +106,17 @@ export function parseFilm(input: unknown): Film {
     startMin: int(f.startMin ?? 16 * 60, 0, 1439, '시작 시각'),
     opens: { feed: opens.feed !== false, ping: opens.ping !== false },
     persona: {
-      name: text(persona.name, 20, '내가 맡을 인물의 이름', true),
-      line: text(persona.line, L.short, '이 필름에서 나는'),
+      name: text(persona.name, 20, '내 배역의 이름', true),
+      line: text(persona.line, L.short, '내 배역 설명'),
     },
     casts,
     ties,
     firstScene: {
       place: text(fs.place, 40, '첫 장면의 장소'),
-      situation: text(fs.situation, 200, '첫 장면의 상황'),
+      situation: text(fs.situation, L.opening, '첫 장면'),
       room,
       speaker: fs.speaker === 'cast' ? 'cast' : 'persona',
-      firstLine: text(fs.firstLine, 200, '첫 마디'),
+      firstLine: text(fs.firstLine, 200, '첫 대사'),
     },
   };
 }
@@ -175,6 +175,6 @@ export async function getFilm(ctx: Ctx, id: string): Promise<{ card: FilmCard; f
     id,
     ctx.visitor,
   );
-  if (!row) throw new Fail(404, 'film_missing', '그 필름을 못 찾았어.');
+  if (!row) throw new Fail(404, 'film_missing', '필름을 찾을 수 없어요.');
   return { card: card(row, ctx.visitor), film: JSON.parse(row.data) as Film };
 }

@@ -37,7 +37,7 @@ function pickModel(env: Env): Model {
       throw new Fail(
         503,
         'no_model_key',
-        '모델 열쇠가 아직 없어. Cloudflare에서 이 Worker의 변수와 시크릿에 OPENROUTER_API_KEY를 넣으면 대화가 돼.',
+        '대사 모델이 연결되지 않았어요.',
       );
     },
   };
@@ -85,7 +85,7 @@ export default {
         const db = d1(env.DB);
         await ensureSchema(db);
         const found = await loadImage(db, img[1]!);
-        if (!found) throw new Fail(404, 'no_image', '그 그림은 없어.');
+        if (!found) throw new Fail(404, 'no_image', '그림을 찾을 수 없어요.');
         return new Response(found.bytes, {
           headers: {
             'content-type': found.mime,
@@ -119,16 +119,16 @@ export default {
             const parsed: unknown = await req.json();
             if (parsed && typeof parsed === 'object') body = parsed as Record<string, unknown>;
           } catch {
-            throw new Fail(400, 'bad_json', '보낸 내용을 읽지 못했어.');
+            throw new Fail(400, 'bad_json', '요청을 읽지 못했어요.');
           }
         }
         return json(await handler(ctx, m.slice(1), body));
       }
-      throw new Fail(404, 'no_route', '그런 길은 없어.');
+      throw new Fail(404, 'no_route', '없는 주소예요.');
     } catch (e) {
       if (e instanceof Fail) return json({ error: e.code, message: e.message }, e.status);
       console.error(e);
-      return json({ error: 'server', message: '서버에서 문제가 생겼어. 잠깐 뒤에 다시 해 줘.' }, 500);
+      return json({ error: 'server', message: '문제가 생겼어요. 잠시 뒤에 다시 시도해 주세요.' }, 500);
     }
   },
 } satisfies ExportedHandler<Env>;

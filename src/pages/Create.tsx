@@ -1,12 +1,12 @@
-import { type ChangeEvent, cloneElement, type ReactElement, useEffect, useId, useState } from 'react';
+import { type ChangeEvent, cloneElement, type ReactElement, type ReactNode, useEffect, useId, useState } from 'react';
 import { josa } from '../../shared/ko';
 import { DOW_NAMES, RULES } from '../../shared/rules';
 import { ApiFail, api, imgUrl, newId, uploadImage } from '../api';
-import { Arrow, Close, Plus, Upload } from '../icons';
-import { Face } from '../poster';
+import { Arrow, Close, Down, Plus, Upload } from '../icons';
 
 /* 필름 만들기. 디렉터가 채우는 칸이다.
-   며칠 치 일정을 쓰는 자리가 아니다 — 이 사람들이 어떤 사이이고 서로를 뭐라고 부르는지를 쓴다. */
+   며칠 치 일정을 쓰는 자리가 아니다 — 이 사람들이 어떤 사이이고 서로를 뭐라고 부르는지를 쓴다.
+   칸마다 무엇을 쓰는지 알려 주고 예를 든다. */
 
 interface DraftCast {
   name: string;
@@ -147,17 +147,21 @@ export function toFilm(d: Draft): unknown {
 }
 
 type Step = 'plan' | 'cast' | 'world' | 'open' | 'release';
-const STEPS: [Step, string][] = [
-  ['plan', '기획'],
-  ['cast', '캐스팅'],
-  ['world', '세계'],
-  ['open', '오프닝'],
-  ['release', '공개'],
+/** 탭. 별표가 붙은 탭에는 꼭 채워야 하는 칸이 있다 */
+const STEPS: { id: Step; label: string; must: boolean }[] = [
+  { id: 'plan', label: '기획', must: true },
+  { id: 'cast', label: '캐스팅', must: true },
+  { id: 'world', label: '세계', must: false },
+  { id: 'open', label: '오프닝', must: false },
+  { id: 'release', label: '공개', must: false },
 ];
+
+const PICTURES = 'image/jpeg,image/png,image/webp';
 
 export function Create({ go }: { go: (to: string) => void }) {
   const [d, setD] = useState<Draft>(loadDraft);
   const [step, setStep] = useState<Step>('plan');
+  const [more, setMore] = useState<Record<number, boolean>>({});
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [toast, setToast] = useState('');
@@ -182,13 +186,22 @@ export function Create({ go }: { go: (to: string) => void }) {
     return () => clearTimeout(t);
   }, [toast]);
 
+  const move = (to: Step) => {
+    setStep(to);
+    setErr('');
+    window.scrollTo(0, 0);
+  };
+
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setD((x) => ({ ...x, [k]: v }));
   const setCast = (i: number, k: keyof DraftCast, v: string) =>
     setD((x) => ({ ...x, casts: x.casts.map((c, j) => (j === i ? { ...c, [k]: v } : c)) }));
   const setTie = (pair: string, k: 'relation' | 'calls', v: string) =>
     setD((x) => ({ ...x, ties: { ...x.ties, [pair]: { relation: '', calls: '', ...x.ties[pair], [k]: v } } }));
   const addCast = () => setD((x) => ({ ...x, casts: [...x.casts, blankCast()] }));
-  const removeCast = (i: number) => setD((x) => ({ ...x, casts: x.casts.filter((_, j) => j !== i), ties: {}, room: 0 }));
+  const removeCast = (i: number) => {
+    setD((x) => ({ ...x, casts: x.casts.filter((_, j) => j !== i), ties: {}, room: 0 }));
+    setMore({});
+  };
 
   /** 그림을 골라 올리고, 올린 그림을 가리키는 값을 받는다 */
   const pick = async (e: ChangeEvent<HTMLInputElement>, max: number, done: (id: string) => void) => {
@@ -200,12 +213,30 @@ export function Create({ go }: { go: (to: string) => void }) {
     try {
       done(await uploadImage(file, max));
     } catch (x) {
-      setErr(x instanceof ApiFail ? x.message : '그림을 올리지 못했어.');
+      setErr(x instanceof ApiFail ? x.message : '그림을 올리지 못했어요.');
     }
     setBusy(false);
   };
 
+  const names = d.casts.map((c, i) => c.name.trim() || `캐스트 ${i + 1}`);
+  const pairs = d.casts.flatMap((_, a) => d.casts.map((__, b) => [a, b] as const)).filter(([a, b]) => a !== b);
+  const me = d.personaName.trim() || '나';
+
+  /** 개봉하려면 채워야 하는 칸 */
+  const todo: { step: Step; label: string; done: boolean }[] = [
+    { step: 'plan', label: '제목', done: d.title.trim().length > 0 },
+    { step: 'cast', label: '내 배역의 이름', done: d.personaName.trim().length > 0 },
+    { step: 'cast', label: d.casts.length > 1 ? '캐스트 모두의 이름' : '캐스트의 이름', done: d.casts.every((c) => c.name.trim().length > 0) },
+  ];
+  const ready = todo.every((t) => t.done);
+  const left = (s: Step) => todo.some((t) => t.step === s && !t.done);
+
   const release = async (thenEnter: boolean) => {
+    if (!ready) {
+      move('release');
+      setToast('필수 항목이 남았어요');
+      return;
+    }
     setBusy(true);
     setErr('');
     try {
@@ -222,24 +253,12 @@ export function Create({ go }: { go: (to: string) => void }) {
         go(`/film/${id}`);
       }
     } catch (x) {
-      setErr(x instanceof ApiFail ? x.message : '개봉하지 못했어.');
+      setErr(x instanceof ApiFail ? x.message : '개봉하지 못했어요.');
       setBusy(false);
     }
   };
 
-  const names = d.casts.map((c, i) => c.name.trim() || `캐스트 ${i + 1}`);
-  const pairs = d.casts.flatMap((_, a) => d.casts.map((__, b) => [a, b] as const)).filter(([a, b]) => a !== b);
-  const me = d.personaName.trim() || '나';
-  /** 꼭 채워야 하는 칸이 빈 곳 */
-  const missing: Record<Step, boolean> = {
-    plan: !d.title.trim(),
-    cast: !d.personaName.trim() || d.casts.some((c) => !c.name.trim()),
-    world: false,
-    open: false,
-    release: false,
-  };
-  const ready = !Object.values(missing).some(Boolean);
-  const at = STEPS.findIndex(([s]) => s === step);
+  const at = STEPS.findIndex((s) => s.id === step);
   const next = STEPS[at + 1];
 
   return (
@@ -250,10 +269,10 @@ export function Create({ go }: { go: (to: string) => void }) {
         </button>
         <b>필름 만들기</b>
         <div className="right">
-          <button className="mini keep" onClick={() => setToast(keep() ? '이 기기에 저장했어' : '저장하지 못했어')}>
+          <button className="mini keep" onClick={() => setToast(keep() ? '이 기기에 저장했어요' : '저장하지 못했어요')}>
             임시저장
           </button>
-          <button className="mini open" disabled={busy || !ready} onClick={() => release(false)}>
+          <button className="mini open" disabled={busy} onClick={() => release(false)}>
             개봉
           </button>
         </div>
@@ -261,10 +280,15 @@ export function Create({ go }: { go: (to: string) => void }) {
       <div className="slate" />
 
       <nav className="steps" aria-label="만드는 순서">
-        {STEPS.map(([s, label]) => (
-          <button key={s} className={s === step ? 'step on' : 'step'} onClick={() => setStep(s)}>
-            {label}
-            {missing[s] && <i aria-label="채울 칸이 남았어" />}
+        {STEPS.map((s) => (
+          <button key={s.id} className={s.id === step ? 'step on' : 'step'} onClick={() => move(s.id)}>
+            {s.must && <sup aria-hidden="true">*</sup>}
+            {s.label}
+            {left(s.id) && (
+              <span className="todo" aria-label="필수 항목이 남았어요">
+                !
+              </span>
+            )}
           </button>
         ))}
       </nav>
@@ -272,255 +296,347 @@ export function Create({ go }: { go: (to: string) => void }) {
       <section className="body">
         {step === 'plan' && (
           <>
-            <p className="label">포스터</p>
-            <div className="posterrow">
-              <div className={d.poster ? 'pic has grain' : 'pic'}>
-                {d.poster ? <img src={imgUrl(d.poster)} alt="" /> : <div className="blank" />}
-                <b>{d.title.trim() || '제목'}</b>
-              </div>
-              <div className="side">
-                <p>홈과 필름 정보의 맨 위에 걸려. 세로로 긴 그림이 잘 맞아.</p>
-                <label className="btn more pick">
-                  <Upload />
-                  {d.poster ? '바꾸기' : '올리기'}
-                  <input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={(e) => pick(e, 1440, (id) => set('poster', id))} />
-                </label>
-                {d.poster && (
-                  <button className="textbtn" onClick={() => set('poster', '')}>
-                    그림 빼기
-                  </button>
-                )}
-              </div>
-            </div>
+            <p className="lead">필름의 제목과 포스터를 정해 주세요.</p>
 
-            <Field label="제목" must count={[d.title.length, RULES.limits.title]}>
-              <input value={d.title} maxLength={RULES.limits.title} onChange={(e) => set('title', e.target.value)} />
-            </Field>
-            <Field label="한 줄" count={[d.logline.length, RULES.limits.logline]} hint="포스터에서 제목 아래에 놓이는 문장이야.">
-              <input className="serif" value={d.logline} maxLength={RULES.limits.logline} onChange={(e) => set('logline', e.target.value)} />
-            </Field>
+            <Card title="포스터">
+              <div className="posterrow">
+                <label className={d.poster ? 'drop poster has' : 'drop poster'}>
+                  {d.poster ? (
+                    <>
+                      <img src={imgUrl(d.poster)} alt="" />
+                      <span className="ontitle">{d.title.trim() || '제목'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload />
+                      <b>포스터 올리기</b>
+                      <small>세로로 긴 그림</small>
+                    </>
+                  )}
+                  <input type="file" accept={PICTURES} disabled={busy} aria-label="포스터 그림 고르기" onChange={(e) => pick(e, 1440, (id) => set('poster', id))} />
+                </label>
+                <div className="side">
+                  <p>홈 맨 위에 걸려요. 올리지 않으면 제목만 걸려요.</p>
+                  {d.poster && (
+                    <button className="textbtn" onClick={() => set('poster', '')}>
+                      그림 빼기
+                    </button>
+                  )}
+                </div>
+              </div>
+            </Card>
+
+            <Card title="제목과 한 줄">
+              <Field label="제목" must count={[d.title.length, RULES.limits.title]}>
+                <input value={d.title} maxLength={RULES.limits.title} placeholder="예) 방송부의 금요일" onChange={(e) => set('title', e.target.value)} />
+              </Field>
+              <Field label="한 줄" count={[d.logline.length, RULES.limits.logline]} hint="포스터에서 제목 아래에 놓여요.">
+                <textarea
+                  className="serif"
+                  rows={2}
+                  value={d.logline}
+                  maxLength={RULES.limits.logline}
+                  placeholder="예) 한 학기 만에 돌아온 방송부, 첫 방송을 하루 앞둔 저녁."
+                  onChange={(e) => set('logline', e.target.value)}
+                />
+              </Field>
+            </Card>
           </>
         )}
 
         {step === 'cast' && (
           <>
-            <p className="label">내 배역</p>
-            <Field label="이름" must>
-              <input value={d.personaName} maxLength={20} onChange={(e) => set('personaName', e.target.value)} />
-            </Field>
-            <Field label="어떤 사람" hint="예) 한 학기 만에 돌아온 사람">
-              <input value={d.personaLine} maxLength={RULES.limits.short} onChange={(e) => set('personaLine', e.target.value)} />
-            </Field>
+            <p className="lead">필름에 나오는 인물을 적어 주세요.</p>
+            <p className="sub">일정이 아니라, 어떤 사람이고 서로 어떤 사이인지를 적어요.</p>
+
+            <Card title="내 배역" sub="필름 안에서 내가 맡는 인물이에요.">
+              <Field label="이름" must count={[d.personaName.length, 20]}>
+                <input value={d.personaName} maxLength={20} placeholder="필름 안에서 불릴 이름. 예) 다온" onChange={(e) => set('personaName', e.target.value)} />
+              </Field>
+              <Field label="어떤 사람">
+                <input
+                  value={d.personaLine}
+                  maxLength={RULES.limits.short}
+                  placeholder="예) 한 학기 만에 방송부로 돌아온 사람"
+                  onChange={(e) => set('personaLine', e.target.value)}
+                />
+              </Field>
+            </Card>
 
             {d.casts.map((c, i) => (
-              <div className="castcard" key={i}>
-                <div className="casthead">
-                  <Face id={c.face} name={c.name || `${i + 1}`} />
-                  <div className="grow">
-                    <label className="sr" htmlFor={`cast-name-${i}`}>
-                      캐스트 {i + 1}의 이름
+              <Card key={i} title={`캐스트 ${i + 1}`} count={`${i + 1} / ${RULES.limits.casts}`}>
+                <div className="castcard">
+                  <div className="casthead">
+                    <label className={c.face ? 'drop facepick has' : 'drop facepick'}>
+                      {c.face ? (
+                        <img src={imgUrl(c.face)} alt="" />
+                      ) : (
+                        <>
+                          <Upload />
+                          <b>사진</b>
+                        </>
+                      )}
+                      <input type="file" accept={PICTURES} disabled={busy} aria-label={`${names[i]}의 사진 고르기`} onChange={(e) => pick(e, 640, (id) => setCast(i, 'face', id))} />
                     </label>
-                    <input id={`cast-name-${i}`} value={c.name} maxLength={20} placeholder={`캐스트 ${i + 1}의 이름`} onChange={(e) => setCast(i, 'name', e.target.value)} />
+                    <Field label="이름" must count={[c.name.length, 20]}>
+                      <input value={c.name} maxLength={20} placeholder="짧은 이름이 부르기 편해요. 예) 서하" onChange={(e) => setCast(i, 'name', e.target.value)} />
+                    </Field>
                   </div>
-                  <label className="mini pick">
-                    {c.face ? '사진 바꾸기' : '사진'}
-                    <input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={(e) => pick(e, 640, (id) => setCast(i, 'face', id))} />
-                  </label>
-                </div>
 
-                <Field label={`${me}에게 누구인가`}>
-                  <input value={c.role} maxLength={RULES.limits.short} onChange={(e) => setCast(i, 'role', e.target.value)} />
-                </Field>
-                <div className="two">
+                  <Field label={`${me}에게 누구인가`}>
+                    <input value={c.role} maxLength={RULES.limits.short} placeholder="예) 방송부 부장. 같이 입학한 동기" onChange={(e) => setCast(i, 'role', e.target.value)} />
+                  </Field>
                   <Field label={`${josa(me, '을', '를')} 부르는 말`}>
-                    <input value={c.callsUser} maxLength={20} onChange={(e) => setCast(i, 'callsUser', e.target.value)} />
+                    <input value={c.callsUser} maxLength={20} placeholder="예) 다온아" onChange={(e) => setCast(i, 'callsUser', e.target.value)} />
                   </Field>
-                  <Field label="낮에 있는 곳">
-                    <input value={c.dayPlace} maxLength={40} onChange={(e) => setCast(i, 'dayPlace', e.target.value)} />
+                  <Field label="말투">
+                    <input value={c.speech} maxLength={RULES.limits.short} placeholder="예) 반말. 짧게 말하고 일 얘기부터 한다" onChange={(e) => setCast(i, 'speech', e.target.value)} />
                   </Field>
+                  <Field label="예시 대사" hint="한 줄에 하나씩, 세 줄까지 적어요.">
+                    <textarea value={c.samples} rows={3} placeholder={'예) 왔어?\n그건 내가 할게.\n내일 큐시트 봤어?'} onChange={(e) => setCast(i, 'samples', e.target.value)} />
+                  </Field>
+
+                  <button className={more[i] ? 'fold open' : 'fold'} aria-expanded={!!more[i]} onClick={() => setMore((m) => ({ ...m, [i]: !m[i] }))}>
+                    더 적기
+                    <Down />
+                  </button>
+                  {more[i] && (
+                    <>
+                      <Field label="불리는 이름들" hint="다른 사람이 이 인물을 부르는 말을 쉼표로 나눠 적어요.">
+                        <input value={c.aliases} placeholder="예) 서하 씨, 부장" onChange={(e) => setCast(i, 'aliases', e.target.value)} />
+                      </Field>
+                      <Field label="낮에 주로 있는 곳">
+                        <input value={c.dayPlace} maxLength={40} placeholder="예) 방송부 부실" onChange={(e) => setCast(i, 'dayPlace', e.target.value)} />
+                      </Field>
+                      <div className="two">
+                        <Field label="자는 시간">
+                          <input type="time" value={c.sleepFrom} onChange={(e) => setCast(i, 'sleepFrom', e.target.value)} />
+                        </Field>
+                        <Field label="일어나는 시간">
+                          <input type="time" value={c.sleepTo} onChange={(e) => setCast(i, 'sleepTo', e.target.value)} />
+                        </Field>
+                      </div>
+                      <p className="hint">자는 동안에는 먼저 연락하지 않아요.</p>
+                    </>
+                  )}
+
+                  {d.casts.length > 1 && (
+                    <p className="hint">
+                      <button className="textbtn" onClick={() => removeCast(i)}>
+                        {names[i]} 빼기
+                      </button>
+                    </p>
+                  )}
                 </div>
-                <Field label="불리는 이름들" hint="주변 사람이 이 사람을 가리킬 때 쓰는 말을 쉼표로. 성 뺀 이름, 직함, 별명.">
-                  <input value={c.aliases} onChange={(e) => setCast(i, 'aliases', e.target.value)} />
-                </Field>
-                <Field label="말투" hint="말높이와 말버릇을 한 줄로.">
-                  <input value={c.speech} maxLength={RULES.limits.short} onChange={(e) => setCast(i, 'speech', e.target.value)} />
-                </Field>
-                <Field label="예시 대사" hint="한 줄에 하나씩, 세 줄까지. 설명보다 예시가 말투를 잘 옮겨.">
-                  <textarea value={c.samples} rows={3} onChange={(e) => setCast(i, 'samples', e.target.value)} />
-                </Field>
-                <div className="two">
-                  <Field label="자는 시간">
-                    <input type="time" value={c.sleepFrom} onChange={(e) => setCast(i, 'sleepFrom', e.target.value)} />
-                  </Field>
-                  <Field label="일어나는 시간">
-                    <input type="time" value={c.sleepTo} onChange={(e) => setCast(i, 'sleepTo', e.target.value)} />
-                  </Field>
-                </div>
-                {d.casts.length > 1 && (
-                  <p className="hint">
-                    <button className="textbtn" onClick={() => removeCast(i)}>
-                      {names[i]} 빼기
-                    </button>
-                  </p>
-                )}
-              </div>
+              </Card>
             ))}
 
             {d.casts.length < RULES.limits.casts && (
               <div className="addrow">
-                <button className="btn more" onClick={addCast}>
+                <button className="btn" onClick={addCast}>
                   <Plus />
-                  캐스트 더하기
+                  캐스트 추가
                 </button>
               </div>
             )}
 
             {pairs.length > 0 && (
-              <div className="castcard">
-                <p className="label">캐스트끼리</p>
-                <p className="hint">서로 아는 사이라면 적어 줘. 같은 사람도 부르는 쪽에 따라 이름이 달라서 방향마다 따로 적어.</p>
+              <Card title="캐스트끼리" sub="서로 아는 사이라면 적어 주세요. 부르는 말은 방향마다 달라요.">
                 {pairs.map(([a, b]) => {
                   const pair = `${a}>${b}`;
                   const t = d.ties[pair] ?? { relation: '', calls: '' };
                   return (
-                    <div className="two" key={pair}>
-                      <Field label={`${names[a]} → ${names[b]} · 어떤 사이`}>
-                        <input value={t.relation} maxLength={RULES.limits.short} onChange={(e) => setTie(pair, 'relation', e.target.value)} />
+                    <div className="pair" key={pair}>
+                      <b>
+                        {names[a]} → {names[b]}
+                      </b>
+                      <Field label="어떤 사이">
+                        <input value={t.relation} maxLength={RULES.limits.short} placeholder="예) 한 해 선배" onChange={(e) => setTie(pair, 'relation', e.target.value)} />
                       </Field>
                       <Field label={`${josa(names[a]!, '이', '가')} ${josa(names[b]!, '을', '를')} 부르는 말`}>
-                        <input value={t.calls} maxLength={20} onChange={(e) => setTie(pair, 'calls', e.target.value)} />
+                        <input value={t.calls} maxLength={20} placeholder="예) 오빠" onChange={(e) => setTie(pair, 'calls', e.target.value)} />
                       </Field>
                     </div>
                   );
                 })}
-              </div>
+              </Card>
             )}
           </>
         )}
 
         {step === 'world' && (
           <>
-            <Field label="배경" count={[d.setting.length, RULES.limits.setting]} hint="이 세계가 어떤 곳인지 두세 문장.">
-              <textarea className="serif" value={d.setting} maxLength={RULES.limits.setting} rows={5} onChange={(e) => set('setting', e.target.value)} />
-            </Field>
-            <div className="two">
-              <Field label="시작하는 요일">
-                <select value={d.startDow} onChange={(e) => set('startDow', Number(e.target.value))}>
-                  {DOW_NAMES.map((n, i) => (
-                    <option key={n} value={i}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
+            <p className="lead">이야기가 벌어지는 곳과 때를 정해 주세요.</p>
+
+            <Card title="배경">
+              <Field label="설명" count={[d.setting.length, RULES.limits.setting]}>
+                <textarea
+                  className="serif"
+                  rows={5}
+                  value={d.setting}
+                  maxLength={RULES.limits.setting}
+                  placeholder="두세 문장이면 충분해요. 예) 대학교 방송부. 금요일 저녁이면 다음 날 방송을 준비하느라 부실에 불이 늦게까지 켜져 있다."
+                  onChange={(e) => set('setting', e.target.value)}
+                />
               </Field>
+            </Card>
+
+            <Card title="시작하는 때" sub="여기서부터 작중 24시간이 첫 하루예요.">
+              <Chips
+                label="요일"
+                week
+                value={d.startDow}
+                options={DOW_NAMES.map((n, i) => ({ value: i, label: n[0]! }))}
+                onChange={(v) => set('startDow', v)}
+              />
               <Field label="시각">
                 <input type="time" value={d.startTime} onChange={(e) => set('startTime', e.target.value)} />
               </Field>
-            </div>
-            <div className="checks">
-              <label className="check">
-                <input type="checkbox" checked={d.feed} onChange={(e) => set('feed', e.target.checked)} />
-                캐스트의 프로필에 피드를 연다
-              </label>
-              <label className="check">
-                <input type="checkbox" checked={d.ping} onChange={(e) => set('ping', e.target.checked)} />
-                캐스트가 먼저 연락할 수 있다
-              </label>
-            </div>
+            </Card>
+
+            <Card title="캐스트의 하루" sub="시간을 건너뛴 사이에도 캐스트는 자기 하루를 보내요.">
+              <Toggle checked={d.feed} onChange={(v) => set('feed', v)} label="프로필에 피드 열기" desc="캐스트가 프로필에 자기 하루를 남겨요." />
+              <Toggle checked={d.ping} onChange={(v) => set('ping', v)} label="먼저 연락하기" desc="돌아왔을 때 캐스트의 메시지가 와 있을 수 있어요." />
+            </Card>
           </>
         )}
 
         {step === 'open' && (
           <>
-            <p className="label">
-              컷<span>{d.stills.length} / {RULES.limits.stills}</span>
-            </p>
-            <div className="stillgrid">
-              {d.stills.map((id) => (
-                <div className="tile grain" key={id}>
-                  <img src={imgUrl(id)} alt="" />
-                  <button onClick={() => set('stills', d.stills.filter((s) => s !== id))} aria-label="이 컷 빼기">
-                    <Close />
-                  </button>
-                </div>
-              ))}
-              {d.stills.length < RULES.limits.stills && (
-                <label className="tile add pick">
-                  <Plus />
-                  <span className="sr">컷 올리기</span>
-                  <input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={(e) => pick(e, 1440, (id) => set('stills', [...d.stills, id]))} />
-                </label>
-              )}
-            </div>
-            <p className="hint">첫 컷이 필름 정보 맨 위와 재생 화면에 걸려. 가로로 긴 그림이 잘 맞아.</p>
+            <p className="lead">필름의 첫 장면을 만들어 주세요.</p>
 
-            <Field label="장소">
-              <input value={d.place} maxLength={40} onChange={(e) => set('place', e.target.value)} />
-            </Field>
-            <Field label="첫 장면" count={[d.situation.length, 200]} hint="들어갔을 때 눈앞에 있는 장면.">
-              <textarea className="serif" value={d.situation} maxLength={200} rows={5} onChange={(e) => set('situation', e.target.value)} />
-            </Field>
-            <div className="two">
+            <Card title="컷" count={`${d.stills.length} / ${RULES.limits.stills}`} sub="첫 컷이 필름 정보와 재생 화면에 걸려요. 가로로 긴 그림이 잘 맞아요.">
+              <div className="stillgrid">
+                {d.stills.map((id) => (
+                  <div className="tile grain" key={id}>
+                    <img src={imgUrl(id)} alt="" />
+                    <button onClick={() => set('stills', d.stills.filter((s) => s !== id))} aria-label="이 컷 빼기">
+                      <Close />
+                    </button>
+                  </div>
+                ))}
+                {d.stills.length < RULES.limits.stills && (
+                  <label className="drop">
+                    <Upload />
+                    <b>컷 올리기</b>
+                    <input type="file" accept={PICTURES} disabled={busy} aria-label="컷 그림 고르기" onChange={(e) => pick(e, 1440, (id) => set('stills', [...d.stills, id]))} />
+                  </label>
+                )}
+              </div>
+            </Card>
+
+            <Card title="첫 장면">
+              <Field label="장소">
+                <input value={d.place} maxLength={40} placeholder="예) 방송부 부실" onChange={(e) => set('place', e.target.value)} />
+              </Field>
+              <Field label="장면" count={[d.situation.length, RULES.limits.opening]} hint="들어갔을 때 보이는 것을 지문으로 적어요.">
+                <textarea
+                  className="serif"
+                  rows={7}
+                  value={d.situation}
+                  maxLength={RULES.limits.opening}
+                  placeholder="예) 오랜만에 문을 열고 들어왔다. 서하가 큐시트를 넘기고 있다."
+                  onChange={(e) => set('situation', e.target.value)}
+                />
+              </Field>
+            </Card>
+
+            <Card title="첫 대사">
               {d.casts.length > 1 && (
-                <Field label="누구와 시작하나">
-                  <select value={Math.min(d.room, d.casts.length - 1)} onChange={(e) => set('room', Number(e.target.value))}>
-                    {names.map((n, i) => (
-                      <option key={i} value={i}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
+                <Chips
+                  label="누구와 시작하나"
+                  value={Math.min(d.room, d.casts.length - 1)}
+                  options={names.map((n, i) => ({ value: i, label: n }))}
+                  onChange={(v) => set('room', v)}
+                />
+              )}
+              <Chips
+                label="누가 먼저 말하나"
+                value={d.speaker}
+                options={[
+                  { value: 'cast', label: '캐스트', desc: '캐스트가 첫 대사로 장면을 열어요.' },
+                  { value: 'persona', label: me, desc: '첫 장면만 보이고, 내가 먼저 말해요.' },
+                ]}
+                onChange={(v) => set('speaker', v)}
+              />
+              {d.speaker === 'cast' && (
+                <Field label="첫 대사" hint="비워 두면 장면에 맞춰 자동으로 써요.">
+                  <input value={d.firstLine} maxLength={200} placeholder="예) 어, 진짜 왔네." onChange={(e) => set('firstLine', e.target.value)} />
                 </Field>
               )}
-              <Field label="누가 먼저 말하나">
-                <select value={d.speaker} onChange={(e) => set('speaker', e.target.value as Draft['speaker'])}>
-                  <option value="cast">캐스트</option>
-                  <option value="persona">{me}</option>
-                </select>
-              </Field>
-            </div>
-            {d.speaker === 'cast' && (
-              <Field label="첫 대사" hint="비워 두면 대사 모델이 써.">
-                <input value={d.firstLine} maxLength={200} onChange={(e) => set('firstLine', e.target.value)} />
-              </Field>
-            )}
+            </Card>
           </>
         )}
 
         {step === 'release' && (
           <>
-            <p className="label">공개</p>
-            <p className="hint">지금은 만든 사람에게만 보여. 내 필름에 걸리고, 바로 들어가 살 수 있어.</p>
-            {!ready && <p className="hint">점이 찍힌 탭에 꼭 채워야 하는 칸이 남아 있어.</p>}
+            <p className="lead">{ready ? '개봉할 준비가 됐어요.' : '개봉 전에 채워야 할 항목이 있어요.'}</p>
+            <p className="sub">개봉한 필름은 만든 사람에게만 보여요.</p>
+
+            <Card title="필수 항목">
+              <ul className="checklist">
+                {todo.map((t) => (
+                  <li key={t.label}>
+                    <button className={t.done ? 'done' : ''} onClick={() => move(t.step)}>
+                      <span className="mark">✓</span>
+                      {t.label}
+                      {!t.done && <span className="go">채우기</span>}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </Card>
           </>
         )}
 
-        {err && <p className="warn" style={{ marginTop: 22 }}>{err}</p>}
+        {err && (
+          <p className="warn" style={{ marginTop: 20 }}>
+            {err}
+          </p>
+        )}
 
         <div className="next">
           {next ? (
-            <button className="btn more" onClick={() => setStep(next[0])}>
-              다음 · {next[1]}
+            <button className="btn more" onClick={() => move(next.id)}>
+              다음 · {next.label}
               <Arrow />
             </button>
           ) : (
             <>
-              <button className="btn play" disabled={busy || !ready} onClick={() => release(true)}>
+              <button className="btn play" disabled={busy} onClick={() => release(true)}>
                 개봉하고 바로 들어가기
               </button>
-              <button className="btn more" disabled={busy || !ready} onClick={() => release(false)}>
+              <button className="btn more" disabled={busy} onClick={() => release(false)}>
                 개봉만 하기
               </button>
               <button className="textbtn" disabled={busy} onClick={() => setD(blank())}>
-                칸 비우기
+                모두 지우기
               </button>
             </>
           )}
         </div>
       </section>
 
-      {toast && <p className="toast" role="status">{toast}</p>}
+      {toast && (
+        <p className="toast" role="status">
+          {toast}
+        </p>
+      )}
     </main>
+  );
+}
+
+/** 관련된 칸을 묶은 한 장 */
+function Card({ title, count, sub, children }: { title: string; count?: string; sub?: string; children: ReactNode }) {
+  return (
+    <section className="card">
+      <h3>
+        {title}
+        {count && <span className="count">{count}</span>}
+      </h3>
+      {sub && <p className="sub">{sub}</p>}
+      {children}
+    </section>
   );
 }
 
@@ -541,7 +657,7 @@ function Field({
   const id = useId();
   return (
     <div className="field">
-      <label className="label" htmlFor={id}>
+      <label htmlFor={id}>
         {label}
         {must && <em>*</em>}
         {count && (
@@ -557,5 +673,48 @@ function Field({
         </p>
       )}
     </div>
+  );
+}
+
+/** 눌러서 고르는 단추. 고른 것에 설명이 있으면 아래에 한 줄로 알려 준다 */
+function Chips<T extends string | number>({
+  label,
+  value,
+  options,
+  onChange,
+  week,
+}: {
+  label: string;
+  value: T;
+  options: { value: T; label: string; desc?: string }[];
+  onChange: (v: T) => void;
+  week?: boolean;
+}) {
+  const picked = options.find((o) => o.value === value);
+  return (
+    <div className="field" role="group" aria-label={label}>
+      <label>{label}</label>
+      <div className={week ? 'chips week' : 'chips'}>
+        {options.map((o) => (
+          <button key={String(o.value)} className={o.value === value ? 'chip on' : 'chip'} aria-pressed={o.value === value} onClick={() => onChange(o.value)}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+      {picked?.desc && <p className="picked">{picked.desc}</p>}
+    </div>
+  );
+}
+
+/** 켜고 끄는 것. 무엇이 켜지는지 한 줄로 알려 준다 */
+function Toggle({ checked, onChange, label, desc }: { checked: boolean; onChange: (v: boolean) => void; label: string; desc: string }) {
+  return (
+    <button className="toggle" role="switch" aria-checked={checked} onClick={() => onChange(!checked)}>
+      <span>
+        <strong>{label}</strong>
+        <small>{desc}</small>
+      </span>
+      <span className="switch" />
+    </button>
   );
 }

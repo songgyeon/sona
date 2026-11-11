@@ -16,12 +16,12 @@ const KINDS: Record<string, (b: Uint8Array) => boolean> = {
 export async function saveImage(ctx: Ctx, mime: string, body: ArrayBuffer | Uint8Array): Promise<{ id: string }> {
   const kind = (mime.split(';')[0] ?? '').trim().toLowerCase();
   const looksRight = KINDS[kind];
-  if (!looksRight) throw new Fail(415, 'image_kind', 'JPG, PNG, WEBP 그림만 올릴 수 있어.');
+  if (!looksRight) throw new Fail(415, 'image_kind', 'JPG, PNG, WEBP 그림만 올릴 수 있어요.');
   const bytes = body instanceof Uint8Array ? body : new Uint8Array(body);
-  if (bytes.length === 0) throw new Fail(400, 'image_empty', '그림이 비었어.');
-  if (bytes.length > RULES.limits.image) throw new Fail(413, 'image_big', '그림이 너무 커.');
+  if (bytes.length === 0) throw new Fail(400, 'image_empty', '그림 파일이 비어 있어요.');
+  if (bytes.length > RULES.limits.image) throw new Fail(413, 'image_big', '그림이 너무 커요.');
   // 이름표만 그림이고 속은 다른 것을 받지 않는다
-  if (!looksRight(bytes)) throw new Fail(400, 'image_broken', '그림 파일이 아니야.');
+  if (!looksRight(bytes)) throw new Fail(400, 'image_broken', '그림 파일이 아니에요.');
 
   const id = newId();
   await ctx.db.run(

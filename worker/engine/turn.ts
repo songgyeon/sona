@@ -13,11 +13,11 @@ import { answer } from './talk';
 
 /** 필름에 들어간다. 같은 playId로 두 번 불러도 삶은 하나다 */
 export async function enter(ctx: Ctx, filmId: string, playId: unknown): Promise<PlayView> {
-  if (!isUuid(playId)) throw new Fail(400, 'bad_play_id', '입장 표가 맞지 않아.');
+  if (!isUuid(playId)) throw new Fail(400, 'bad_play_id', '요청이 올바르지 않아요.');
 
   const existing = await ctx.db.first<{ owner: string }>('SELECT owner FROM plays WHERE id = ?', playId);
   if (existing) {
-    if (existing.owner !== ctx.visitor) throw new Fail(404, 'play_missing', '그 플레이를 못 찾았어.');
+    if (existing.owner !== ctx.visitor) throw new Fail(404, 'play_missing', '살고 있던 필름을 찾을 수 없어요.');
     return viewOf(ctx, playId);
   }
 
@@ -105,7 +105,7 @@ export interface SayInput {
 
 /** 유저의 한 마디. 전송 1건 = 턴 1개 = 정해진 작중 시간 */
 export async function say(ctx: Ctx, playId: string, input: SayInput): Promise<PlayView> {
-  if (!isUuid(input.requestId)) throw new Fail(400, 'bad_request_id', '전송 표가 맞지 않아.');
+  if (!isUuid(input.requestId)) throw new Fail(400, 'bad_request_id', '요청이 올바르지 않아요.');
   const play = await loadPlay(ctx, playId);
 
   // 같은 전송이 또 들어왔다 — 이미 한 일을 다시 하지 않는다
@@ -116,19 +116,19 @@ export async function say(ctx: Ctx, playId: string, input: SayInput): Promise<Pl
   );
   if (dup) return viewOf(ctx, playId);
 
-  if (play.ended) throw new Fail(409, 'ended', '이 필름에서의 첫 하루가 끝났어.');
+  if (play.ended) throw new Fail(409, 'ended', '이 필름의 첫 하루가 끝났어요.');
 
   const last = await lastTurn(ctx.db, playId);
   if (last && last.status !== 'done') {
-    throw new Fail(409, 'stuck', '앞의 말에 답을 아직 못 받았어. 다시 받기를 눌러 줘.');
+    throw new Fail(409, 'stuck', '앞의 대사를 아직 받지 못했어요. 다시 받기를 눌러 주세요.');
   }
 
   const cast = play.film.casts.find((c) => c.key === input.room);
-  if (!cast) throw new Fail(400, 'bad_room', '그 방을 못 찾았어.');
+  if (!cast) throw new Fail(400, 'bad_room', '인물을 찾을 수 없어요.');
 
   const text = typeof input.text === 'string' ? input.text.trim() : '';
-  if (text.length === 0) throw new Fail(400, 'empty_say', '보낼 말이 비었어.');
-  if (text.length > RULES.limits.say) throw new Fail(400, 'long_say', `한 번에 ${RULES.limits.say}자까지 보낼 수 있어.`);
+  if (text.length === 0) throw new Fail(400, 'empty_say', '보낼 말을 입력해 주세요.');
+  if (text.length > RULES.limits.say) throw new Fail(400, 'long_say', `한 번에 ${RULES.limits.say}자까지 보낼 수 있어요.`);
 
   const before = play.elapsed;
   const after = before + RULES.minutesPerSend;
@@ -174,7 +174,7 @@ export async function say(ctx: Ctx, playId: string, input: SayInput): Promise<Pl
         input.requestId,
       );
       if (again) return viewOf(ctx, playId);
-      throw new Fail(409, 'busy', '앞의 말을 아직 처리하고 있어. 잠깐 뒤에 다시 보내 줘.');
+      throw new Fail(409, 'busy', '앞의 말을 처리하고 있어요. 잠시 뒤에 다시 보내 주세요.');
     }
     throw e;
   }

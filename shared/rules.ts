@@ -52,6 +52,8 @@ export const RULES = {
     setting: 600,
     short: 80,
     sample: 80,
+    /** 첫 장면의 지문 */
+    opening: 1500,
     casts: 4,
     /** 그림 한 장의 크기(바이트). 화면이 줄여서 보낸다 */
     image: 700_000,

@@ -31,7 +31,7 @@ function useFilms(): [FilmCard[] | null, string] {
     api
       .films()
       .then(setFilms)
-      .catch((e) => setErr(e instanceof ApiFail ? e.message : '목록을 못 불러왔어.'));
+      .catch((e) => setErr(e instanceof ApiFail ? e.message : '목록을 불러오지 못했어요.'));
   }, []);
   return [films, err];
 }
@@ -54,7 +54,7 @@ export function Find({ go }: { go: (to: string) => void }) {
       {err && <p className="warn sect">{err}</p>}
       {films !== null && found.length === 0 && (
         <div className="empty">
-          <p>{w ? `「${w}」로 찾은 필름이 없어.` : '아직 걸린 필름이 없어.'}</p>
+          <p>{w ? `「${w}」에 맞는 필름이 없어요.` : '아직 필름이 없어요.'}</p>
         </div>
       )}
       <ul className="rows">
@@ -78,7 +78,7 @@ export function Living({ go }: { go: (to: string) => void }) {
     api
       .plays()
       .then(setPlays)
-      .catch((e) => setErr(e instanceof ApiFail ? e.message : '목록을 못 불러왔어.'));
+      .catch((e) => setErr(e instanceof ApiFail ? e.message : '목록을 불러오지 못했어요.'));
   }, []);
 
   const living = (plays ?? []).filter((p) => !p.ended);
@@ -90,7 +90,7 @@ export function Living({ go }: { go: (to: string) => void }) {
       {err && <p className="warn sect">{err}</p>}
       {plays !== null && living.length === 0 && (
         <div className="empty">
-          <p>살고 있는 필름이 없어. 필름을 골라 들어가면 여기서 이어 살 수 있어.</p>
+          <p>살고 있는 필름이 없어요.</p>
           <button className="btn more" onClick={() => go('/')}>
             필름 고르기
           </button>
@@ -134,7 +134,7 @@ export function Mine({ go }: { go: (to: string) => void }) {
       {err && <p className="warn sect">{err}</p>}
       {films !== null && mine.length === 0 && (
         <div className="empty">
-          <p>아직 만든 필름이 없어.</p>
+          <p>아직 만든 필름이 없어요.</p>
           <button className="btn play" onClick={() => go('/create')}>
             필름 만들기
           </button>

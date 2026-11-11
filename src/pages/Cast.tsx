@@ -21,13 +21,13 @@ export function Cast({ filmId, playId, castKey, go }: { filmId?: string; playId?
     const load = playId
       ? api.play(playId).then((v): Loaded => ({ film: v.film, elapsed: v.elapsed, posts: v.posts.filter((p) => p.cast === castKey) }))
       : api.film(filmId!).then((d): Loaded => ({ film: d.film, elapsed: null, posts: [] }));
-    load.then(setData).catch((e) => setErr(e instanceof ApiFail ? e.message : '프로필을 못 불러왔어.'));
+    load.then(setData).catch((e) => setErr(e instanceof ApiFail ? e.message : '프로필을 불러오지 못했어요.'));
   }, [filmId, playId, castKey]);
 
-  if (!data) return <p className="center">{err || '불러오는 중…'}</p>;
+  if (!data) return <p className="center">{err || '불러오는 중'}</p>;
   const { film } = data;
   const cast = film.casts.find((c) => c.key === castKey);
-  if (!cast) return <p className="center">그 사람은 이 필름에 없어.</p>;
+  if (!cast) return <p className="center">이 필름에 없는 인물이에요.</p>;
 
   const cover = (film.stills ?? [])[0] ?? film.poster ?? '';
   const clock = { startDow: film.startDow, startMin: film.startMin, elapsed: data.elapsed ?? 0 };
@@ -63,7 +63,7 @@ export function Cast({ filmId, playId, castKey, go }: { filmId?: string; playId?
           <h2>피드</h2>
           {posts.length === 0 && (
             <p className="note">
-              {playId ? '아직 올라온 글이 없어. 시간을 건너뛰고 돌아오면 그 사이에 올라온 글이 여기 보여.' : '필름에 들어가면 이 사람의 하루가 여기 남아.'}
+              {playId ? '아직 올라온 글이 없어요.' : '필름에 들어가면 이 인물의 하루가 여기에 남아요.'}
             </p>
           )}
           {posts.map((p) => (

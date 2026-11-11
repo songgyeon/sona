@@ -19,7 +19,7 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
         setData(d);
         setLiving(plays.find((p) => p.filmId === filmId && !p.ended) ?? null);
       })
-      .catch((e) => setErr(e instanceof ApiFail ? e.message : '필름을 못 불러왔어.'));
+      .catch((e) => setErr(e instanceof ApiFail ? e.message : '필름을 불러오지 못했어요.'));
   }, [filmId]);
 
   const enter = async () => {
@@ -29,12 +29,12 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
       const view = await api.enter(filmId, newId());
       go(`/play/${view.id}`);
     } catch (e) {
-      setErr(e instanceof ApiFail ? e.message : '들어가지 못했어.');
+      setErr(e instanceof ApiFail ? e.message : '필름에 들어가지 못했어요.');
       setBusy(false);
     }
   };
 
-  if (!data) return <p className="center">{err || '필름을 거는 중…'}</p>;
+  if (!data) return <p className="center">{err || '불러오는 중'}</p>;
   const { film, card } = data;
   const fs = film.firstScene;
   const stills = film.stills ?? [];
@@ -64,13 +64,13 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
                 이어 살기
               </button>
               <button className="textbtn" disabled={busy} onClick={enter}>
-                {busy ? '들어가는 중…' : '처음부터 다시 들어가기'}
+                {busy ? '들어가는 중' : '처음부터 다시 들어가기'}
               </button>
             </>
           ) : (
             <button className="btn play wide" disabled={busy} onClick={enter}>
               <PlayFill />
-              {busy ? '들어가는 중…' : '필름에 들어가기'}
+              {busy ? '들어가는 중' : '필름에 들어가기'}
             </button>
           )}
           {err && <p className="warn">{err}</p>}

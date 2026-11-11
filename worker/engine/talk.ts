@@ -118,7 +118,7 @@ export const errText = (e: unknown) => String((e as Error)?.message ?? e).slice(
 export async function answer(ctx: Ctx, play: Play, turn: TurnView): Promise<void> {
   const film = play.film;
   const cast = film.casts.find((c) => c.key === turn.room);
-  if (!cast) throw new Fail(500, 'room_missing', '이 방의 인물을 못 찾았어.');
+  if (!cast) throw new Fail(500, 'room_missing', '이 장면의 인물을 찾을 수 없어요.');
 
   const all = await messagesOf(ctx.db, play.id, cast.key);
 
@@ -130,7 +130,7 @@ export async function answer(ctx: Ctx, play: Play, turn: TurnView): Promise<void
     user = FIRST_CUE;
   } else {
     const last = all[all.length - 1];
-    if (!last || last.speaker !== 'persona') throw new Fail(500, 'no_user_line', '답할 말을 못 찾았어.');
+    if (!last || last.speaker !== 'persona') throw new Fail(500, 'no_user_line', '답할 대사를 찾을 수 없어요.');
     purpose = 'reply';
     user = last.text;
     before = all.slice(0, -1);

@@ -20,7 +20,7 @@ export function Home({ go, fake, modelReady }: { go: (to: string) => void; fake:
       setFilms(f);
       setPlays(p);
     } catch (e) {
-      setErr(e instanceof ApiFail ? e.message : '목록을 못 불러왔어.');
+      setErr(e instanceof ApiFail ? e.message : '목록을 불러오지 못했어요.');
     }
   };
 
@@ -36,12 +36,12 @@ export function Home({ go, fake, modelReady }: { go: (to: string) => void; fake:
       await api.createFilm(DEV_FILM);
       await load();
     } catch (e) {
-      setErr(e instanceof ApiFail ? e.message : '필름을 못 넣었어.');
+      setErr(e instanceof ApiFail ? e.message : '필름을 넣지 못했어요.');
     }
     setBusy(false);
   };
 
-  if (films === null) return <p className="center">{err || '불을 끄는 중…'}</p>;
+  if (films === null) return <p className="center">{err || '불러오는 중'}</p>;
 
   const mine = films.filter((f) => f.mine);
   const others = films.filter((f) => !f.mine);
@@ -107,7 +107,7 @@ export function Home({ go, fake, modelReady }: { go: (to: string) => void; fake:
 
         {!now && !lead && (
           <div className="poster">
-            <p className="line1">아직 걸린 필름이 없어. 세계와 인물, 첫 장면을 쓰면 그 필름에 바로 들어갈 수 있어.</p>
+            <p className="line1">아직 필름이 없어요. 첫 필름을 만들어 보세요.</p>
             <div className="acts">
               <button className="btn play" onClick={() => go('/create')}>
                 첫 필름 만들기
@@ -137,14 +137,11 @@ export function Home({ go, fake, modelReady }: { go: (to: string) => void; fake:
           <section className="sect">
             {err && <p className="warn">{err}</p>}
             {!modelReady && (
-              <p className="note">
-                대사 모델의 열쇠가 아직 없어서 필름을 만들고 걸어 두는 데까지만 돼. Cloudflare에서 이 Worker의 변수와 시크릿에 OPENROUTER_API_KEY를 넣으면
-                대화가 돼.
-              </p>
+              <p className="note">대사 모델이 연결되지 않아 대화는 아직 할 수 없어요.</p>
             )}
             {fake && (
               <button className="textbtn" disabled={busy} onClick={addDevFilm}>
-                가짜 모델로 도는 중 · 임시 필름 넣기
+                시험용 모델 · 임시 필름 넣기
               </button>
             )}
           </section>

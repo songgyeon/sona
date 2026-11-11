@@ -40,7 +40,7 @@ function toPlay(r: PlayRow): Play {
 /** 내 플레이만 읽힌다 */
 export async function loadPlay(ctx: Ctx, id: string): Promise<Play> {
   const row = await ctx.db.first<PlayRow>('SELECT * FROM plays WHERE id = ? AND owner = ?', id, ctx.visitor);
-  if (!row) throw new Fail(404, 'play_missing', '그 플레이를 못 찾았어.');
+  if (!row) throw new Fail(404, 'play_missing', '살고 있던 필름을 찾을 수 없어요.');
   return toPlay(row);
 }
 

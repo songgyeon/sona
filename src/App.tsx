@@ -45,7 +45,7 @@ export function App() {
         return;
       }
       // 열쇠 문제가 아니다. 열쇠를 묻지 않고 다시 열어 보게 한다
-      setWhy(e instanceof ApiFail ? e.message : '서버와 말하지 못했어.');
+      setWhy(e instanceof ApiFail ? e.message : '서버에 연결하지 못했어요.');
       setGate('down');
     }
   };
@@ -55,7 +55,7 @@ export function App() {
     void check();
   }, []);
 
-  if (gate === 'checking') return <p className="center">불을 끄는 중…</p>;
+  if (gate === 'checking') return <p className="center">불러오는 중</p>;
   if (gate === 'locked') return <KeyGate why={why} onSubmit={check} />;
   if (gate === 'down')
     return (
@@ -63,7 +63,7 @@ export function App() {
         <h1>소나</h1>
         <p className="warn">{why}</p>
         <button className="btn more" onClick={() => void check()}>
-          다시 열기
+          다시 시도
         </button>
       </main>
     );

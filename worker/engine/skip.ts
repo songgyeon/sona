@@ -20,10 +20,10 @@ import { ask, bubbles, errText, eventsFor, logStmt, toLines } from './talk';
 export type SkipKind = 'short' | 'errand' | 'evening' | 'sleep';
 
 export async function skip(ctx: Ctx, playId: string, input: { kind: unknown; requestId: unknown }): Promise<PlayView> {
-  if (!isUuid(input.requestId)) throw new Fail(400, 'bad_request_id', '전송 표가 맞지 않아.');
+  if (!isUuid(input.requestId)) throw new Fail(400, 'bad_request_id', '요청이 올바르지 않아요.');
   const kind = input.kind;
   if (kind !== 'short' && kind !== 'errand' && kind !== 'evening' && kind !== 'sleep') {
-    throw new Fail(400, 'bad_skip', '그렇게는 자리를 비울 수 없어.');
+    throw new Fail(400, 'bad_skip', '그렇게는 시간을 넘길 수 없어요.');
   }
   const play = await loadPlay(ctx, playId);
 
@@ -33,10 +33,10 @@ export async function skip(ctx: Ctx, playId: string, input: { kind: unknown; req
     input.requestId,
   );
   if (dup) return viewOf(ctx, playId);
-  if (play.ended) throw new Fail(409, 'ended', '이 필름에서의 첫 하루가 끝났어.');
+  if (play.ended) throw new Fail(409, 'ended', '이 필름의 첫 하루가 끝났어요.');
   const last = await lastTurn(ctx.db, playId);
   if (last && last.status !== 'done') {
-    throw new Fail(409, 'stuck', '앞의 말에 답을 아직 못 받았어. 다시 받기를 눌러 줘.');
+    throw new Fail(409, 'stuck', '앞의 대사를 아직 받지 못했어요. 다시 받기를 눌러 주세요.');
   }
 
   const from = play.elapsed;

@@ -53,7 +53,7 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
         const asked = new URLSearchParams(window.location.search).get('with');
         setRoom(asked && v.film.casts.some((c) => c.key === asked) ? asked : v.film.firstScene.room);
       })
-      .catch((e) => setErr(e instanceof ApiFail ? e.message : '필름을 못 불러왔어.'));
+      .catch((e) => setErr(e instanceof ApiFail ? e.message : '필름을 불러오지 못했어요.'));
   }, [playId]);
 
   useEffect(() => {
@@ -75,7 +75,7 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
         setDraft(o.text);
         setView(await api.play(playId).catch(() => view));
       }
-      setErr(e instanceof ApiFail ? e.message : '보내지 못했어.');
+      setErr(e instanceof ApiFail ? e.message : '보내지 못했어요.');
     }
     setWaiting(false);
   };
@@ -94,7 +94,7 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
     try {
       setView(await api.retry(playId));
     } catch (e) {
-      setErr(e instanceof ApiFail ? e.message : '다시 받지 못했어.');
+      setErr(e instanceof ApiFail ? e.message : '다시 받지 못했어요.');
     }
     setWaiting(false);
   };
@@ -115,23 +115,20 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
       const from = [...new Set(next.messages.filter((m) => !seenMessages.has(m.id)).map((m) => m.room))];
       const names = from.map((key) => next.film.casts.find((c) => c.key === key)?.name ?? key);
       const posts = next.posts.length - seenPosts;
-      const bits = [
-        names.length > 0 ? `${names.join(', ')}에게서 연락이 와 있어` : '',
-        posts > 0 ? `피드에 새 글 ${posts}개` : '',
-      ].filter(Boolean);
-      setNotice(bits.length > 0 ? `${bits.join(' · ')}.` : '그 사이 온 연락은 없어.');
+      const bits = [names.length > 0 ? `${names.join(', ')}의 메시지` : '', posts > 0 ? `새 피드 ${posts}개` : ''].filter(Boolean);
+      setNotice(bits.length > 0 ? bits.join(' · ') : '그 사이 온 연락이 없어요.');
       if (from.length > 0 && !from.includes(room)) setRoom(from[0]!);
     } catch (e) {
       if (e instanceof ApiFail && e.status !== 0 && e.status < 500) {
         setAway(null);
         setView(await api.play(playId).catch(() => view));
       }
-      setErr(e instanceof ApiFail ? e.message : '시간을 넘기지 못했어.');
+      setErr(e instanceof ApiFail ? e.message : '시간을 넘기지 못했어요.');
     }
     setWaiting(false);
   };
 
-  if (!view) return <p className="center">{err || '필름에 들어가는 중…'}</p>;
+  if (!view) return <p className="center">{err || '필름에 들어가는 중'}</p>;
 
   const film = view.film;
   const clock = { startDow: film.startDow, startMin: film.startMin, elapsed: view.elapsed };
@@ -246,7 +243,7 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
 
         {stuckHere && !waiting && (
           <div className="stuck">
-            <p>{cast.name}의 대사를 못 받았어.</p>
+            <p>대사를 받지 못했어요.</p>
             <button className="btn more" onClick={retry}>
               다시 받기
             </button>
@@ -254,15 +251,15 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
         )}
         {view.stuck && !stuckHere && !waiting && (
           <div className="stuck">
-            <p>앞에서 멈춘 일이 있어.</p>
+            <p>끝나지 않은 장면이 있어요.</p>
             <button className="btn more" onClick={retry}>
-              마저 하기
+              이어서 하기
             </button>
           </div>
         )}
         {out && !waiting && (
           <div className="stuck">
-            <p>보내는 중에 끊겼어.</p>
+            <p>보내는 중에 연결이 끊겼어요.</p>
             <button className="btn more" onClick={() => deliver(out)}>
               다시 보내기
             </button>
@@ -270,15 +267,15 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
         )}
         {away && !waiting && (
           <div className="stuck">
-            <p>시간을 넘기는 중에 끊겼어.</p>
+            <p>시간을 넘기는 중에 연결이 끊겼어요.</p>
             <button className="btn more" onClick={() => leave(away)}>
-              다시 하기
+              다시 시도
             </button>
           </div>
         )}
 
         {notice && <p className="note">{notice}</p>}
-        {view.ended && <p className="cut">첫 하루가 끝났어</p>}
+        {view.ended && <p className="cut">첫 하루가 끝났어요</p>}
         <div ref={bottom} />
       </section>
 
@@ -303,7 +300,7 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
             value={draft}
             maxLength={RULES.limits.say}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder={view.ended ? '첫 하루가 끝났어' : '말하기'}
+            placeholder={view.ended ? '첫 하루가 끝났어요' : '말하기'}
             disabled={view.ended || !!view.stuck || !!away}
             autoComplete="off"
           />

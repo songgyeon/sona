@@ -31,7 +31,7 @@ export async function checkKey(req: Request, accessKey: string | undefined): Pro
   if (!accessKey) return;
   const got = unwrap(req.headers.get('x-sona-key') ?? '');
   if (!got || !(await same(got, accessKey))) {
-    throw new Fail(401, 'bad_key', '열쇠가 맞지 않아.');
+    throw new Fail(401, 'bad_key', '열쇠가 맞지 않아요.');
   }
 }
 
@@ -41,7 +41,7 @@ export const isUuid = (s: unknown): s is string => typeof s === 'string' && UUID
 
 export function visitorOf(req: Request): string {
   const v = req.headers.get('x-sona-visitor') ?? '';
-  if (!isUuid(v)) throw new Fail(400, 'no_visitor', '방문자 표가 없어.');
+  if (!isUuid(v)) throw new Fail(400, 'no_visitor', '방문자 정보가 없어요. 새로 고친 뒤 다시 시도해 주세요.');
   return v;
 }
 
@@ -57,6 +57,6 @@ export async function spend(db: Db, now: number, n = 1): Promise<void> {
   );
   const row = await db.first<{ calls: number }>('SELECT calls FROM usage WHERE day = ? AND who = ?', day, 'all');
   if ((row?.calls ?? 0) > RULES.dailyCalls) {
-    throw new Fail(429, 'budget', '오늘 쓸 수 있는 몫을 다 썼어. 내일 다시 와 줘.');
+    throw new Fail(429, 'budget', '오늘 사용할 수 있는 횟수를 모두 썼어요. 내일 다시 이용해 주세요.');
   }
 }
