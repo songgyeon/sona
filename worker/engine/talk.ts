@@ -194,12 +194,29 @@ export function lastShapes(messages: MessageView[], count = 2): string[] {
   return shapes.slice(-count).map((s) => s.join(' → '));
 }
 
-/** 이번 대목은 앞의 모양과 다르게 쓰라고 이른다. 앞에 쓴 대목이 없으면 빈 글자 */
-export function shapeCue(messages: MessageView[]): string {
-  const shapes = [...new Set(lastShapes(messages))];
-  if (shapes.length === 0) return '';
-  return `(이번 대목의 모양: 바로 앞 대목들은 「${shapes.join('」, 「')}」 모양이었다. 이번에는 그와 다른 모양으로 쓴다. 대사로 시작해도 되고, 대사 한 줄이나 지문만으로 끝내도 된다.)`;
+/** 대목을 무엇으로 열고 무엇으로 닫는가. 네 가지다 */
+const RHYTHMS = [
+  { open: '지문', close: '대사', text: '지문으로 시작해서 대사로 끝낸다' },
+  { open: '대사', close: '지문', text: '대사로 시작해서 지문으로 끝낸다' },
+  { open: '지문', close: '지문', text: '지문으로 시작해서 지문으로 끝낸다. 대사는 그 사이에 둔다' },
+  { open: '대사', close: '대사', text: '대사로 시작해서 대사로 끝낸다. 지문은 그 사이에 둔다' },
+] as const;
+
+/** 이번 대목을 어떻게 열고 닫을지 고른다. 바로 앞 대목과 같은 것은 고르지 않는다.
+    「다르게 써라」는 말만으로는 모델이 한 가지 모양으로 굳어서, 그때그때 하나를 짚어 준다.
+    고르는 것은 열고 닫는 차례뿐이다 — 누가 나오고 무엇을 말할지는 모델이 정한다.
+    같은 턴이면 늘 같은 것을 고른다. 다시 받아도 바뀌지 않는다 */
+export function rhythmFor(messages: MessageView[], seed: string): string {
+  const last = (lastShapes(messages, 1)[0] ?? '').split(' → ').filter(Boolean);
+  const pool = RHYTHMS.filter((r) => last.length === 0 || r.open !== last[0] || r.close !== last[last.length - 1]);
+  let n = 0;
+  for (const ch of seed) n = (n * 31 + ch.charCodeAt(0)) >>> 0;
+  return pool[n % pool.length]!.text;
 }
+
+/** 이번 대목의 모양을 이르는 말. 유저가 쓴 것 바로 뒤에 붙인다 */
+export const shapeCue = (messages: MessageView[], seed: string): string =>
+  `(이번 대목의 모양: ${rhythmFor(messages, seed)}. 길이는 한 줄에서 다섯 줄 사이에서 그때그때 다르게 쓴다.)`;
 
 const FIRST_CUE = '(이야기가 지금 시작된다. 이 장면을 연다.)';
 /** 디렉터가 오프닝을 써 둔 필름: 그 뒤를 잇는다 */
@@ -231,7 +248,7 @@ export async function answer(ctx: Ctx, play: Play, turn: TurnView): Promise<void
     if (mine.length === 0) throw new Fail(500, 'no_user_line', '답할 대사를 찾을 수 없어요.');
     purpose = 'reply';
     before = all.filter((m) => m.turnId !== turn.id);
-    user = [toLines(play, mine).map(lineOf).join('\n'), shapeCue(before)].filter(Boolean).join('\n');
+    user = `${toLines(play, mine).map(lineOf).join('\n')}\n${shapeCue(before, turn.id)}`;
   }
 
   const layers: Layers = {

@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { createFilm, parseFilm } from '../../worker/engine/films';
 import { skip } from '../../worker/engine/skip';
 import { viewOf } from '../../worker/engine/store';
-import { lastShapes, parseScene } from '../../worker/engine/talk';
-import { enter, say } from '../../worker/engine/turn';
+import { lastShapes, parseScene, rhythmFor } from '../../worker/engine/talk';
+import { enter, retry, say } from '../../worker/engine/turn';
 import { Fail } from '../../worker/engine/ctx';
 import { FAKE_DEFAULTS } from '../../worker/model/fake';
 import type { ModelCall, Purpose } from '../../worker/model/index';
@@ -177,7 +177,7 @@ describe('본편: 내 지문', () => {
       ['persona', 'act', '책 몇 권을 들고 서가 앞에 선다.'],
       ['persona', 'chat', '이건 어디에 꽂아요?'],
     ]);
-    expect(calls('reply')[0]!.user).toBe('(수아의 지문) 책 몇 권을 들고 서가 앞에 선다.\n수아: 이건 어디에 꽂아요?');
+    expect(calls('reply')[0]!.user.split('\n(이번 대목의 모양')[0]).toBe('(수아의 지문) 책 몇 권을 들고 서가 앞에 선다.\n수아: 이건 어디에 꽂아요?');
     // 한 번 보낸 것은 한 턴이다. 시계도 한 번만 간다
     expect(v.elapsed).toBe(3);
     expect(new Set(v.messages.map((m) => m.turnId)).size).toBe(1);
@@ -187,7 +187,7 @@ describe('본편: 내 지문', () => {
     const { send, calls } = await setup();
     const v = await send('', '말없이 문을 열고 나간다.');
     expect(v.messages[0]).toMatchObject({ speaker: 'persona', kind: 'act', text: '말없이 문을 열고 나간다.' });
-    expect(calls('reply')[0]!.user).toBe('(수아의 지문) 말없이 문을 열고 나간다.');
+    expect(calls('reply')[0]!.user.split('\n(이번 대목의 모양')[0]).toBe('(수아의 지문) 말없이 문을 열고 나간다.');
     await send('다녀왔어요.');
     expect(calls('reply')[1]!.layers.scene).toContain('[지금까지의 장면]\n(수아의 지문) 말없이 문을 열고 나간다.');
   });
@@ -234,28 +234,40 @@ describe('본편: 누가 무엇을 아는가', () => {
 });
 
 describe('본편: 대목의 모양', () => {
-  it('앞 대목들의 모양을 알려 주고, 이번에는 다르게 쓰라고 이른다', async () => {
-    const { send, calls } = await setup(FILM, {
-      reply: (call) => (call.user.includes('둘째') ? '한서: "네."\n한서: "그렇죠."\n한서가 웃는다.' : '한서가 고개를 든다.\n한서: "응, 듣고 있어."'),
-    });
-    await send('첫째 말.');
-    // 처음에는 앞에 쓴 대목이 없다
-    expect(calls('reply')[0]!.user).toBe('수아: 첫째 말.');
+  const line = (turnId: string, speaker: string, kind: 'chat' | 'ping' | 'act' = 'chat') => ({ id: uid(), room: 'scene', speaker, text: '', at: 0, kind, turnId });
 
-    await send('둘째 말.');
-    expect(calls('reply')[1]!.user).toBe(
-      '수아: 둘째 말.\n(이번 대목의 모양: 바로 앞 대목들은 「지문 → 대사」 모양이었다. 이번에는 그와 다른 모양으로 쓴다. 대사로 시작해도 되고, 대사 한 줄이나 지문만으로 끝내도 된다.)',
-    );
-
-    // 잇달아 나온 대사는 한 덩이로 친다. 바로 앞 두 대목을 알려 준다
-    await send('셋째 말.');
-    expect(calls('reply')[2]!.user).toContain('바로 앞 대목들은 「지문 → 대사」, 「대사 → 지문」 모양이었다.');
+  it('작가가 쓴 대목의 모양을 센다. 유저가 쓴 것과 폰으로 온 메시지는 치지 않는다', () => {
+    expect(lastShapes([line('t1', 'persona', 'act'), line('t1', 'persona'), line('t1', 'tell'), line('t1', 'c1'), line('t2', 'c1', 'ping'), line('t3', 'persona'), line('t3', 'c1'), line('t3', 'c2')])).toEqual(['지문 → 대사', '대사']);
+    expect(lastShapes([line('t1', 'persona')])).toEqual([]);
   });
 
-  it('유저가 쓴 것과 폰으로 온 메시지는 모양으로 치지 않는다', () => {
-    const line = (turnId: string, speaker: string, kind: 'chat' | 'ping' | 'act' = 'chat') => ({ id: uid(), room: 'scene', speaker, text: '', at: 0, kind, turnId });
-    expect(lastShapes([line('t1', 'persona', 'act'), line('t1', 'persona'), line('t1', 'tell'), line('t1', 'c1'), line('t2', 'c1', 'ping'), line('t3', 'persona'), line('t3', 'c1')])).toEqual(['지문 → 대사', '대사']);
-    expect(lastShapes([line('t1', 'persona')])).toEqual([]);
+  it('이번 대목을 어떻게 열고 닫을지 짚어 준다. 바로 앞 대목과 같은 것은 고르지 않는다', () => {
+    const tellSay = [line('t1', 'tell'), line('t1', 'c1')];
+    const sayTell = [line('t1', 'c1'), line('t1', 'tell')];
+    const seeds = Array.from({ length: 40 }, (_, i) => `turn-${i}`);
+    const picked = (before: ReturnType<typeof line>[]) => new Set(seeds.map((seed) => rhythmFor(before, seed)));
+    // 앞에 쓴 대목이 없으면 넷 가운데 하나
+    expect(picked([]).size).toBe(4);
+    // 앞 대목이 「지문 … 대사」였으면 그것만 빼고 고른다
+    expect(picked(tellSay)).not.toContain('지문으로 시작해서 대사로 끝낸다');
+    expect(picked(tellSay).size).toBe(3);
+    expect(picked(sayTell)).not.toContain('대사로 시작해서 지문으로 끝낸다');
+    // 같은 턴이면 늘 같은 것을 고른다
+    expect(rhythmFor(tellSay, 'turn-7')).toBe(rhythmFor(tellSay, 'turn-7'));
+  });
+
+  it('유저가 쓴 것 바로 뒤에 붙여 건넨다. 다시 받아도 같은 말이다', async () => {
+    let n = 0;
+    const { ctx, playId, send, calls } = await setup(FILM, { reply: () => (n++ === 0 ? '' : '한서가 고개를 든다.\n한서: "응, 듣고 있어."') });
+    await send('첫째 말.');
+    const first = calls('reply')[0]!.user;
+    expect(first).toMatch(/^수아: 첫째 말\.\n\(이번 대목의 모양: (지문으로|대사로) 시작해서 (지문으로|대사로) 끝낸다.*\. 길이는 한 줄에서 다섯 줄 사이에서 그때그때 다르게 쓴다\.\)$/);
+    await retry(ctx, playId);
+    expect(calls('reply')[1]!.user).toBe(first);
+
+    // 앞 대목이 「지문 → 대사」였으니 이번에는 그렇게 이르지 않는다
+    await send('둘째 말.');
+    expect(calls('reply')[2]!.user).not.toContain('지문으로 시작해서 대사로 끝낸다.');
   });
 });
 
