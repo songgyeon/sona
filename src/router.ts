@@ -11,9 +11,10 @@ export function useRoute(): [string, (to: string) => void] {
   }, []);
 
   const go = (to: string) => {
-    if (to === window.location.pathname) return;
+    if (to === window.location.pathname + window.location.search) return;
     window.history.pushState(null, '', to);
-    setPath(to);
+    // 길을 가르는 데는 물음표 앞까지만 쓴다. 뒤는 그 화면이 직접 읽는다
+    setPath(window.location.pathname);
     window.scrollTo(0, 0);
   };
 

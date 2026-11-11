@@ -1,13 +1,12 @@
-import { type CSSProperties, type FormEvent, Fragment, useEffect, useRef, useState } from 'react';
+import { type FormEvent, Fragment, useEffect, useRef, useState } from 'react';
 import { formatWorld } from '../../shared/clock';
 import { RULES } from '../../shared/rules';
 import type { MessageView, PlayView } from '../../shared/types';
-import { ApiFail, api, newId } from '../api';
-import { hueOf } from '../poster';
-import { Feed } from './Feed';
+import { ApiFail, api, imgUrl, newId } from '../api';
+import { Arrow, Back, SkipFill } from '../icons';
+import { Face } from '../poster';
 
 type SkipKind = 'short' | 'errand' | 'sleep';
-type Tab = 'chat' | 'feed';
 
 interface Outgoing {
   room: string;
@@ -15,28 +14,28 @@ interface Outgoing {
   requestId: string;
 }
 
-const SKIPS: { kind: SkipKind; label: string; hint: string }[] = [
-  { kind: 'short', label: '잠깐 자리 비우기', hint: `${RULES.skip.short}분` },
-  { kind: 'errand', label: '볼일 보고 오기', hint: `${RULES.skip.errand / 60}시간` },
-  { kind: 'sleep', label: '자고 오기', hint: '다음 날 아침' },
+/** 시간을 넘기는 단추. 넘긴 사이에도 캐스트는 자기 하루를 보낸다 */
+const SKIPS: { kind: SkipKind; label: string }[] = [
+  { kind: 'short', label: `${RULES.skip.short}분 뒤로` },
+  { kind: 'errand', label: `${RULES.skip.errand / 60}시간 뒤로` },
+  { kind: 'sleep', label: '다음 날 아침으로' },
 ];
 
-/** 앞 말풍선과 이만큼 벌어지면 시각을 적는다(작중 분) */
-const DIVIDE_AFTER = 30;
+/** 앞 대사와 이만큼 벌어지면 그 사이에 시각을 적는다(작중 분) */
+const CUT_AFTER = 30;
 
+/** 재생. 위에 지금 장면이 걸리고, 아래로 장면이 흐른다 */
 export function Play({ playId, go }: { playId: string; go: (to: string) => void }) {
   const [view, setView] = useState<PlayView | null>(null);
   const [room, setRoom] = useState('');
   const [draft, setDraft] = useState('');
   /** 보냈는데 아직 답이 안 온 말. 끊기면 같은 전송 표로 다시 보낸다 — 서버는 한 번만 처리한다 */
   const [out, setOut] = useState<Outgoing | null>(null);
-  /** 자리를 비우는 중. 끊기면 같은 표로 다시 부른다 */
+  /** 시간을 넘기는 중. 끊기면 같은 표로 다시 부른다 */
   const [away, setAway] = useState<{ kind: SkipKind; requestId: string } | null>(null);
   const [waiting, setWaiting] = useState(false);
-  const [menu, setMenu] = useState(false);
   const [err, setErr] = useState('');
   const [notice, setNotice] = useState('');
-  const [tab, setTab] = useState<Tab>('chat');
   const bottom = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -44,14 +43,16 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
       .play(playId)
       .then((v) => {
         setView(v);
-        setRoom(v.film.firstScene.room);
+        // 프로필에서 「메시지」로 왔으면 그 사람과의 자리로 연다
+        const asked = new URLSearchParams(window.location.search).get('with');
+        setRoom(asked && v.film.casts.some((c) => c.key === asked) ? asked : v.film.firstScene.room);
       })
-      .catch((e) => setErr(e instanceof ApiFail ? e.message : '플레이를 못 불러왔어.'));
+      .catch((e) => setErr(e instanceof ApiFail ? e.message : '필름을 못 불러왔어.'));
   }, [playId]);
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: 'end' });
-  }, [view, out, room, waiting, tab]);
+  }, [view, out, room, waiting]);
 
   const deliver = async (o: Outgoing) => {
     setOut(o);
@@ -94,7 +95,6 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
 
   const leave = async (a: { kind: SkipKind; requestId: string }) => {
     if (!view) return;
-    setMenu(false);
     setAway(a);
     setWaiting(true);
     setErr('');
@@ -115,18 +115,17 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
       ].filter(Boolean);
       setNotice(bits.length > 0 ? `${bits.join(' · ')}.` : '그 사이 온 연락은 없어.');
       if (from.length > 0 && !from.includes(room)) setRoom(from[0]!);
-      setTab('chat');
     } catch (e) {
       if (e instanceof ApiFail && e.status !== 0 && e.status < 500) {
         setAway(null);
         setView(await api.play(playId).catch(() => view));
       }
-      setErr(e instanceof ApiFail ? e.message : '자리를 비우지 못했어.');
+      setErr(e instanceof ApiFail ? e.message : '시간을 넘기지 못했어.');
     }
     setWaiting(false);
   };
 
-  if (!view) return <p className="center muted">{err || '필름에 들어가는 중…'}</p>;
+  if (!view) return <p className="center">{err || '필름에 들어가는 중…'}</p>;
 
   const film = view.film;
   const clock = { startDow: film.startDow, startMin: film.startMin, elapsed: view.elapsed };
@@ -135,125 +134,163 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
   const pendingHere = out && out.room === cast.key ? out : null;
   const stuckHere = view.stuck && view.stuck.room === cast.key;
   const locked = waiting || view.ended || !!view.stuck || !!out || !!away;
-
-  const divides = (m: MessageView, i: number) => i === 0 || m.at - messages[i - 1]!.at >= DIVIDE_AFTER;
-
+  const cuts = (m: MessageView, i: number) => i > 0 && m.at - messages[i - 1]!.at >= CUT_AFTER;
   const fs = film.firstScene;
+  const still = (film.stills ?? [])[0] ?? film.poster ?? '';
+  /** 첫 장면 안에 있는 동안만 장소를 적는다. 그 뒤로는 어디인지 서버가 모른다 */
+  const place = view.elapsed < CUT_AFTER ? fs.place : '';
+  const profile = () => go(`/play/${playId}/cast/${cast.key}`);
 
   return (
-    <div className="stage" style={{ '--h': hueOf(film.title) } as CSSProperties}>
-    <main className="play">
-      <header className="top">
-        <button className="ghost" onClick={() => go('/')} aria-label="필름 목록으로">
-          ←
+    <main className="app playing">
+      <div className="band">
+        <button className="ico" onClick={() => go('/')} aria-label="필름에서 나가기">
+          <Back />
         </button>
-        <div className="where">
-          <strong>{film.title}</strong>
-          <span className="when">{formatWorld(clock)}</span>
+      </div>
+
+      {still && (
+        <div className="screen grain">
+          <img src={imgUrl(still)} alt="" />
         </div>
-        {film.opens.feed && (
-          <button className={tab === 'feed' ? 'pill on' : 'pill'} onClick={() => setTab(tab === 'feed' ? 'chat' : 'feed')}>
-            피드
-          </button>
+      )}
+      <p className="where">
+        {formatWorld(clock)}
+        {place && (
+          <>
+            <i>—</i>
+            {place}
+          </>
         )}
-      </header>
+      </p>
+      <div className="day" role="img" aria-label="첫 하루가 흐른 만큼">
+        <span style={{ width: `${Math.min(100, (view.elapsed / RULES.trialMinutes) * 100)}%` }} />
+      </div>
 
-      <nav className="rooms" aria-label="대화 상대" hidden={film.casts.length < 2}>
-        {film.casts.map((c) => (
-          <button
-            key={c.key}
-            className={tab === 'chat' && c.key === cast.key ? 'on' : ''}
-            onClick={() => {
-              setRoom(c.key);
-              setTab('chat');
-            }}
-          >
-            {c.name}
-          </button>
-        ))}
-      </nav>
+      {film.casts.length > 1 && (
+        <nav className="with" aria-label="지금 누구와 있나">
+          {film.casts.map((c) => (
+            <button key={c.key} className={c.key === cast.key ? 'on' : ''} onClick={() => setRoom(c.key)}>
+              <Face id={c.face ?? ''} name={c.name} />
+              {c.name}
+            </button>
+          ))}
+        </nav>
+      )}
 
-      {tab === 'feed' && <Feed view={view} />}
+      <section className="flow" aria-live="polite">
+        {cast.key === fs.room && fs.situation && <p className="tell">{fs.situation}</p>}
 
-      <section className="chat" aria-live="polite" hidden={tab !== 'chat'}>
-        {cast.key === fs.room && (fs.place || fs.situation) && (
-          <p className="scene">
-            {fs.place && <strong>{fs.place}</strong>}
-            {fs.situation}
-          </p>
-        )}
         {messages.map((m, i) => (
           <Fragment key={m.id}>
-            {divides(m, i) && <p className="divider">{formatWorld(clock, m.at)}</p>}
-            <p className={m.speaker === 'persona' ? 'bubble me' : 'bubble them'}>{m.text}</p>
+            {cuts(m, i) && <p className="cut">{formatWorld(clock, m.at)}</p>}
+            {m.speaker === 'persona' ? (
+              <div className="say me">
+                <div>
+                  <small>{film.persona.name}</small>
+                  <p>{m.text}</p>
+                </div>
+              </div>
+            ) : (
+              <button className="say" onClick={profile} aria-label={`${cast.name}의 프로필 보기`}>
+                <Face id={cast.face ?? ''} name={cast.name} />
+                <span>
+                  <small>{cast.name}</small>
+                  <p>{m.text}</p>
+                </span>
+              </button>
+            )}
           </Fragment>
         ))}
-        {pendingHere && <p className="bubble me sending">{pendingHere.text}</p>}
-        {waiting && !away && <p className="bubble them typing">…</p>}
-        {away && waiting && <p className="passing">시간이 흐르는 중…</p>}
+
+        {pendingHere && (
+          <div className="say me sending">
+            <div>
+              <small>{film.persona.name}</small>
+              <p>{pendingHere.text}</p>
+            </div>
+          </div>
+        )}
+        {waiting && !away && (
+          <div className="say">
+            <Face id={cast.face ?? ''} name={cast.name} />
+            <span>
+              <small>{cast.name}</small>
+              <p>…</p>
+            </span>
+          </div>
+        )}
+        {away && waiting && <p className="cut">시간이 흐르는 중</p>}
+
         {stuckHere && !waiting && (
           <div className="stuck">
-            <p>{cast.name}의 답을 못 받았어.</p>
-            <button onClick={retry}>다시 받기</button>
+            <p>{cast.name}의 대사를 못 받았어.</p>
+            <button className="btn more" onClick={retry}>
+              다시 받기
+            </button>
           </div>
         )}
         {view.stuck && !stuckHere && !waiting && (
           <div className="stuck">
             <p>앞에서 멈춘 일이 있어.</p>
-            <button onClick={retry}>마저 하기</button>
+            <button className="btn more" onClick={retry}>
+              마저 하기
+            </button>
           </div>
         )}
         {out && !waiting && (
           <div className="stuck">
             <p>보내는 중에 끊겼어.</p>
-            <button onClick={() => deliver(out)}>다시 보내기</button>
+            <button className="btn more" onClick={() => deliver(out)}>
+              다시 보내기
+            </button>
           </div>
         )}
         {away && !waiting && (
           <div className="stuck">
-            <p>자리를 비우는 중에 끊겼어.</p>
-            <button onClick={() => leave(away)}>다시 하기</button>
+            <p>시간을 넘기는 중에 끊겼어.</p>
+            <button className="btn more" onClick={() => leave(away)}>
+              다시 하기
+            </button>
           </div>
         )}
-        {notice && <p className="notice">{notice}</p>}
-        {view.ended && <p className="ended">이 필름에서의 첫 하루가 끝났어.</p>}
+
+        {notice && <p className="note">{notice}</p>}
+        {view.ended && <p className="cut">첫 하루가 끝났어</p>}
         <div ref={bottom} />
       </section>
 
-      <div className="foot">
+      <footer className="foot">
         {err && <p className="warn">{err}</p>}
-        {menu && (
-          <div className="away" role="menu">
+        {!view.ended && (
+          <div className="skips">
             {SKIPS.map((s) => (
-              <button key={s.kind} role="menuitem" disabled={locked} onClick={() => leave({ kind: s.kind, requestId: newId() })}>
-                <span>{s.label}</span>
-                <span className="muted">{s.hint}</span>
+              <button key={s.kind} className="skip" disabled={locked} onClick={() => leave({ kind: s.kind, requestId: newId() })}>
+                {s.label}
+                <SkipFill />
               </button>
             ))}
           </div>
         )}
-        <form className="say" onSubmit={submit} hidden={tab !== 'chat'}>
-          <button type="button" className="pill" disabled={locked} aria-expanded={menu} onClick={() => setMenu(!menu)}>
-            자리 비우기
-          </button>
+        <form className="box" onSubmit={submit}>
           <label htmlFor="say" className="sr">
-            {cast.name}에게 보낼 말
+            {cast.name}에게 할 말
           </label>
           <input
             id="say"
             value={draft}
             maxLength={RULES.limits.say}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder={view.ended ? '첫 하루가 끝났어' : `${cast.name}에게`}
+            placeholder={view.ended ? '첫 하루가 끝났어' : '말하기'}
             disabled={view.ended || !!view.stuck || !!away}
             autoComplete="off"
           />
-          <button type="submit" disabled={locked || !draft.trim()}>
-            보내기
+          <button type="submit" className="send" disabled={locked || !draft.trim()} aria-label="보내기">
+            <Arrow />
           </button>
         </form>
-      </div>
+        <div className="safe" />
+      </footer>
     </main>
-    </div>
   );
 }

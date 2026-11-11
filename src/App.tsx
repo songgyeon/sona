@@ -1,8 +1,10 @@
 import { type FormEvent, useEffect, useState } from 'react';
 import { ApiFail, api, getKey, setKey } from './api';
+import { Cast } from './pages/Cast';
 import { Create } from './pages/Create';
 import { Film } from './pages/Film';
 import { Home } from './pages/Home';
+import { Find, Living, Mine } from './pages/Lists';
 import { Play } from './pages/Play';
 import { useRoute } from './router';
 
@@ -18,6 +20,8 @@ function takeKeyFromUrl(): void {
   url.searchParams.delete('k');
   window.history.replaceState(null, '', url.pathname + url.search);
 }
+
+const ID = '([0-9a-f-]{36})';
 
 export function App() {
   const [path, go] = useRoute();
@@ -51,22 +55,28 @@ export function App() {
     void check();
   }, []);
 
-  if (gate === 'checking') return <p className="center muted">여는 중…</p>;
+  if (gate === 'checking') return <p className="center">불을 끄는 중…</p>;
   if (gate === 'locked') return <KeyGate why={why} onSubmit={check} />;
   if (gate === 'down')
     return (
       <main className="gate">
         <h1>소나</h1>
         <p className="warn">{why}</p>
-        <button onClick={() => void check()}>다시 열기</button>
+        <button className="btn more" onClick={() => void check()}>
+          다시 열기
+        </button>
       </main>
     );
 
-  const play = /^\/play\/([0-9a-f-]{36})$/.exec(path);
-  if (play) return <Play playId={play[1]!} go={go} />;
-  const film = /^\/film\/([0-9a-f-]{36})$/.exec(path);
-  if (film) return <Film filmId={film[1]!} go={go} />;
+  let m: RegExpExecArray | null;
+  if ((m = new RegExp(`^/play/${ID}/cast/(c[1-9])$`).exec(path))) return <Cast playId={m[1]!} castKey={m[2]!} go={go} />;
+  if ((m = new RegExp(`^/play/${ID}$`).exec(path))) return <Play playId={m[1]!} go={go} />;
+  if ((m = new RegExp(`^/film/${ID}/cast/(c[1-9])$`).exec(path))) return <Cast filmId={m[1]!} castKey={m[2]!} go={go} />;
+  if ((m = new RegExp(`^/film/${ID}$`).exec(path))) return <Film filmId={m[1]!} go={go} />;
   if (path === '/create') return <Create go={go} />;
+  if (path === '/find') return <Find go={go} />;
+  if (path === '/living') return <Living go={go} />;
+  if (path === '/mine') return <Mine go={go} />;
   return <Home go={go} fake={fake} modelReady={modelReady} />;
 }
 
@@ -81,18 +91,12 @@ function KeyGate({ why, onSubmit }: { why: string; onSubmit: () => void }) {
   return (
     <main className="gate">
       <h1>소나</h1>
-      <p className="muted">필름 한 편을 골라 그 안의 인물로 들어가 산다.</p>
       <form onSubmit={submit}>
         <label htmlFor="key">열쇠</label>
-        <input
-          id="key"
-          type="password"
-          autoComplete="off"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="받은 열쇠를 넣어 줘"
-        />
-        <button type="submit">열기</button>
+        <input id="key" type="password" autoComplete="off" value={value} onChange={(e) => setValue(e.target.value)} placeholder="받은 열쇠" />
+        <button type="submit" className="btn play">
+          열기
+        </button>
       </form>
       {why && <p className="warn">{why}</p>}
     </main>

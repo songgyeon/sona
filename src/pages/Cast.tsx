@@ -1,0 +1,79 @@
+import { useEffect, useState } from 'react';
+import { formatWorld } from '../../shared/clock';
+import type { Film, PostView } from '../../shared/types';
+import { ApiFail, api, imgUrl } from '../api';
+import { Back, Bubble } from '../icons';
+import { Face } from '../poster';
+
+interface Loaded {
+  film: Film;
+  /** 살고 있는 삶에서 들어왔을 때만 있다 */
+  elapsed: number | null;
+  posts: PostView[];
+}
+
+/** 캐스트의 프로필. 피드는 여기 있다 — 이 사람이 자기 하루에 남긴 것 */
+export function Cast({ filmId, playId, castKey, go }: { filmId?: string; playId?: string; castKey: string; go: (to: string) => void }) {
+  const [data, setData] = useState<Loaded | null>(null);
+  const [err, setErr] = useState('');
+
+  useEffect(() => {
+    const load = playId
+      ? api.play(playId).then((v): Loaded => ({ film: v.film, elapsed: v.elapsed, posts: v.posts.filter((p) => p.cast === castKey) }))
+      : api.film(filmId!).then((d): Loaded => ({ film: d.film, elapsed: null, posts: [] }));
+    load.then(setData).catch((e) => setErr(e instanceof ApiFail ? e.message : '프로필을 못 불러왔어.'));
+  }, [filmId, playId, castKey]);
+
+  if (!data) return <p className="center">{err || '불러오는 중…'}</p>;
+  const { film } = data;
+  const cast = film.casts.find((c) => c.key === castKey);
+  if (!cast) return <p className="center">그 사람은 이 필름에 없어.</p>;
+
+  const cover = (film.stills ?? [])[0] ?? film.poster ?? '';
+  const clock = { startDow: film.startDow, startMin: film.startMin, elapsed: data.elapsed ?? 0 };
+  const posts = [...data.posts].reverse();
+  const back = playId ? `/play/${playId}` : `/film/${filmId}`;
+
+  return (
+    <main className="app">
+      <div className="top">
+        <button className="ico" onClick={() => go(back)} aria-label="돌아가기">
+          <Back />
+        </button>
+      </div>
+
+      <div className="cover grain">{cover && <img src={imgUrl(cover)} alt="" />}</div>
+
+      <section className="who">
+        <Face id={cast.face ?? ''} name={cast.name} />
+        <h1 className="title">{cast.name}</h1>
+        {cast.role && <p className="role">{cast.role}</p>}
+        {playId && (
+          <div className="acts">
+            <button className="btn play" onClick={() => go(`/play/${playId}?with=${cast.key}`)}>
+              <Bubble />
+              메시지
+            </button>
+          </div>
+        )}
+      </section>
+
+      {film.opens.feed && (
+        <section className="feed">
+          <h2>피드</h2>
+          {posts.length === 0 && (
+            <p className="note">
+              {playId ? '아직 올라온 글이 없어. 시간을 건너뛰고 돌아오면 그 사이에 올라온 글이 여기 보여.' : '필름에 들어가면 이 사람의 하루가 여기 남아.'}
+            </p>
+          )}
+          {posts.map((p) => (
+            <article className="post" key={p.id}>
+              <time>{formatWorld(clock, p.at)}</time>
+              <p>{p.text}</p>
+            </article>
+          ))}
+        </section>
+      )}
+    </main>
+  );
+}

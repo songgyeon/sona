@@ -40,13 +40,21 @@ npm run typecheck
 ```
 shared/    types.ts · rules.ts(시간과 연락의 값) · clock.ts(작중 시간)
 worker/    index.ts(길) · guard.ts(열쇠, 하루 호출 수) · db.ts · schema.ts(표)
-           engine/  films(필름 읽고 쓰기) · turn(입장·한 마디·다시 받기) · talk(답 받기)
-                    skip(자리 비우기) · gap(그 사이의 하루) · ping(먼저 오는 연락) · store
+           engine/  films(필름 읽고 쓰기) · images(그림) · turn(입장·한 마디·다시 받기) · talk(답 받기)
+                    skip(시간 넘기기) · gap(그 사이의 하루) · ping(먼저 오는 연락) · store
            prompt/  system · cast · scene
            model/   index · openrouter · fake
-src/       pages/ Home · Create · Play · Feed
+src/       styles.css(생김새) · poster(포스터, 얼굴, 필름 한 줄) · tabs · icons
+           pages/   Home(홈) · Film(필름 정보) · Cast(캐스트 프로필과 피드) · Play(재생)
+                    Create(필름 만들기) · Lists(찾기, 이어 살기, 내 필름)
 test/      engine/*.test.ts
 ```
 
-세계 상태(작중 시각, 대화, 피드)는 서버에 있다. 화면은 열쇠와 방문자 표만 들고 다닌다.
+세계 상태(작중 시각, 대화, 피드)는 서버에 있다. 화면은 방문자 표만 들고 다닌다.
 시간을 미는 것은 코드뿐이다. 모델은 문장만 쓴다.
+
+## 생김새
+
+틀은 흑백만 쓴다. 색은 디렉터가 올린 그림에서만 나온다.
+홈의 맨 위는 영화 포스터 한 장이고, 필름과 컷은 필름 한 줄로 흐른다.
+재생 중에는 만드는 사람의 표기(씬 번호 같은 것)를 보이지 않는다.

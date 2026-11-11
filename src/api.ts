@@ -1,5 +1,6 @@
 /* 서버와 말하는 곳. 화면은 세계를 들고 다니지 않는다 — 열쇠와 방문자 표만 들고 다닌다. */
 
+import { RULES } from '../shared/rules';
 import type { ApiError, Film, FilmCard, PlayCard, PlayView } from '../shared/types';
 
 const KEY = 'sona.key';
@@ -70,6 +71,41 @@ async function call<T>(method: 'GET' | 'POST', path: string, body?: unknown): Pr
     throw new ApiFail(res.status, data?.error ?? 'http', data?.message ?? '서버가 답하지 않았어.');
   }
   return data as T;
+}
+
+/** 올려 둔 그림의 주소 */
+export const imgUrl = (id: string): string => `/api/img/${id}`;
+
+/** 그림을 줄여서 올린다. 긴 쪽이 max를 넘지 않게 하고, 정해진 크기에 들 때까지 질을 낮춘다 */
+export async function uploadImage(file: File, max = 1280): Promise<string> {
+  const bitmap = await createImageBitmap(file).catch(() => null);
+  if (!bitmap) throw new ApiFail(400, 'image_broken', '그림 파일을 읽지 못했어.');
+  const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+  let blob: Blob | null = null;
+  for (const quality of [0.86, 0.76, 0.66, 0.56]) {
+    blob = await new Promise<Blob | null>((done) => canvas.toBlob(done, 'image/jpeg', quality));
+    if (blob && blob.size <= RULES.limits.image) break;
+  }
+  if (!blob || blob.size > RULES.limits.image) throw new ApiFail(413, 'image_big', '그림이 너무 커.');
+
+  let res: Response;
+  try {
+    res = await fetch('/api/img', {
+      method: 'POST',
+      headers: { 'content-type': 'image/jpeg', 'x-sona-key': encodeURIComponent(getKey() ?? ''), 'x-sona-visitor': visitor() },
+      body: blob,
+    });
+  } catch {
+    throw new ApiFail(0, 'network', '연결이 끊겼어. 다시 해 줘.');
+  }
+  const data = (await res.json().catch(() => null)) as ({ id?: string } & Partial<ApiError>) | null;
+  if (!res.ok || !data?.id) throw new ApiFail(res.status, data?.error ?? 'http', data?.message ?? '그림을 올리지 못했어.');
+  return data.id;
 }
 
 export const api = {

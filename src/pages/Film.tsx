@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { formatMin, formatWorld } from '../../shared/clock';
+import { formatMin } from '../../shared/clock';
 import { DOW_NAMES } from '../../shared/rules';
 import type { Film as FilmData, FilmCard, PlayCard } from '../../shared/types';
-import { ApiFail, api, newId } from '../api';
-import { Poster } from '../poster';
+import { ApiFail, api, imgUrl, newId } from '../api';
+import { Back, Next, PlayFill } from '../icons';
+import { Face, StillStrip, titleClass } from '../poster';
 
-/** 필름 상세. 포스터, 한 줄 소개, 캐스트, 내가 맡을 인물을 보고 들어간다 */
+/** 필름 정보. 그 필름의 한 장면, 제목, 캐스트, 컷, 오프닝을 보고 들어간다 */
 export function Film({ filmId, go }: { filmId: string; go: (to: string) => void }) {
   const [data, setData] = useState<{ card: FilmCard; film: FilmData } | null>(null);
   const [living, setLiving] = useState<PlayCard | null>(null);
@@ -33,77 +34,93 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
     }
   };
 
-  if (!data) return <p className="center muted">{err || '필름을 여는 중…'}</p>;
+  if (!data) return <p className="center">{err || '필름을 거는 중…'}</p>;
   const { film, card } = data;
   const fs = film.firstScene;
+  const stills = film.stills ?? [];
+  const still = stills[0] ?? film.poster ?? '';
+  const when = [`${DOW_NAMES[film.startDow]} ${formatMin(film.startMin)}`, fs.place].filter(Boolean).join(' · ');
+  /** 살고 있는 삶이 있으면 그 삶의 프로필로 간다 — 피드가 거기 쌓인다 */
+  const castPath = (key: string) => (living ? `/play/${living.id}/cast/${key}` : `/film/${filmId}/cast/${key}`);
 
   return (
-    <main className="film">
-      <header className="top">
-        <button className="ghost" onClick={() => go('/')} aria-label="필름 목록으로">
-          ←
+    <main className="app info">
+      <div className="top">
+        <button className="ico" onClick={() => go('/')} aria-label="홈으로">
+          <Back />
         </button>
-        {card.mine && <span className="chip">내 필름</span>}
-      </header>
-
-      <div className="hero">
-        <Poster title={film.title} casts={film.casts.map((c) => c.name)} />
-
-        <div className="about">
-          <h1>{film.title}</h1>
-          {film.logline && <p className="logline">{film.logline}</p>}
-
-          <div className="me">
-            <small>이 필름에서 나는</small>
-            <strong>{film.persona.name}</strong>
-            {film.persona.line && <span>{film.persona.line}</span>}
-          </div>
-
-          <div className="enter">
-            {living ? (
-              <>
-                <button onClick={() => go(`/play/${living.id}`)}>이어 살기 · {formatWorld(living)}</button>
-                <button className="quiet" disabled={busy} onClick={enter}>
-                  {busy ? '들어가는 중…' : '처음부터 다시 들어가기'}
-                </button>
-              </>
-            ) : (
-              <button disabled={busy} onClick={enter}>
-                {busy ? '들어가는 중…' : '필름에 들어가기'}
-              </button>
-            )}
-          </div>
-          {err && <p className="warn">{err}</p>}
-
-          <section>
-            <h2>캐스트</h2>
-            <ul className="casts">
-              {film.casts.map((c) => (
-                <li key={c.key}>
-                  <strong>{c.name}</strong>
-                  {c.role && <span>{c.role}</span>}
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          {film.setting && (
-            <section>
-              <h2>배경</h2>
-              <p className="setting">{film.setting}</p>
-            </section>
-          )}
-
-          <section>
-            <h2>이야기가 시작되는 곳</h2>
-            <p>
-              {DOW_NAMES[film.startDow]} {formatMin(film.startMin)}
-              {fs.place ? ` · ${fs.place}` : ''}
-            </p>
-            {fs.situation && <p className="setting">{fs.situation}</p>}
-          </section>
-        </div>
       </div>
+
+      <div className={still ? 'still grain' : 'still none'}>{still && <img src={imgUrl(still)} alt="" />}</div>
+
+      <section className="head">
+        <h1 className={titleClass(film.title)}>{film.title}</h1>
+        {film.logline && <p className="line1">{film.logline}</p>}
+        <div className="go">
+          {living ? (
+            <>
+              <button className="btn play wide" onClick={() => go(`/play/${living.id}`)}>
+                <PlayFill />
+                이어 살기
+              </button>
+              <button className="textbtn" disabled={busy} onClick={enter}>
+                {busy ? '들어가는 중…' : '처음부터 다시 들어가기'}
+              </button>
+            </>
+          ) : (
+            <button className="btn play wide" disabled={busy} onClick={enter}>
+              <PlayFill />
+              {busy ? '들어가는 중…' : '필름에 들어가기'}
+            </button>
+          )}
+          {err && <p className="warn">{err}</p>}
+        </div>
+      </section>
+
+      <section className="block first">
+        <p className="kicker">캐스트</p>
+        <ul className="casts">
+          {film.casts.map((c) => (
+            <li key={c.key}>
+              <button className="castrow" onClick={() => go(castPath(c.key))}>
+                <Face id={c.face ?? ''} name={c.name} />
+                <span>
+                  <strong>{c.name}</strong>
+                  {c.role && <small>{c.role}</small>}
+                </span>
+                <Next />
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {stills.length > 0 && (
+        <section className="block">
+          <div className="rowhead">스틸</div>
+          <StillStrip ids={stills} />
+        </section>
+      )}
+
+      {(fs.situation || film.setting) && (
+        <section className="block sect">
+          <div className="rowhead" style={{ padding: 0 }}>
+            오프닝<span>{when}</span>
+          </div>
+          <p className="prose">{fs.situation || film.setting}</p>
+        </section>
+      )}
+
+      <p className="bill">
+        {card.mine && (
+          <span>
+            디렉터<b>나</b>
+          </span>
+        )}
+        <span>
+          캐스트<b>{film.casts.map((c) => c.name).join(' · ')}</b>
+        </span>
+      </p>
     </main>
   );
 }
