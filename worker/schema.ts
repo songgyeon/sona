@@ -104,6 +104,16 @@ export const SCHEMA: string[] = [
   )`,
   `CREATE INDEX IF NOT EXISTS gen_log_turn ON gen_log(play_id, turn_id)`,
 
+  // 그림. 포스터, 캐스트의 얼굴, 장면의 컷
+  `CREATE TABLE IF NOT EXISTS images (
+    id TEXT PRIMARY KEY,
+    owner TEXT NOT NULL,
+    mime TEXT NOT NULL,
+    bytes BLOB NOT NULL,
+    size INTEGER NOT NULL,
+    created_at INTEGER NOT NULL
+  )`,
+
   // 하루 호출 수
   `CREATE TABLE IF NOT EXISTS usage (
     day TEXT NOT NULL,

@@ -4,6 +4,10 @@
 export interface Film {
   title: string;
   logline: string;
+  /** 포스터 그림. 없으면 빈 글자 */
+  poster: string;
+  /** 장면의 컷들 */
+  stills: string[];
   /** 배경. 세계가 어떤 곳인지 두세 문장 */
   setting: string;
   /** 작중 시작 요일. 0=일요일 … 6=토요일 */
@@ -24,6 +28,8 @@ export interface Cast {
   /** 필름 안에서만 쓰는 이름표. 저장할 때 서버가 붙인다(c1, c2 …) */
   key: string;
   name: string;
+  /** 얼굴 그림. 없으면 빈 글자 */
+  face: string;
   /** 불리는 이름들 — 유저나 주변 사람이 이 사람을 가리킬 때 쓰는 말 */
   aliases: string[];
   /** 나(유저의 인물)에게 누구인가 */
@@ -110,6 +116,7 @@ export interface FilmCard {
   id: string;
   title: string;
   logline: string;
+  poster: string;
   castNames: string[];
   personaName: string;
   personaLine: string;
@@ -121,6 +128,9 @@ export interface PlayCard {
   id: string;
   filmId: string;
   title: string;
+  logline: string;
+  poster: string;
+  castNames: string[];
   elapsed: number;
   startDow: number;
   startMin: number;

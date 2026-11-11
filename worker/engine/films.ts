@@ -3,6 +3,7 @@
 import { RULES } from '../../shared/rules';
 import type { Cast, Film, FilmCard, Tie } from '../../shared/types';
 import { newId } from '../db';
+import { isUuid } from '../guard';
 import { type Ctx, Fail } from './ctx';
 
 const L = RULES.limits;
@@ -30,6 +31,13 @@ function list(v: unknown, maxItems: number, maxLen: number, name: string): strin
   return out;
 }
 
+/** 올려 둔 그림을 가리키는 값. 비어 있어도 된다 */
+function image(v: unknown, name: string): string {
+  if (v == null || v === '') return '';
+  if (!isUuid(v)) throw new Fail(400, 'film_invalid', `${name} 그림이 맞지 않아.`);
+  return v;
+}
+
 const obj = (v: unknown): Record<string, unknown> =>
   v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
 
@@ -49,6 +57,7 @@ export function parseFilm(input: unknown): Film {
     return {
       key: `c${i + 1}`,
       name: text(c.name, 20, '캐스트 이름', true),
+      face: image(c.face, '캐스트'),
       aliases: list(c.aliases, 6, 20, '불리는 이름'),
       role: text(c.role, L.short, '나에게 누구인가'),
       callsUser: text(c.callsUser, 20, '나를 부르는 말'),
@@ -84,9 +93,14 @@ export function parseFilm(input: unknown): Film {
   const room = text(fs.room, 4, '첫 장면의 상대') || casts[0]!.key;
   if (!keys.has(room)) throw new Fail(400, 'film_invalid', '첫 장면의 상대가 캐스트에 없어.');
 
+  const stills = (Array.isArray(f.stills) ? f.stills : []).map((s) => image(s, '컷')).filter((s) => s.length > 0);
+  if (stills.length > L.stills) throw new Fail(400, 'film_invalid', `컷은 ${L.stills}장까지야.`);
+
   return {
     title: text(f.title, L.title, '제목', true),
     logline: text(f.logline, L.logline, '한 줄 소개'),
+    poster: image(f.poster, '포스터'),
+    stills,
     setting: text(f.setting, L.setting, '배경'),
     startDow: int(f.startDow ?? 5, 0, 6, '시작 요일'),
     startMin: int(f.startMin ?? 16 * 60, 0, 1439, '시작 시각'),
@@ -137,6 +151,7 @@ function card(row: FilmRow, visitor: string): FilmCard {
     id: row.id,
     title: row.title,
     logline: row.logline,
+    poster: film.poster ?? '',
     castNames: film.casts.map((c) => c.name),
     personaName: film.persona.name,
     personaLine: film.persona.line,

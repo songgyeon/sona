@@ -51,6 +51,10 @@ export const RULES = {
     short: 80,
     sample: 80,
     casts: 4,
+    /** 그림 한 장의 크기(바이트). 화면이 줄여서 보낸다 */
+    image: 700_000,
+    /** 필름 한 편에 거는 컷 수 */
+    stills: 8,
   },
 } as const;
 

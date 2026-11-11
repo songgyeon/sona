@@ -3,6 +3,7 @@
 import { d1 } from './db';
 import { type Ctx, Fail } from './engine/ctx';
 import { createFilm, getFilm, listFilms } from './engine/films';
+import { loadImage, saveImage } from './engine/images';
 import { skip } from './engine/skip';
 import { listPlays, viewOf } from './engine/store';
 import { enter, retry, say } from './engine/turn';
@@ -14,7 +15,7 @@ import { ensureSchema } from './schema';
 
 export interface Env {
   DB: D1Database;
-  /** 이 주소를 여는 열쇠. Cloudflare 대시보드에 넣는다 */
+  /** 주소를 잠그고 싶을 때만 Cloudflare 대시보드에 넣는다. 없으면 열려 있다 */
   ACCESS_KEY?: string;
   /** 오픈라우터 열쇠. Cloudflare 대시보드에 넣는다 */
   OPENROUTER_API_KEY?: string;
@@ -64,6 +65,8 @@ const ROUTES: [string, RegExp, Handler][] = [
   ['POST', /^\/api\/plays\/([^/]+)\/retry$/, (ctx, p) => retry(ctx, p[0]!)],
 ];
 
+const IMAGE = /^\/api\/img\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
+
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
     status,
@@ -76,9 +79,33 @@ export default {
     if (url.pathname === '/api/health') return json({ ok: true });
 
     try {
+      // 그림은 화면의 <img>가 바로 부른다. 열쇠를 실을 수 없어서 문지기 앞에서 내준다 — 주소는 짐작할 수 없는 값이다
+      const img = IMAGE.exec(url.pathname);
+      if (img && req.method === 'GET') {
+        const db = d1(env.DB);
+        await ensureSchema(db);
+        const found = await loadImage(db, img[1]!);
+        if (!found) throw new Fail(404, 'no_image', '그 그림은 없어.');
+        return new Response(found.bytes, {
+          headers: {
+            'content-type': found.mime,
+            'cache-control': 'public, max-age=31536000, immutable',
+            'x-content-type-options': 'nosniff',
+          },
+        });
+      }
+
       await checkKey(req, env.ACCESS_KEY);
-      // 열쇠만 확인하는 길. 화면이 문을 열지 정하고, 모델 열쇠가 빠졌으면 알린다
+      // 화면이 켜질 때 부르는 길. 잠긴 주소면 여기서 걸리고, 모델 열쇠가 빠졌으면 알린다
       if (url.pathname === '/api/key') return json({ ok: true, fake: env.MODEL_KIND === 'fake', modelReady: modelReady(env) });
+
+      // 그림 올리기. 몸통이 글자가 아니라서 따로 받는다
+      if (url.pathname === '/api/img' && req.method === 'POST') {
+        const db = d1(env.DB);
+        await ensureSchema(db);
+        const ctx: Ctx = { db, model: pickModel(env), visitor: visitorOf(req), now: () => Date.now() };
+        return json(await saveImage(ctx, req.headers.get('content-type') ?? '', await req.arrayBuffer()));
+      }
 
       for (const [method, pattern, handler] of ROUTES) {
         const m = pattern.exec(url.pathname);

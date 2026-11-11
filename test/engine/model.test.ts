@@ -98,6 +98,6 @@ describe('저장소의 표', () => {
     const row = await db.first<{ calls: number }>('SELECT calls FROM usage WHERE day = ?', '2026-11-11');
     expect(row!.calls).toBe(7);
     const tables = await db.all<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name");
-    expect(tables.map((t) => t.name)).toEqual(['events', 'films', 'gen_log', 'messages', 'plays', 'posts', 'turns', 'usage']);
+    expect(tables.map((t) => t.name)).toEqual(['events', 'films', 'gen_log', 'images', 'messages', 'plays', 'posts', 'turns', 'usage']);
   });
 });

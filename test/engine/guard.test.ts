@@ -17,7 +17,7 @@ async function code(p: Promise<unknown>): Promise<string> {
 }
 
 describe('문지기', () => {
-  it('맞는 열쇠만 통과한다', async () => {
+  it('열쇠를 걸어 두면 맞는 열쇠만 통과한다', async () => {
     expect(await code(checkKey(req({ 'x-sona-key': 'dev' }), 'dev'))).toBe('ok');
     expect(await code(checkKey(req({ 'x-sona-key': 'de' }), 'dev'))).toBe('bad_key');
     expect(await code(checkKey(req({}), 'dev'))).toBe('bad_key');
@@ -29,9 +29,10 @@ describe('문지기', () => {
     expect(await code(checkKey(req({ 'x-sona-key': '%E0%A4%A' }), '필름 열쇠'))).toBe('bad_key');
   });
 
-  it('열쇠를 안 걸어 둔 배포는 열지 않는다', async () => {
-    expect(await code(checkKey(req({ 'x-sona-key': '' }), undefined))).toBe('no_key_set');
-    expect(await code(checkKey(req({ 'x-sona-key': 'anything' }), ''))).toBe('no_key_set');
+  it('열쇠를 안 걸어 둔 주소는 누구에게나 열린다', async () => {
+    expect(await code(checkKey(req({}), undefined))).toBe('ok');
+    expect(await code(checkKey(req({ 'x-sona-key': '' }), ''))).toBe('ok');
+    expect(await code(checkKey(req({ 'x-sona-key': 'anything' }), undefined))).toBe('ok');
   });
 
   it('방문자 표가 없으면 받지 않는다', () => {

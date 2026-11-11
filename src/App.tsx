@@ -6,9 +6,10 @@ import { Home } from './pages/Home';
 import { Play } from './pages/Play';
 import { useRoute } from './router';
 
-type Gate = 'checking' | 'open' | 'locked';
+/** 주소는 열려 있다. locked는 주인이 열쇠를 걸어 둔 주소에서만, down은 서버와 말이 안 될 때만 */
+type Gate = 'checking' | 'open' | 'locked' | 'down';
 
-/** 심사자에게 주는 링크에는 열쇠가 들어 있다(?k=…). 받아서 기억하고 주소에서는 지운다 */
+/** 주인이 주소를 잠가 뒀다면 링크에 열쇠가 들어 있다(?k=…). 받아서 기억하고 주소에서는 지운다 */
 function takeKeyFromUrl(): void {
   const url = new URL(window.location.href);
   const k = url.searchParams.get('k');
@@ -33,11 +34,15 @@ export function App() {
       setModelReady(r.modelReady);
       setGate('open');
     } catch (e) {
-      // 열쇠를 아직 안 넣어 본 사람에게 "맞지 않아"라고 하지 않는다.
-      // 주소 자체가 아직 잠겨 있으면(주인이 열쇠를 안 걸어 뒀으면) 넣어 보기 전에 알린다
-      const untried = !getKey() && e instanceof ApiFail && e.code === 'bad_key';
-      setWhy(untried ? '' : e instanceof ApiFail ? e.message : '열쇠를 확인하지 못했어.');
-      setGate('locked');
+      if (e instanceof ApiFail && e.code === 'bad_key') {
+        // 주인이 열쇠를 걸어 둔 주소다. 아직 안 넣어 본 사람에게 "맞지 않아"라고 하지 않는다
+        setWhy(getKey() ? e.message : '');
+        setGate('locked');
+        return;
+      }
+      // 열쇠 문제가 아니다. 열쇠를 묻지 않고 다시 열어 보게 한다
+      setWhy(e instanceof ApiFail ? e.message : '서버와 말하지 못했어.');
+      setGate('down');
     }
   };
 
@@ -48,6 +53,14 @@ export function App() {
 
   if (gate === 'checking') return <p className="center muted">여는 중…</p>;
   if (gate === 'locked') return <KeyGate why={why} onSubmit={check} />;
+  if (gate === 'down')
+    return (
+      <main className="gate">
+        <h1>소나</h1>
+        <p className="warn">{why}</p>
+        <button onClick={() => void check()}>다시 열기</button>
+      </main>
+    );
 
   const play = /^\/play\/([0-9a-f-]{36})$/.exec(path);
   if (play) return <Play playId={play[1]!} go={go} />;

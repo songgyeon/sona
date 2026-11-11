@@ -14,12 +14,12 @@
 
 저장소에 올리면 Cloudflare가 `wrangler.jsonc`대로 빌드하고 배포한다. 따로 돌릴 명령은 없다.
 
-Cloudflare 대시보드에서 이 Worker의 **변수와 시크릿**에 두 가지를 넣는다.
+주소를 열면 바로 필름을 만들 수 있다. 대화를 하려면 Cloudflare 대시보드에서 이 Worker의 **변수와 시크릿**에 오픈라우터 열쇠를 넣는다.
 
 | 이름 | 무엇 |
 |---|---|
-| `OPENROUTER_API_KEY` | 오픈라우터 열쇠. 없으면 대화가 안 되고, 화면이 그렇다고 알려 준다 |
-| `ACCESS_KEY` | 이 주소를 여는 열쇠. 안 넣으면 잠겨 있다. 주소 뒤에 `?k=열쇠`를 붙여 열거나 첫 화면에서 넣는다 |
+| `OPENROUTER_API_KEY` | 오픈라우터 열쇠. 없으면 필름을 만들고 저장하는 데까지만 되고, 화면이 그렇다고 알려 준다 |
+| `ACCESS_KEY` | 넣지 않아도 된다. 주소를 잠그고 싶을 때만 넣는다. 넣으면 주소 뒤에 `?k=열쇠`를 붙이거나 첫 화면에서 넣어야 열린다 |
 
 어떤 모델을 부를지는 `wrangler.jsonc`의 `MODEL_ID` 한 곳에 적는다(오픈라우터의 모델 이름 그대로).
 저장소(D1)는 첫 배포 때 Cloudflare가 만들고, 표는 Worker가 스스로 만든다.
@@ -28,12 +28,12 @@ Cloudflare 대시보드에서 이 Worker의 **변수와 시크릿**에 두 가�
 
 ```
 npm install
-npm run dev        # http://127.0.0.1:8787  (열쇠: dev)
+npm run dev        # http://127.0.0.1:8787
 npm test
 npm run typecheck
 ```
 
-로컬에서는 열쇠 없이 가짜 모델이 선다(`.dev.vars`의 `MODEL_KIND=fake`). 가짜 모델의 답은 정해진 문장이다.
+로컬에서 `.dev.vars`에 `MODEL_KIND=fake`를 적으면 오픈라우터 열쇠 없이 가짜 모델이 선다. 가짜 모델의 답은 정해진 문장이다.
 
 ## 구조
 

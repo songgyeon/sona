@@ -1,4 +1,5 @@
-/* 문지기. 열쇠가 없으면 아무것도 안 열린다 — 모델 호출은 돈이고 하루 몫이 있다. */
+/* 문지기. 주소는 열려 있다. 주인이 열쇠를 걸어 두면 그때만 열쇠를 본다.
+   모델 호출은 돈이라 하루 몫은 열쇠와 상관없이 지킨다. */
 
 import { RULES } from '../shared/rules';
 import type { Db } from './db';
@@ -26,10 +27,8 @@ function unwrap(s: string): string {
 }
 
 export async function checkKey(req: Request, accessKey: string | undefined): Promise<void> {
-  // 열쇠를 안 걸어 둔 배포는 열지 않는다
-  if (!accessKey) {
-    throw new Fail(503, 'no_key_set', '이 주소는 아직 잠겨 있어. Cloudflare에서 이 Worker의 변수와 시크릿에 ACCESS_KEY를 넣으면 열려.');
-  }
+  // 열쇠를 안 걸어 둔 주소는 그냥 열린다. 잠그고 싶을 때만 ACCESS_KEY를 넣는다
+  if (!accessKey) return;
   const got = unwrap(req.headers.get('x-sona-key') ?? '');
   if (!got || !(await same(got, accessKey))) {
     throw new Fail(401, 'bad_key', '열쇠가 맞지 않아.');

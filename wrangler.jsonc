@@ -25,8 +25,8 @@
   "d1_databases": [{ "binding": "DB", "database_name": "sona" }],
 
   // 대시보드에서 넣은 값을 배포 때 지우지 않는다:
-  //   OPENROUTER_API_KEY — 오픈라우터 열쇠
-  //   ACCESS_KEY         — 이 주소를 여는 열쇠. 안 넣으면 잠겨 있다
+  //   OPENROUTER_API_KEY — 오픈라우터 열쇠. 대화에 필요하다
+  //   ACCESS_KEY         — 주소를 잠그고 싶을 때만. 안 넣으면 열려 있다
   "keep_vars": true,
 
   // 모델 이름은 여기 한 곳에만 적는다. 오픈라우터의 모델 이름 그대로.
