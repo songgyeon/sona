@@ -26,10 +26,6 @@ export function App() {
   const [modelReady, setModelReady] = useState(true);
 
   const check = async () => {
-    if (!getKey()) {
-      setGate('locked');
-      return;
-    }
     setGate('checking');
     try {
       const r = await api.key();
@@ -37,7 +33,10 @@ export function App() {
       setModelReady(r.modelReady);
       setGate('open');
     } catch (e) {
-      setWhy(e instanceof ApiFail ? e.message : '열쇠를 확인하지 못했어.');
+      // 열쇠를 아직 안 넣어 본 사람에게 "맞지 않아"라고 하지 않는다.
+      // 주소 자체가 아직 잠겨 있으면(주인이 열쇠를 안 걸어 뒀으면) 넣어 보기 전에 알린다
+      const untried = !getKey() && e instanceof ApiFail && e.code === 'bad_key';
+      setWhy(untried ? '' : e instanceof ApiFail ? e.message : '열쇠를 확인하지 못했어.');
       setGate('locked');
     }
   };
