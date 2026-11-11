@@ -63,6 +63,11 @@ export function parseFilm(input: unknown): Film {
       role: text(c.role, L.short, '캐스트와의 관계'),
       callsUser: text(c.callsUser, 20, '나를 부르는 말'),
       speech: text(c.speech, L.short, '말투'),
+      nature: text(c.nature, L.trait, '성격'),
+      habit: text(c.habit, L.trait, '습관'),
+      trauma: text(c.trauma, L.trait, '트라우마'),
+      lack: text(c.lack, L.trait, '결핍'),
+      secret: text(c.secret, L.trait, '비밀'),
       samples: list(c.samples, 3, L.sample, '예시 대사'),
       sleepFrom: int(c.sleepFrom ?? 0, 0, 1439, '자는 시간'),
       sleepTo: int(c.sleepTo ?? 420, 0, 1439, '일어나는 시간'),
@@ -207,6 +212,12 @@ function card(row: FilmRow, visitor: string): FilmCard {
   };
 }
 
+/** 화면으로 보내는 필름. 성격부터 비밀까지는 디렉터만 보는 칸이라, 만든 사람이 고칠 때가 아니면 비워서 보낸다.
+    대사 모델에게 건네는 필름은 서버에 있는 그대로다 */
+export function forScreen(film: Film): Film {
+  return { ...film, casts: film.casts.map((c) => ({ ...c, nature: '', habit: '', trauma: '', lack: '', secret: '' })) };
+}
+
 /** 내가 만든 필름과, 모두에게 보이게 걸어 둔 필름 */
 export async function listFilms(ctx: Ctx): Promise<FilmCard[]> {
   const rows = await ctx.db.all<FilmRow>(
@@ -219,7 +230,14 @@ export async function listFilms(ctx: Ctx): Promise<FilmCard[]> {
 /** 필름 하나. 주소를 아는 사람은 누구나 읽는다 — 링크를 받은 사람이 바로 들어올 수 있게.
     목록(listFilms)에는 여전히 만든 사람의 것만 나온다 */
 export async function getFilm(ctx: Ctx, id: string): Promise<{ card: FilmCard; film: Film }> {
+  const { row, film } = await loadFilm(ctx, id);
+  // 고치는 화면은 만든 사람만 쓴다. 그 사람에게만 다 보낸다
+  return { card: card(row, ctx.visitor), film: row.owner === ctx.visitor ? film : forScreen(film) };
+}
+
+/** 서버가 쓰는 필름. 디렉터가 쓴 그대로다 — 삶은 이것을 들고 간다. 화면으로 보내지 않는다 */
+export async function loadFilm(ctx: Ctx, id: string): Promise<{ row: FilmRow; film: Film }> {
   const row = await ctx.db.first<FilmRow>('SELECT id, owner, title, logline, featured, data FROM films WHERE id = ?', id);
   if (!row) throw new Fail(404, 'film_missing', '필름을 찾을 수 없어요.');
-  return { card: card(row, ctx.visitor), film: readFilm(JSON.parse(row.data) as Film) };
+  return { row, film: readFilm(JSON.parse(row.data) as Film) };
 }

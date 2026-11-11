@@ -17,6 +17,7 @@ export const ASIDE_SYSTEM = `너는 「소나」의 필름 속 한 장면을 쓰
 - 아는 것의 주인을 지킨다. [○○만 아는 일]에 적힌 일은 ○○만 안다. 그 일을 먼저 꺼낼 수 있는 사람은 ○○뿐이다. 다른 사람은 이 장면에서 ○○에게 듣고 나서야 알고, 듣기 전에는 그 일을 아는 것처럼 말하지 않는다.
 - 적혀 있지 않은 일을 지어내지 않는다. [그 자리에 없는 사람]과 있었던 일은 아래에 적힌 것이 전부다. 적혀 있지 않은 만남이나 대화를 있었던 것처럼 말하지 않는다.
 - 두 사람의 사이, 서로를 부르는 말, 말투는 [두 사람]에 적힌 그대로 쓴다.
+- [두 사람]에 트라우마, 결핍, 비밀이 적혀 있으면 그것은 그 사람의 속사정이다. 장면에서 풀어 설명하거나 털어놓지 않는다. 말과 행동에 묻어날 뿐이다. 비밀은 적힌 사람만 안다. 상대가 안다고 적혀 있지 않으면 상대는 모르는 일이다.
 - 큰 사건을 만들지 않는다. 평범한 하루의 한 토막이면 된다. 시간을 건너뛰지 않는다.
 
 [쓰는 법]
@@ -75,6 +76,11 @@ function card(film: Film, who: Cast, other: Cast): string {
   const out: string[] = [`이름: ${who.name}`];
   if (who.role) out.push(`- ${me}에게는: ${who.role}`);
   if (who.speech) out.push(`- 말투: ${who.speech}`);
+  if (who.nature) out.push(`- 성격: ${who.nature}`);
+  if (who.habit) out.push(`- 습관: ${who.habit}`);
+  if (who.trauma) out.push(`- 트라우마: ${who.trauma}`);
+  if (who.lack) out.push(`- 결핍: ${who.lack}`);
+  if (who.secret) out.push(`- 비밀: ${who.secret}`);
   if (who.callsUser) out.push(`- ${josa(me, '을', '를')} 부르는 말: ${who.callsUser}`);
   if (who.dayPlace) out.push(`- 낮에 주로 있는 곳: ${who.dayPlace}`);
   const tie = film.ties.find((t) => t.from === who.key && t.to === other.key);

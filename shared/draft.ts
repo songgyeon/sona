@@ -10,6 +10,11 @@ export interface DraftCast {
   role: string;
   callsUser: string;
   speech: string;
+  nature: string;
+  habit: string;
+  trauma: string;
+  lack: string;
+  secret: string;
   samples: string;
   sleepFrom: string;
   sleepTo: string;
@@ -61,6 +66,11 @@ export const blankCast = (): DraftCast => ({
   role: '',
   callsUser: '',
   speech: '',
+  nature: '',
+  habit: '',
+  trauma: '',
+  lack: '',
+  secret: '',
   samples: '',
   sleepFrom: '00:00',
   sleepTo: '07:00',
@@ -125,6 +135,11 @@ export function toFilm(d: Draft): unknown {
       role: c.role,
       callsUser: c.callsUser,
       speech: c.speech,
+      nature: c.nature,
+      habit: c.habit,
+      trauma: c.trauma,
+      lack: c.lack,
+      secret: c.secret,
       samples: split(c.samples, /\n/).slice(0, 3),
       sleepFrom: toMin(c.sleepFrom),
       sleepTo: toMin(c.sleepTo),
@@ -200,6 +215,11 @@ export function fromFilm(f: Film): Draft {
       role: c.role,
       callsUser: c.callsUser,
       speech: c.speech,
+      nature: c.nature ?? '',
+      habit: c.habit ?? '',
+      trauma: c.trauma ?? '',
+      lack: c.lack ?? '',
+      secret: c.secret ?? '',
       samples: c.samples.join('\n'),
       sleepFrom: toClock(c.sleepFrom),
       sleepTo: toClock(c.sleepTo),

@@ -352,6 +352,22 @@ export function Create({ go, editId }: { go: (to: string) => void; editId?: stri
                   <Field label="예시 대사" hint="한 줄에 하나씩, 세 줄까지 적을 수 있어요.">
                     <textarea value={c.samples} rows={3} placeholder={'예) 왔어?\n그건 내가 할게.\n내일 큐시트 봤어?'} onChange={(e) => setCast(i, 'samples', e.target.value)} />
                   </Field>
+                  <Field label="성격" optional count={[c.nature.length, RULES.limits.trait]}>
+                    <textarea rows={2} value={c.nature} maxLength={RULES.limits.trait} placeholder="예) 말수가 적다. 맡은 일은 끝까지 하고, 고맙다는 말을 잘 못 한다." onChange={(e) => setCast(i, 'nature', e.target.value)} />
+                  </Field>
+                  <Field label="습관" optional count={[c.habit.length, RULES.limits.trait]}>
+                    <textarea rows={2} value={c.habit} maxLength={RULES.limits.trait} placeholder="예) 생각할 때 볼펜 끝으로 책상을 두드린다." onChange={(e) => setCast(i, 'habit', e.target.value)} />
+                  </Field>
+                  <Field label="트라우마" optional count={[c.trauma.length, RULES.limits.trait]}>
+                    <textarea rows={2} value={c.trauma} maxLength={RULES.limits.trait} placeholder="예) 첫 방송에서 원고를 통째로 잊었다. 그 뒤로 방송 직전에는 말이 없어진다." onChange={(e) => setCast(i, 'trauma', e.target.value)} />
+                  </Field>
+                  <Field label="결핍" optional count={[c.lack.length, RULES.limits.trait]}>
+                    <textarea rows={2} value={c.lack} maxLength={RULES.limits.trait} placeholder="예) 누구에게 먼저 기대 본 적이 없다." onChange={(e) => setCast(i, 'lack', e.target.value)} />
+                  </Field>
+                  <Field label="비밀" optional count={[c.secret.length, RULES.limits.trait]}>
+                    <textarea rows={2} value={c.secret} maxLength={RULES.limits.trait} placeholder="예) 지난 학기에 방송부를 그만두려고 했다." onChange={(e) => setCast(i, 'secret', e.target.value)} />
+                  </Field>
+                  <p className="hint">선택 칸은 플레이하는 사람에게 보이지 않고, 캐스트의 말과 행동에 묻어나요.</p>
 
                   <button className={more[i] ? 'fold open' : 'fold'} aria-expanded={!!more[i]} onClick={() => setMore((m) => ({ ...m, [i]: !m[i] }))}>
                     더 적기
@@ -734,6 +750,7 @@ export function Field({
   label,
   hint,
   must,
+  optional,
   count,
   quiet,
   children,
@@ -741,6 +758,8 @@ export function Field({
   label: string;
   hint?: string;
   must?: boolean;
+  /** 적지 않아도 되는 칸이라고 이름 옆에 알린다 */
+  optional?: boolean;
   count?: [number, number];
   /** 묶음 제목이 이미 같은 말을 하면 이름표를 화면에서 감춘다. 읽어 주는 기기에는 그대로 들린다 */
   quiet?: boolean;
@@ -752,6 +771,7 @@ export function Field({
       <label htmlFor={id} className={quiet ? 'sr' : undefined}>
         {label}
         {must && <em>*</em>}
+        {optional && <i className="opt">선택</i>}
         {count && (
           <span>
             {count[0]} / {count[1]}

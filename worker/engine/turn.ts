@@ -7,7 +7,7 @@ import type { PlayView } from '../../shared/types';
 import { isUniqueError, newId, q, type Stmt } from '../db';
 import { isUuid } from '../guard';
 import { type Ctx, Fail } from './ctx';
-import { getFilm } from './films';
+import { loadFilm } from './films';
 import { applyMine, savedMine } from './persona';
 import { lastTurn, loadPlay, viewOf } from './store';
 import { settle } from './skip';
@@ -23,7 +23,8 @@ export async function enter(ctx: Ctx, filmId: string, playId: unknown): Promise<
     return viewOf(ctx, playId);
   }
 
-  const made = (await getFilm(ctx, filmId)).film;
+  // 삶은 디렉터가 쓴 그대로의 필름을 들고 간다. 화면으로 보내는 필름(getFilm)에는 디렉터만 보는 칸이 비어 있다
+  const made = (await loadFilm(ctx, filmId)).film;
   // 이 사람이 이 필름에서 쓰던 내 배역이 있으면 그것으로 들어간다
   const mine = await savedMine(ctx.db, ctx.visitor, filmId);
   const film = mine ? applyMine(made, mine) : made;

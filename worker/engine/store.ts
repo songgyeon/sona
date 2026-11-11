@@ -5,6 +5,7 @@ import { readFilm } from '../../shared/opening';
 import type { AsideView, Film, MessageView, PlayCard, PlayView, PostView, TurnView } from '../../shared/types';
 import type { Db } from '../db';
 import { type Ctx, Fail } from './ctx';
+import { forScreen } from './films';
 
 export interface Play extends Clock {
   id: string;
@@ -138,7 +139,8 @@ export async function viewOf(ctx: Ctx, playId: string): Promise<PlayView> {
   return {
     id: play.id,
     filmId: play.filmId,
-    film: play.film,
+    // 재생하는 화면은 디렉터만 보는 칸을 들고 다니지 않는다
+    film: forScreen(play.film),
     elapsed: play.elapsed,
     ended: play.ended,
     day: play.days,

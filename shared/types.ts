@@ -48,6 +48,17 @@ export interface Cast {
   callsUser: string;
   /** 말높이와 말버릇 한 줄 */
   speech: string;
+  /* 아래 다섯은 적지 않아도 된다. 적으면 그 사람이 말하고 움직이는 결에 쓰인다 */
+  /** 성격 */
+  nature: string;
+  /** 습관 — 말과 몸에 밴 버릇 */
+  habit: string;
+  /** 트라우마 — 스스로 설명하지 않는다 */
+  trauma: string;
+  /** 결핍 — 이 사람에게 비어 있는 것 */
+  lack: string;
+  /** 비밀 — 남에게 말하지 않는 것 */
+  secret: string;
   /** 예시 대사 2~3줄 */
   samples: string[];
   /** 자는 시간. 하루 중 분. 자정을 넘겨도 된다(from > to) */

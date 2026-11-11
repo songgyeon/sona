@@ -13,6 +13,11 @@ export function castLayer(film: Film, cast: Cast): string {
   if (cast.role) out.push(`${me}에게 너는: ${cast.role}`);
   if (cast.callsUser) out.push(`${josa(me, '을', '를')} 부르는 말: ${cast.callsUser}`);
   if (cast.speech) out.push(`말투: ${cast.speech}`);
+  if (cast.nature) out.push(`성격: ${cast.nature}`);
+  if (cast.habit) out.push(`습관: ${cast.habit}`);
+  if (cast.trauma) out.push(`트라우마: ${cast.trauma}`);
+  if (cast.lack) out.push(`결핍: ${cast.lack}`);
+  if (cast.secret) out.push(`비밀: ${cast.secret}`);
   if (cast.dayPlace) out.push(`낮에 주로 있는 곳: ${cast.dayPlace}`);
   if (cast.samples.length > 0) {
     out.push('예시 대사(이 결로 쓴다. 그대로 베끼지 않는다):');
