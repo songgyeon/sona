@@ -248,9 +248,9 @@ describe('본편: 대목의 모양', () => {
     const seeds = Array.from({ length: 80 }, (_, i) => `turn-${i}`);
     const picked = (before: ReturnType<typeof line>[]) => [...new Set(seeds.map((seed) => rhythmFor(before, seed)))];
     const ends = (shape: string) => [shape.split(' → ')[0], shape.split(' → ').at(-1)];
-    // 앞에 쓴 대목이 없으면 여섯 가운데 하나. 짧게는 세 덩이, 길게는 다섯 덩이다
+    // 앞에 쓴 대목이 없으면 여섯 가운데 하나. 네 덩이 아니면 다섯 덩이다
     expect(picked([])).toHaveLength(6);
-    expect(new Set(picked([]).map((s) => s.split(' → ').length))).toEqual(new Set([3, 4, 5]));
+    expect(new Set(picked([]).map((s) => s.split(' → ').length))).toEqual(new Set([4, 5]));
     // 앞 대목이 지문으로 열고 대사로 닫았으면 그렇게 짜인 차례는 빼고 고른다
     expect(picked(tellSay)).toHaveLength(5);
     expect(picked(tellSay).map(ends)).not.toContainEqual(['지문', '대사']);
@@ -264,7 +264,7 @@ describe('본편: 대목의 모양', () => {
     const { ctx, playId, send, calls } = await setup(FILM, { reply: () => (n++ === 0 ? '' : '한서가 고개를 든다.\n한서: "응, 듣고 있어."') });
     await send('첫째 말.');
     const first = calls('reply')[0]!.user;
-    expect(first).toMatch(/^수아: 첫째 말\.\n\(이번 대목은 대략 이 차례로 쓴다: (지문|대사)( → (지문|대사)){2,4}\. 지문 한 덩이는 한두 문장이다\.\)$/);
+    expect(first).toMatch(/^수아: 첫째 말\.\n\(이번 대목은 대략 이 차례로 쓴다: (지문|대사)( → (지문|대사)){3,4}\. 지문 한 덩이는 한두 문장이다\.\)$/);
     await retry(ctx, playId);
     expect(calls('reply')[1]!.user).toBe(first);
 
