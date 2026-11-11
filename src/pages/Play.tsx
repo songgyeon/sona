@@ -1,8 +1,9 @@
-import { type FormEvent, Fragment, useEffect, useRef, useState } from 'react';
+import { type CSSProperties, type FormEvent, Fragment, useEffect, useRef, useState } from 'react';
 import { formatWorld } from '../../shared/clock';
 import { RULES } from '../../shared/rules';
 import type { MessageView, PlayView } from '../../shared/types';
 import { ApiFail, api, newId } from '../api';
+import { hueOf } from '../poster';
 import { Feed } from './Feed';
 
 type SkipKind = 'short' | 'errand' | 'sleep';
@@ -125,7 +126,7 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
     setWaiting(false);
   };
 
-  if (!view) return <p className="center muted">{err || '필름을 여는 중…'}</p>;
+  if (!view) return <p className="center muted">{err || '필름에 들어가는 중…'}</p>;
 
   const film = view.film;
   const clock = { startDow: film.startDow, startMin: film.startMin, elapsed: view.elapsed };
@@ -137,7 +138,10 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
 
   const divides = (m: MessageView, i: number) => i === 0 || m.at - messages[i - 1]!.at >= DIVIDE_AFTER;
 
+  const fs = film.firstScene;
+
   return (
+    <div className="stage" style={{ '--h': hueOf(film.title) } as CSSProperties}>
     <main className="play">
       <header className="top">
         <button className="ghost" onClick={() => go('/')} aria-label="필름 목록으로">
@@ -172,6 +176,12 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
       {tab === 'feed' && <Feed view={view} />}
 
       <section className="chat" aria-live="polite" hidden={tab !== 'chat'}>
+        {cast.key === fs.room && (fs.place || fs.situation) && (
+          <p className="scene">
+            {fs.place && <strong>{fs.place}</strong>}
+            {fs.situation}
+          </p>
+        )}
         {messages.map((m, i) => (
           <Fragment key={m.id}>
             {divides(m, i) && <p className="divider">{formatWorld(clock, m.at)}</p>}
@@ -244,5 +254,6 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
         </form>
       </div>
     </main>
+    </div>
   );
 }

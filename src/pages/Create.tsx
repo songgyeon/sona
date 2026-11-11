@@ -2,6 +2,7 @@ import { cloneElement, type FormEvent, type ReactElement, useEffect, useId, useS
 import { josa } from '../../shared/ko';
 import { DOW_NAMES, RULES } from '../../shared/rules';
 import { ApiFail, api, newId } from '../api';
+import { Poster } from '../poster';
 
 /* 필름 만들기. 디렉터가 채우는 칸이다.
    며칠 치 일정을 쓰는 자리가 아니다 — 이 사람들이 어떤 사이이고 서로를 뭐라고 부르는지를 쓴다. */
@@ -169,7 +170,7 @@ export function Create({ go }: { go: (to: string) => void }) {
         const view = await api.enter(id, newId());
         go(`/play/${view.id}`);
       } else {
-        go('/');
+        go(`/film/${id}`);
       }
     } catch (x) {
       setErr(x instanceof ApiFail ? x.message : '저장하지 못했어.');
@@ -189,6 +190,12 @@ export function Create({ go }: { go: (to: string) => void }) {
         </button>
         <h1>필름 만들기</h1>
       </header>
+
+      <div className="cols">
+      <aside className="preview" aria-label="포스터 미리보기">
+        <Poster title={d.title.trim()} casts={d.casts.map((c) => c.name.trim()).filter(Boolean)} />
+        <p className="muted">{d.logline.trim() || '한 줄 소개가 여기 보여.'}</p>
+      </aside>
 
       <form onSubmit={(e) => save(false, e)}>
         <fieldset>
@@ -351,17 +358,18 @@ export function Create({ go }: { go: (to: string) => void }) {
         {err && <p className="warn">{err}</p>}
 
         <div className="actions">
-          <button type="submit" disabled={busy}>
-            저장하기
-          </button>
           <button type="button" disabled={busy} onClick={() => save(true)}>
             저장하고 바로 들어가기
+          </button>
+          <button type="submit" className="quiet" disabled={busy}>
+            저장하기
           </button>
           <button type="button" className="ghost" disabled={busy} onClick={() => setD(blank())}>
             칸 비우기
           </button>
         </div>
       </form>
+      </div>
     </main>
   );
 }

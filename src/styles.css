@@ -1,39 +1,30 @@
-/* 색과 간격은 여기 토큰 한 곳에서 정한다. 덧칠하지 않는다. */
+/* 색과 간격은 여기 토큰 한 곳에서 정한다. 덧칠하지 않는다.
+   바깥은 극장처럼 어둡고, 필름 안의 폰은 밝다 — 들어갔다는 것이 보이게. */
 
 :root {
-  --bg: #f5f2ec;
-  --surface: #fffdf9;
-  --ink: #1d1b18;
-  --muted: #6f6a61;
-  --line: #e2dcd0;
-  --accent: #27324f;
-  --accent-ink: #fffdf9;
-  --me: #27324f;
-  --me-ink: #fffdf9;
-  --them: #ece6da;
-  --them-ink: #1d1b18;
-  --warn: #9a3b2c;
-  --radius: 14px;
-  --gap: 16px;
-  --phone: 460px;
-  color-scheme: light dark;
-}
+  --bg: #0d0e12;
+  --surface: #16181e;
+  --raised: #1e2129;
+  --ink: #f2efe9;
+  --muted: #9c988f;
+  --line: #2a2d37;
+  --accent: #ecc98f;
+  --accent-ink: #1a150c;
+  --warn: #f29b86;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #141519;
-    --surface: #1c1e24;
-    --ink: #ece9e2;
-    --muted: #9a968d;
-    --line: #2c2f38;
-    --accent: #c9b08a;
-    --accent-ink: #17181c;
-    --me: #c9b08a;
-    --me-ink: #17181c;
-    --them: #262931;
-    --them-ink: #ece9e2;
-    --warn: #e08a78;
-  }
+  /* 필름 안의 폰 */
+  --phone: #f7f4ee;
+  --phone-ink: #1c1a17;
+  --phone-muted: #77726a;
+  --phone-line: #e4ddd0;
+  --me: #2a3454;
+  --me-ink: #fbf9f4;
+  --them: #ebe5d9;
+  --them-ink: #1c1a17;
+
+  --radius: 14px;
+  --gap: 20px;
+  color-scheme: dark;
 }
 
 * {
@@ -61,26 +52,17 @@ body {
 
 h1,
 h2,
+h3,
 p,
-ul {
+ul,
+dl,
+dd {
   margin: 0;
   padding: 0;
 }
 
 ul {
   list-style: none;
-}
-
-h1 {
-  font-size: 22px;
-  letter-spacing: -0.01em;
-}
-
-h2 {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
-  margin-bottom: 10px;
 }
 
 button,
@@ -93,12 +75,19 @@ textarea {
 
 button {
   border: 0;
-  border-radius: 10px;
-  padding: 10px 14px;
+  border-radius: 999px;
+  padding: 10px 18px;
   background: var(--accent);
   color: var(--accent-ink);
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
+  transition:
+    transform 120ms ease,
+    opacity 120ms ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
 }
 
 button:disabled {
@@ -110,7 +99,13 @@ button.ghost {
   background: transparent;
   color: var(--muted);
   font-weight: 500;
-  padding: 6px 8px;
+  padding: 8px 10px;
+}
+
+button.quiet {
+  background: var(--raised);
+  color: var(--ink);
+  font-weight: 600;
 }
 
 input,
@@ -120,17 +115,14 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 10px 12px;
-  background: var(--surface);
+  background: var(--bg);
 }
 
 textarea {
   resize: vertical;
 }
 
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible,
-button:focus-visible {
+:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -160,6 +152,7 @@ button:focus-visible {
 
 .chip {
   font-size: 12px;
+  font-weight: 500;
   color: var(--muted);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -172,6 +165,55 @@ button:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+/* ── 포스터 ── */
+
+.poster {
+  --h: 220;
+  position: relative;
+  aspect-ratio: 2 / 3;
+  width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 14px;
+  color: #fffdf8;
+  background:
+    radial-gradient(120% 80% at 85% 0%, hsl(calc(var(--h) + 50) 70% 62% / 0.55), transparent 60%),
+    radial-gradient(90% 70% at 0% 100%, hsl(calc(var(--h) - 30) 60% 20% / 0.9), transparent 70%),
+    linear-gradient(165deg, hsl(var(--h) 42% 30%), hsl(calc(var(--h) + 25) 48% 14%));
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.07),
+    0 10px 30px rgb(0 0 0 / 0.35);
+}
+
+.poster-title {
+  font-size: clamp(17px, 2.2vw, 22px);
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.poster-casts {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.poster.small {
+  width: 56px;
+  padding: 6px;
+  border-radius: 6px;
+  flex: none;
+}
+
+.poster.small .poster-title {
+  font-size: 9px;
+  font-weight: 700;
+}
+
 /* ── 열쇠 ── */
 
 .gate {
@@ -180,6 +222,11 @@ button:focus-visible {
   padding: 22vh var(--gap) 0;
   display: grid;
   gap: 12px;
+}
+
+.gate h1 {
+  font-size: 28px;
+  letter-spacing: 0.04em;
 }
 
 .gate form {
@@ -195,113 +242,258 @@ button:focus-visible {
 
 /* ── 홈 ── */
 
-.home {
-  max-width: 720px;
+.home,
+.film {
+  max-width: 1040px;
   margin: 0 auto;
-  padding: 28px var(--gap) 48px;
+  padding: 24px var(--gap) 72px;
   display: grid;
-  gap: 28px;
+  gap: 36px;
+  align-content: start;
 }
 
 .top {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+}
+
+.brand {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
 }
 
 .top .push {
   margin-left: auto;
 }
 
-strong .chip {
-  margin-left: 8px;
-  font-weight: 400;
+.shelf {
+  display: grid;
+  gap: 14px;
 }
 
-.cards {
+.shelf > h2 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* 이어 살기 — 지금 그 세계가 몇 시인지를 보여준다 */
+
+.resumes {
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 12px;
 }
 
-.card {
+.resume {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
   background: var(--surface);
+  color: var(--ink);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-}
-
-.card.resume {
-  width: 100%;
-  text-align: left;
-  color: var(--ink);
+  padding: 10px 12px;
   font-weight: 400;
-  display: grid;
-  gap: 2px;
-  padding: 14px 16px;
 }
 
-.card.resume .last {
+.resume .text {
+  display: grid;
+  min-width: 0;
+  line-height: 1.4;
+}
+
+.resume .last {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.card.film {
+/* 포스터로 고른다 */
+
+.posters {
   display: grid;
-  grid-template-columns: 112px 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 18px 14px;
+}
+
+.pick {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  font-weight: 400;
+}
+
+.pick:hover:not(:disabled) {
+  transform: translateY(-3px);
+}
+
+.pick .caption {
+  font-size: 13px;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.poster {
-  aspect-ratio: 2 / 3;
-  background: linear-gradient(160deg, #27324f 0%, #5b4a63 55%, #c9a27e 100%);
-  color: #fffdf9;
-  display: flex;
-  align-items: flex-end;
-  padding: 10px;
-  font-weight: 700;
-  font-size: 14px;
-  line-height: 1.3;
+.empty {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  padding: 28px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
 }
 
-.card.film .body {
-  padding: 14px 16px;
+/* ── 필름 상세 ── */
+
+.film .hero {
   display: grid;
-  gap: 6px;
+  gap: 28px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 720px) {
+  .film .hero {
+    grid-template-columns: 280px minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.film .hero .poster {
+  max-width: 280px;
+}
+
+.film .about {
+  display: grid;
+  gap: 18px;
   align-content: start;
 }
 
-.card.film .body p {
-  font-size: 14px;
+.film h1 {
+  font-size: clamp(26px, 4vw, 36px);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
-.card.film .body em {
-  font-style: normal;
+.film .logline {
+  font-size: 17px;
   color: var(--ink);
 }
 
-.card.film .body button {
-  justify-self: start;
-  margin-top: 6px;
+.film .me {
+  display: grid;
+  gap: 2px;
+  padding: 14px 16px;
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+  border-radius: 0 var(--radius) var(--radius) 0;
 }
 
-/* ── 플레이 ── */
+.film .me small {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.film .me strong {
+  font-size: 18px;
+}
+
+.film h2 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.film .casts {
+  display: grid;
+  gap: 8px;
+}
+
+.film .casts li {
+  display: grid;
+  gap: 1px;
+}
+
+.film .casts span {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.film .setting {
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+
+.film .enter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.film .enter button {
+  font-size: 17px;
+  padding: 12px 24px;
+}
+
+/* ── 플레이: 세계 안에서 쓰는 폰 ── */
+
+.stage {
+  --h: 220;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background:
+    radial-gradient(60% 50% at 50% 0%, hsl(var(--h) 45% 24% / 0.7), transparent 70%),
+    var(--bg);
+}
 
 .play {
-  max-width: var(--phone);
+  width: 100%;
+  max-width: 440px;
   height: 100%;
-  margin: 0 auto;
   display: grid;
-  /* 머리 / 방 / 본문(대화·피드·선 가운데 하나) / 발 */
+  /* 머리 / 방 / 본문(대화 또는 피드) / 발 */
   grid-template-rows: auto auto minmax(0, 1fr) auto;
-  background: var(--surface);
-  border-inline: 1px solid var(--line);
+  background: var(--phone);
+  color: var(--phone-ink);
+  color-scheme: light;
+}
+
+@media (min-width: 520px) and (min-height: 700px) {
+  .stage {
+    padding: 28px 0;
+  }
+
+  .play {
+    height: min(100%, 860px);
+    border-radius: 36px;
+    overflow: hidden;
+    box-shadow:
+      0 0 0 10px #111319,
+      0 0 0 11px #2b2e38,
+      0 30px 80px rgb(0 0 0 / 0.55);
+  }
 }
 
 .play .top {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--line);
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid var(--phone-line);
 }
 
 .play .where {
@@ -311,27 +503,53 @@ strong .chip {
   min-width: 0;
 }
 
+.play .where strong {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.play .when,
+.play .muted {
+  color: var(--phone-muted);
+}
+
+.play button.ghost {
+  color: var(--phone-muted);
+}
+
+.play input {
+  background: #fffdf9;
+  border-color: var(--phone-line);
+  color: var(--phone-ink);
+}
+
+.play button[type='submit'] {
+  background: var(--me);
+  color: var(--me-ink);
+}
+
 .pill {
   background: transparent;
-  color: var(--muted);
-  border: 1px solid var(--line);
+  color: var(--phone-muted);
+  border: 1px solid var(--phone-line);
   border-radius: 999px;
-  padding: 4px 12px;
+  padding: 5px 12px;
   font-weight: 500;
   white-space: nowrap;
 }
 
 .pill.on {
-  background: var(--accent);
-  color: var(--accent-ink);
-  border-color: var(--accent);
+  background: var(--me);
+  color: var(--me-ink);
+  border-color: var(--me);
 }
 
 .rooms {
   display: flex;
   gap: 6px;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--phone-line);
   overflow-x: auto;
 }
 
@@ -341,20 +559,21 @@ strong .chip {
   display: none;
 }
 
+/* 누구와의 대화인지. 지금 보고 있는 사람만 채운다 */
 .rooms button {
   background: transparent;
-  color: var(--muted);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 4px 12px;
+  color: var(--phone-muted);
+  border: 1px solid var(--phone-line);
+  padding: 5px 14px;
   font-weight: 500;
   white-space: nowrap;
 }
 
 .rooms button.on {
-  background: var(--accent);
-  color: var(--accent-ink);
-  border-color: var(--accent);
+  background: var(--me);
+  color: var(--me-ink);
+  border-color: var(--me);
+  font-weight: 700;
 }
 
 .chat {
@@ -366,10 +585,26 @@ strong .chip {
   gap: 6px;
 }
 
+/* 이야기가 시작된 자리 */
+.scene {
+  align-self: center;
+  max-width: 88%;
+  text-align: center;
+  font-size: 13px;
+  color: var(--phone-muted);
+  padding: 4px 0 10px;
+}
+
+.scene strong {
+  display: block;
+  color: var(--phone-ink);
+  font-size: 14px;
+}
+
 .bubble {
   max-width: 78%;
   padding: 8px 12px;
-  border-radius: 16px;
+  border-radius: 18px;
   white-space: pre-wrap;
 }
 
@@ -377,14 +612,14 @@ strong .chip {
   align-self: flex-start;
   background: var(--them);
   color: var(--them-ink);
-  border-bottom-left-radius: 4px;
+  border-bottom-left-radius: 5px;
 }
 
 .bubble.me {
   align-self: flex-end;
   background: var(--me);
   color: var(--me-ink);
-  border-bottom-right-radius: 4px;
+  border-bottom-right-radius: 5px;
 }
 
 .bubble.sending {
@@ -392,7 +627,7 @@ strong .chip {
 }
 
 .bubble.typing {
-  color: var(--muted);
+  color: var(--phone-muted);
   letter-spacing: 0.2em;
 }
 
@@ -401,14 +636,14 @@ strong .chip {
 .notice {
   align-self: center;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--phone-muted);
   font-variant-numeric: tabular-nums;
   padding: 8px 0 2px;
 }
 
 .notice {
   font-size: 13px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--phone-line);
   border-radius: 999px;
   padding: 4px 12px;
   margin-top: 8px;
@@ -419,18 +654,25 @@ strong .chip {
   align-self: center;
   text-align: center;
   font-size: 14px;
-  color: var(--muted);
+  color: var(--phone-muted);
   display: grid;
   gap: 6px;
   justify-items: center;
   padding: 10px 0;
 }
 
-/* 발: 알림, 자리 비우기, 입력 */
+.stuck button {
+  background: var(--me);
+  color: var(--me-ink);
+}
+
+.play .warn {
+  color: #a23b2b;
+}
 
 .foot {
   grid-row: 4;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--phone-line);
   padding: 8px 12px calc(10px + env(safe-area-inset-bottom));
   display: grid;
   gap: 8px;
@@ -452,13 +694,12 @@ strong .chip {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  background: var(--bg);
-  color: var(--ink);
+  background: #efe9dd;
+  color: var(--phone-ink);
   font-weight: 500;
   text-align: left;
+  border-radius: 12px;
 }
-
-/* 피드 */
 
 .feed {
   grid-row: 3;
@@ -467,6 +708,12 @@ strong .chip {
   display: grid;
   gap: 12px;
   align-content: start;
+}
+
+.feed h2 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--phone-muted);
 }
 
 .feed ul {
@@ -480,8 +727,9 @@ strong .chip {
   align-items: baseline;
   gap: 2px;
   padding: 12px 14px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--phone-line);
   border-radius: var(--radius);
+  background: #fffdf9;
   font-size: 14px;
 }
 
@@ -491,31 +739,49 @@ strong .chip {
   padding-top: 4px;
 }
 
-.check {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.check input {
-  width: auto;
-}
-
 /* ── 필름 만들기 ── */
 
 .create {
-  max-width: 640px;
+  max-width: 1040px;
   margin: 0 auto;
-  padding: 20px var(--gap) 64px;
+  padding: 24px var(--gap) 72px;
   display: grid;
-  gap: 16px;
+  gap: 20px;
+}
+
+.create h1 {
+  font-size: 20px;
+}
+
+.create .cols {
+  display: grid;
+  gap: 28px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 860px) {
+  .create .cols {
+    grid-template-columns: minmax(0, 1fr) 220px;
+    align-items: start;
+  }
+
+  .create .preview {
+    position: sticky;
+    top: 20px;
+    order: 2;
+  }
+}
+
+.create .preview {
+  display: grid;
+  gap: 10px;
+  max-width: 220px;
 }
 
 .create form {
   display: grid;
   gap: 18px;
+  min-width: 0;
 }
 
 fieldset {
@@ -531,12 +797,17 @@ fieldset {
 
 legend {
   font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
+  font-weight: 700;
+  color: var(--accent);
   padding: 0 6px;
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+legend button.ghost {
+  padding: 0 6px;
+  font-size: 12px;
 }
 
 .field {
@@ -566,6 +837,18 @@ legend {
   gap: 6px 16px;
 }
 
+.check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.check input {
+  width: auto;
+}
+
 .add {
   justify-self: start;
 }
@@ -574,4 +857,5 @@ legend {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  align-items: center;
 }
