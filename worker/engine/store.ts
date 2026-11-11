@@ -141,7 +141,7 @@ export async function listPlays(ctx: Ctx): Promise<PlayCard[]> {
   for (const r of rows) {
     const p = toPlay(r);
     const last = await ctx.db.first<{ text: string }>(
-      'SELECT text FROM messages WHERE play_id = ? ORDER BY at DESC, rowid DESC LIMIT 1',
+      "SELECT text FROM messages WHERE play_id = ? AND speaker != 'tell' ORDER BY at DESC, rowid DESC LIMIT 1",
       p.id,
     );
     out.push({

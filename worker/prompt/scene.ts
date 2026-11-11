@@ -10,9 +10,13 @@ export interface SceneEvent {
   text: string;
 }
 
+/** 지나간 장면의 한 조각. 지문에는 말한 사람이 없다 */
 export interface SceneLine {
-  speaker: string; // 이름
+  kind: 'tell' | 'say' | 'msg';
+  speaker: string; // 이름. 지문이면 빈 글자
   text: string;
+  /** 유저가 맡은 인물의 말이면 참 — 받은 그대로 적는다 */
+  mine: boolean;
 }
 
 export interface SceneInput {
@@ -21,7 +25,7 @@ export interface SceneInput {
   clock: Clock;
   /** 이 인물이 아는 일만. 거르는 것은 부르는 쪽이 한다 */
   events: SceneEvent[];
-  /** 최근 대화. 유저의 이번 말은 빼고 준다 */
+  /** 지나간 장면. 유저의 이번 말은 빼고 준다 */
   history: SceneLine[];
 }
 
@@ -53,8 +57,12 @@ export function sceneLayer(s: SceneInput): string {
 
   if (s.history.length > 0) {
     out.push('');
-    out.push('[지금까지의 대화]');
-    for (const h of s.history) out.push(`${h.speaker}: ${h.text}`);
+    out.push('[지금까지의 장면]');
+    for (const h of s.history) {
+      if (h.kind === 'tell') out.push(h.text);
+      else if (h.kind === 'msg') out.push(`${h.speaker}(메시지): ${h.text}`);
+      else out.push(h.mine ? `${h.speaker}: ${h.text}` : `${h.speaker}: "${h.text}"`);
+    }
   }
 
   return out.join('\n');

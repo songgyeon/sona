@@ -42,7 +42,7 @@ export function gapLayers(
   from: number,
   to: number,
   events: SceneEvent[],
-  recent: SceneLine[],
+  recent: { speaker: string; text: string }[],
 ): Layers {
   const out: string[] = [];
   out.push('[인물]');

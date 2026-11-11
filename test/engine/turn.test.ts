@@ -93,11 +93,27 @@ describe('한 마디', () => {
     expect(v.ended).toBe(false);
   });
 
-  it('줄바꿈 하나가 말풍선 하나다', async () => {
-    const { ctx, playId } = await setup(() => '네.\n\n  그건 제가 할게요.  \n');
+  it('모델이 쓴 대목을 지문과 대사로 갈라 남긴다', async () => {
+    const { ctx, playId } = await setup(() => '한서가 책을 내려놓는다.\n\n  "네."  \n"그건 제가 할게요."\n계산대 뒤로 돌아간다.\n');
     const v = await send(ctx, playId, '이거 어디 둬요?');
-    const mine = v.messages.filter((m) => m.kind === 'chat' && m.speaker === 'c1').map((m) => m.text);
-    expect(mine).toEqual(['네.', '그건 제가 할게요.']);
+    const got = v.messages.filter((m) => m.kind === 'chat' && m.speaker !== 'persona').map((m) => [m.speaker, m.text]);
+    expect(got).toEqual([
+      ['tell', '한서가 책을 내려놓는다.'],
+      ['c1', '네.'],
+      ['c1', '그건 제가 할게요.'],
+      ['tell', '계산대 뒤로 돌아간다.'],
+    ]);
+  });
+
+  it('지나간 지문과 대사가 다음 턴의 프롬프트에 장면으로 실린다', async () => {
+    const { ctx, playId } = await setup(() => '한서가 고개를 든다.\n"왔어요?"');
+    await send(ctx, playId, '응, 방금.');
+    await send(ctx, playId, '오늘 바빴어?');
+    const scene = ctx.model.calls.filter((c) => c.purpose === 'reply').at(-1)!.layers.scene;
+    expect(scene).toContain('[지금까지의 장면]');
+    // 지문은 그대로, 캐스트의 대사는 따옴표로, 유저의 말은 받은 그대로
+    expect(scene).toContain('\n한서가 고개를 든다.\n한서: "왔어요?"');
+    expect(scene).toContain('수아: 응, 방금.');
   });
 
   it('같은 전송이 두 번 들어와도 턴은 하나다', async () => {
@@ -143,7 +159,7 @@ describe('답을 못 받았을 때', () => {
   it('빈 답이면 턴이 멈추고, 다시 받아도 시계는 또 안 간다', async () => {
     let n = 0;
     const { ctx, playId } = await setup((call) =>
-      call.purpose !== 'reply' ? FAKE_DEFAULTS[call.purpose] : n++ === 0 ? '   \n ' : '네.',
+      call.purpose !== 'reply' ? FAKE_DEFAULTS[call.purpose] : n++ === 0 ? '   \n ' : '"네."',
     );
     const stuck = await send(ctx, playId, '안녕');
     expect(stuck.stuck).toMatchObject({ status: 'failed', failReason: 'empty' });

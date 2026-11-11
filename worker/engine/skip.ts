@@ -10,12 +10,12 @@ import { isUuid } from '../guard';
 import type { ModelCall } from '../model/index';
 import { castLayer } from '../prompt/cast';
 import { sceneLayer, when } from '../prompt/scene';
-import { SYSTEM_LAYER } from '../prompt/system';
+import { PING_SYSTEM } from '../prompt/system';
 import { type Ctx, Fail } from './ctx';
 import { GAP_CUE, type GapItem, gapLayers, parseGap, parsePresent, presentLayers, presentUser } from './gap';
 import { pingHeld, pingSlots } from './ping';
 import { lastTurn, loadPlay, messagesOf, type Play, viewOf } from './store';
-import { ask, bubbles, errText, eventsFor, logStmt } from './talk';
+import { ask, bubbles, errText, eventsFor, logStmt, toLines } from './talk';
 
 export type SkipKind = 'short' | 'errand' | 'sleep';
 
@@ -167,7 +167,10 @@ async function lived(
       from,
       to,
       await eventsFor(ctx, play, cast.key, from),
-      room.slice(-6).map((m) => ({ speaker: nameOf(m.speaker), text: m.text })),
+      room
+        .filter((m) => m.speaker !== 'tell')
+        .slice(-6)
+        .map((m) => ({ speaker: nameOf(m.speaker), text: m.text })),
     ),
     user: GAP_CUE,
     temperature: 0.8,
@@ -227,7 +230,6 @@ async function reachOut(
 ): Promise<void> {
   const film = play.film;
   const room = await messagesOf(ctx.db, play.id, cast.key);
-  const nameOf = (speaker: string) => (speaker === 'persona' ? film.persona.name : cast.name);
   let lastContact = room.length > 0 ? room[room.length - 1]!.at : null;
   let sent = false;
 
@@ -250,7 +252,7 @@ async function reachOut(
     const call: ModelCall = {
       purpose: 'ping',
       layers: {
-        system: SYSTEM_LAYER,
+        system: PING_SYSTEM,
         cast: castLayer(film, cast),
         scene: sceneLayer({
           film,
@@ -260,7 +262,7 @@ async function reachOut(
             ...(await eventsFor(ctx, play, cast.key, slot)),
             ...before.filter((i) => i.kind === 'daily').map((i) => ({ at: i.at, text: i.text })),
           ],
-          history: room.slice(-RULES.historyLines).map((m) => ({ speaker: nameOf(m.speaker), text: m.text })),
+          history: toLines(play, cast.name, room.slice(-RULES.historyLines)),
         }),
       },
       user: `(${when(clockAt, slot)}. ${film.persona.name}에게서 온 말은 없다. 네가 먼저 연락한다. 얘깃거리: ${hook.text})`,

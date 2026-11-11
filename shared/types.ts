@@ -69,7 +69,8 @@ export interface FirstScene {
 
 /* ── 플레이 ── */
 
-export type Speaker = 'persona' | string; // 캐스트면 cast.key
+/** 'persona'는 유저가 맡은 인물, 'tell'은 지문(말한 사람이 없다), 그 밖에는 캐스트의 이름표(cast.key) */
+export type Speaker = 'persona' | 'tell' | string;
 
 export interface MessageView {
   id: string;

@@ -257,6 +257,13 @@ button:disabled { opacity: 0.4; cursor: default; }
 .say.me { grid-template-columns: 1fr; text-align: right; }
 .say.me p { color: var(--ink-2); font-weight: 500; }
 .say.sending p { opacity: 0.5; }
+/* 작품 속 폰으로 온 메시지. 말풍선은 여기만 쓴다 */
+.msg { margin: 22px 0; display: grid; grid-template-columns: 30px 1fr; column-gap: 12px; align-items: end; text-align: left; width: 100%; }
+.msg .face { width: 30px; height: 30px; font-size: 12px; }
+.msg small { display: block; margin-bottom: 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; color: var(--ink-3); }
+.msg p { display: inline-block; max-width: 88%; padding: 10px 14px; border-radius: 16px 16px 16px 4px; background: #1c1c1c; font-size: 15.5px; line-height: 1.45; white-space: pre-wrap; }
+.tell + .say, .tell + .msg { margin-top: 22px; }
+.say + .tell, .msg + .tell { margin-top: 0; }
 .cut { margin: 22px 0; display: flex; align-items: center; gap: 14px; font-family: var(--serif); font-size: 12.5px; letter-spacing: 0.1em; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .cut::before, .cut::after { content: ''; flex: 1; height: 1px; background: var(--hair); }
 .flow .note { margin: 18px 0; text-align: center; }

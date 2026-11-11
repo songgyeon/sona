@@ -6,8 +6,8 @@ import type { Model, ModelCall } from './index';
 export type Script = (call: ModelCall) => string | Promise<string>;
 
 export const FAKE_DEFAULTS: Record<ModelCall['purpose'], string> = {
-  reply: '응, 듣고 있어.',
-  first: '왔네.',
+  reply: '고개를 든다.\n"응, 듣고 있어."',
+  first: '문 쪽을 본다.\n"왔네."',
   ping: '지금 뭐 해?',
   gap: '',
   check: '판정: 없음',

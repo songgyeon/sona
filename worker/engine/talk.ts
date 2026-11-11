@@ -2,22 +2,57 @@
 
 import { trialOver } from '../../shared/clock';
 import { RULES } from '../../shared/rules';
-import type { TurnView } from '../../shared/types';
+import type { MessageView, TurnView } from '../../shared/types';
 import { newId, q, type Stmt } from '../db';
 import { spend } from '../guard';
 import type { Layers, ModelCall, ModelOut, Purpose } from '../model/index';
 import { castLayer } from '../prompt/cast';
-import { sceneLayer, type SceneEvent } from '../prompt/scene';
-import { SYSTEM_LAYER } from '../prompt/system';
+import { sceneLayer, type SceneEvent, type SceneLine } from '../prompt/scene';
+import { SCENE_SYSTEM } from '../prompt/system';
 import { type Ctx, Fail } from './ctx';
 import { messagesOf, type Play } from './store';
 
-/** 줄바꿈 하나가 말풍선 하나다. 줄을 지우거나 고치지 않는다 — 빈 줄만 걷는다 */
+/** 줄바꿈 하나가 메시지 하나다. 줄을 지우거나 고치지 않는다 — 빈 줄만 걷는다 */
 export function bubbles(raw: string): string[] {
   return raw
     .split(/\r?\n/)
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
+}
+
+export interface Piece {
+  kind: 'tell' | 'say';
+  text: string;
+}
+
+const OPEN = '"“「『';
+const CLOSE = '"”」』';
+
+/** 모델이 쓴 대목을 지문과 대사로 가른다. 줄 전체가 따옴표로 감싸인 줄이 대사고, 나머지는 지문이다.
+    글자를 지우거나 고치지 않는다 — 대사 줄을 감싼 따옴표만 벗긴다. 이어지는 지문 줄은 한 덩이로 둔다. */
+export function pieces(raw: string): Piece[] {
+  const out: Piece[] = [];
+  for (const line of bubbles(raw)) {
+    const quoted = line.length > 2 && OPEN.includes(line[0]!) && CLOSE.includes(line[line.length - 1]!);
+    const inner = quoted ? line.slice(1, -1).trim() : '';
+    if (quoted && inner.length > 0) {
+      out.push({ kind: 'say', text: inner });
+      continue;
+    }
+    const last = out[out.length - 1];
+    if (last?.kind === 'tell') last.text += `\n${line}`;
+    else out.push({ kind: 'tell', text: line });
+  }
+  return out;
+}
+
+/** 지나간 장면을 프롬프트에 적을 모양으로 바꾼다 */
+export function toLines(play: Play, castName: string, messages: MessageView[]): SceneLine[] {
+  return messages.map((m) => {
+    if (m.speaker === 'tell') return { kind: 'tell', speaker: '', text: m.text, mine: false };
+    const mine = m.speaker === 'persona';
+    return { kind: m.kind === 'ping' ? 'msg' : 'say', speaker: mine ? play.film.persona.name : castName, text: m.text, mine };
+  });
 }
 
 /** 모델을 부른 일을 남긴다. 화면에는 안 보이고, 답이 이상할 때 까닭을 찾는 데 쓴다 */
@@ -68,7 +103,7 @@ export async function eventsFor(ctx: Ctx, play: Play, castKey: string, upTo = In
     });
 }
 
-const FIRST_CUE = '(이야기가 지금 시작된다. 네가 먼저 말을 건다.)';
+const FIRST_CUE = '(이야기가 지금 시작된다. 이 장면을 네가 연다.)';
 
 /** 하루 몫에서 덜고 모델을 부른다 */
 export async function ask(ctx: Ctx, call: ModelCall): Promise<ModelOut> {
@@ -86,7 +121,6 @@ export async function answer(ctx: Ctx, play: Play, turn: TurnView): Promise<void
   if (!cast) throw new Fail(500, 'room_missing', '이 방의 인물을 못 찾았어.');
 
   const all = await messagesOf(ctx.db, play.id, cast.key);
-  const nameOf = (speaker: string) => (speaker === 'persona' ? film.persona.name : cast.name);
 
   let purpose: Purpose;
   let user: string;
@@ -103,17 +137,17 @@ export async function answer(ctx: Ctx, play: Play, turn: TurnView): Promise<void
   }
 
   const layers: Layers = {
-    system: SYSTEM_LAYER,
+    system: SCENE_SYSTEM,
     cast: castLayer(film, cast),
     scene: sceneLayer({
       film,
       cast,
       clock: play,
       events: await eventsFor(ctx, play, cast.key),
-      history: before.slice(-RULES.historyLines).map((m) => ({ speaker: nameOf(m.speaker), text: m.text })),
+      history: toLines(play, cast.name, before.slice(-RULES.historyLines)),
     }),
   };
-  const call: ModelCall = { purpose, layers, user, temperature: 0.8, maxTokens: 400 };
+  const call: ModelCall = { purpose, layers, user, temperature: 0.8, maxTokens: 600 };
 
   const fail = async (reason: string, out: ModelOut | null, note: string) => {
     await ctx.db.batch([
@@ -135,21 +169,22 @@ export async function answer(ctx: Ctx, play: Play, turn: TurnView): Promise<void
     return;
   }
 
-  const lines = bubbles(out.text);
-  if (lines.length === 0) {
+  const parts = pieces(out.text);
+  if (parts.length === 0) {
     await fail('empty', out, '빈 답');
     return;
   }
 
-  const stmts: Stmt[] = lines.map((text) =>
+  const stmts: Stmt[] = parts.map((part) =>
     q(
       'INSERT INTO messages (id, play_id, turn_id, room, speaker, text, at, kind, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       newId(),
       play.id,
       turn.id,
       cast.key,
-      cast.key,
-      text,
+      // 지문에는 말한 사람이 없다
+      part.kind === 'tell' ? 'tell' : cast.key,
+      part.text,
       play.elapsed,
       turn.kind === 'enter' ? 'first' : 'chat',
       ctx.now(),

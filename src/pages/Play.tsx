@@ -184,13 +184,29 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
         {messages.map((m, i) => (
           <Fragment key={m.id}>
             {cuts(m, i) && <p className="cut">{formatWorld(clock, m.at)}</p>}
-            {m.speaker === 'persona' ? (
+            {m.speaker === 'tell' ? (
+              // 지문. 말한 사람이 없다
+              m.text.split('\n').map((line, j) => (
+                <p className="tell" key={j}>
+                  {line}
+                </p>
+              ))
+            ) : m.speaker === 'persona' ? (
               <div className="say me">
                 <div>
                   <small>{film.persona.name}</small>
                   <p>{m.text}</p>
                 </div>
               </div>
+            ) : m.kind === 'ping' ? (
+              // 작품 속 폰으로 먼저 온 연락. 말풍선은 여기만 쓴다
+              <button className="msg" onClick={profile} aria-label={`${cast.name}의 프로필 보기`}>
+                <Face id={cast.face ?? ''} name={cast.name} />
+                <span>
+                  <small>{cast.name} · 메시지</small>
+                  <p>{m.text}</p>
+                </span>
+              </button>
             ) : (
               <button className="say" onClick={profile} aria-label={`${cast.name}의 프로필 보기`}>
                 <Face id={cast.face ?? ''} name={cast.name} />
