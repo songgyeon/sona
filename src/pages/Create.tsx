@@ -1,30 +1,19 @@
 import { type ChangeEvent, cloneElement, type ReactElement, type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import { blankCast, blankDraft, type Draft, type DraftBeat, type DraftCast, fromFilm, readDraft, toFilm } from '../../shared/draft';
+import { blankCast, blankDraft, type Draft, type DraftBeat, type DraftCast, fromFilm, isBlank, toFilm } from '../../shared/draft';
 import { openingLength } from '../../shared/opening';
 import { josa } from '../../shared/ko';
 import { DOW_NAMES, RULES } from '../../shared/rules';
 import { ApiFail, api, imgUrl, newId, uploadImage } from '../api';
 import { FacePick } from '../crop';
+import { drafts } from '../drafts';
 import { Arrow, Close, Down, Plus, Up, Upload } from '../icons';
 import { Face } from '../poster';
 
 /* 필름 만들기. 디렉터가 채우는 칸이다.
    며칠 치 일정을 쓰는 자리가 아니다 — 이 사람들이 어떤 사이이고 서로를 뭐라고 부르는지를 쓴다.
    칸마다 무엇을 쓰는지 알려 주고 예를 든다.
-   개봉한 필름을 고칠 때도 이 화면을 쓴다(editId). 그때는 필름을 칸으로 되돌려 놓고 시작한다. */
-
-const DRAFT_KEY = 'sona.draft';
-
-function loadDraft(): Draft {
-  try {
-    const raw = localStorage.getItem(DRAFT_KEY);
-    // 예전 모양으로 남겨 둔 것도 지금의 칸으로 읽는다
-    if (raw) return readDraft(JSON.parse(raw));
-  } catch {
-    /* 저장이 막혀 있으면 빈 칸에서 시작한다 */
-  }
-  return blankDraft();
-}
+   개봉한 필름을 고칠 때도 이 화면을 쓴다(editId). 그때는 필름을 칸으로 되돌려 놓고 시작한다.
+   새 필름은 쓰는 대로 이 기기에 임시저장된다. 임시저장한 필름을 이어서 만들 때도 이 화면이다(draftId). */
 
 type Step = 'plan' | 'cast' | 'world' | 'open' | 'release';
 /** 탭. 별표가 붙은 탭에는 꼭 채워야 하는 칸이 있다 */
@@ -38,29 +27,40 @@ const STEPS: { id: Step; label: string; must: boolean }[] = [
 
 const PICTURES = 'image/jpeg,image/png,image/webp';
 
-export function Create({ go, editId }: { go: (to: string) => void; editId?: string }) {
-  const [d, setD] = useState<Draft>(() => (editId ? blankDraft() : loadDraft()));
+export function Create({ go, editId, draftId }: { go: (to: string) => void; editId?: string; draftId?: string }) {
+  /** 이 필름을 임시저장하는 자리의 표. 새 필름은 여기서 하나 받는다 */
+  const [slot] = useState(() => draftId ?? newId());
+  const [kept] = useState(() => (draftId ? drafts.load(draftId) : null));
+  const [d, setD] = useState<Draft>(() => kept?.draft ?? blankDraft());
+  /** 새 필름을 열었을 때, 전에 임시저장해 둔 필름이 몇 편 있었나 */
+  const [waiting] = useState(() => (editId || draftId ? 0 : drafts.list().length));
   /** 고칠 필름을 불러오는 중인가, 못 불러왔다면 왜인가 */
   const [loading, setLoading] = useState(!!editId);
-  const [loadErr, setLoadErr] = useState('');
+  const [loadErr, setLoadErr] = useState(() => (draftId && !kept ? '임시저장한 필름을 찾을 수 없어요.' : ''));
   const [step, setStep] = useState<Step>('plan');
   const [more, setMore] = useState<Record<number, boolean>>({});
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [toast, setToast] = useState('');
 
-  const keep = (): boolean => {
-    try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
-      return true;
-    } catch {
-      return false;
-    }
+  /** 마지막으로 남긴 내용. 달라졌을 때만 다시 남긴다 — 열어만 본 필름의 저장한 때가 바뀌지 않게 */
+  const last = useRef(JSON.stringify(d));
+
+  /** 만들던 필름을 이 기기에 남긴다. 아무것도 적지 않았으면 남기지 않는다 */
+  const keep = () => {
+    const result = drafts.save(slot, d);
+    last.current = JSON.stringify(d);
+    // 남긴 뒤에는 주소가 그 필름을 가리킨다. 새로 고치면 그 필름이 다시 열린다
+    const here = window.location.pathname;
+    if (result === 'saved' && here === '/create') window.history.replaceState(null, '', `/create/${slot}`);
+    if (result !== 'saved' && here === `/create/${slot}`) window.history.replaceState(null, '', '/create');
+    return result;
   };
 
-  // 새 필름은 쓰다가 새로 고쳐도 남게 한다. 고치는 중인 필름은 남기지 않는다 — 저장된 필름이 원본이다
+  // 새 필름은 쓰는 대로 남긴다 — 새로 고쳐도, 나갔다 와도 이어진다. 고치는 중인 필름은 남기지 않는다(저장된 필름이 원본이다)
   useEffect(() => {
-    if (!editId) keep();
+    if (editId || loadErr || JSON.stringify(d) === last.current) return;
+    keep();
   }, [d]);
 
   useEffect(() => {
@@ -176,13 +176,8 @@ export function Create({ go, editId }: { go: (to: string) => void; editId?: stri
     setErr('');
     try {
       const { id } = editId ? await api.updateFilm(editId, toFilm(d)) : await api.createFilm(toFilm(d));
-      if (!editId) {
-        try {
-          localStorage.removeItem(DRAFT_KEY);
-        } catch {
-          /* 무시 */
-        }
-      }
+      // 개봉했으니 임시저장해 둔 자리는 비운다
+      if (!editId) drafts.drop(slot);
       if (thenEnter) {
         const view = await api.enter(id, newId());
         go(`/play/${view.id}?open=1`);
@@ -212,7 +207,13 @@ export function Create({ go, editId }: { go: (to: string) => void; editId?: stri
         <b>{editId ? '필름 고치기' : '필름 만들기'}</b>
         <div className="right">
           {!editId && (
-            <button className="mini keep" onClick={() => setToast(keep() ? '이 기기에 저장했어요' : '저장하지 못했어요')}>
+            <button
+              className="mini keep"
+              onClick={() => {
+                const result = keep();
+                setToast(result === 'saved' ? '내 필름에 임시저장했어요' : result === 'blank' ? '아직 적은 내용이 없어요' : '저장하지 못했어요');
+              }}
+            >
               임시저장
             </button>
           )}
@@ -241,6 +242,14 @@ export function Create({ go, editId }: { go: (to: string) => void; editId?: stri
         {step === 'plan' && (
           <>
             <p className="lead">필름의 제목과 포스터를 정해 주세요.</p>
+            {waiting > 0 && isBlank(d) && (
+              <p className="sub resume">
+                임시저장한 필름이 {waiting}편 있어요.
+                <button className="textbtn" onClick={() => go('/mine')}>
+                  이어서 만들기
+                </button>
+              </p>
+            )}
 
             <Card title="포스터">
               <div className="posterrow">

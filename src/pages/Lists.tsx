@@ -2,8 +2,10 @@
 
 import { type ReactNode, useEffect, useState } from 'react';
 import { formatWorld } from '../../shared/clock';
+import { draftTitle } from '../../shared/draft';
 import type { FilmCard, PlayCard } from '../../shared/types';
 import { ApiFail, api } from '../api';
+import { drafts } from '../drafts';
 import { Search } from '../icons';
 import { Art } from '../poster';
 import { Tabs } from '../tabs';
@@ -123,16 +125,28 @@ export function Living({ go }: { go: (to: string) => void }) {
   );
 }
 
-/** 내 필름. 내가 디렉터인 필름들 */
+/** 임시저장한 때. 「11월 11일 오후 4:30」 */
+const savedWhen = (at: number): string => new Date(at).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+/** 내 필름. 내가 디렉터인 필름들. 만들다 임시저장해 둔 필름이 맨 위에 선다 */
 export function Mine({ go }: { go: (to: string) => void }) {
   const [films, err] = useFilms();
   const mine = (films ?? []).filter((f) => f.mine);
+  const [saved, setSaved] = useState(() => drafts.list());
+  /** 지울지 묻고 있는 임시저장 */
+  const [asking, setAsking] = useState('');
+
+  const drop = (id: string) => {
+    drafts.drop(id);
+    setSaved(drafts.list());
+    setAsking('');
+  };
 
   return (
     <main className="app tabbed page">
       <h1>내 필름</h1>
       {err && <p className="warn sect">{err}</p>}
-      {films !== null && mine.length === 0 && (
+      {films !== null && mine.length === 0 && saved.length === 0 && (
         <div className="empty">
           <p>아직 만든 필름이 없어요.</p>
           <button className="btn play" onClick={() => go('/create')}>
@@ -140,6 +154,46 @@ export function Mine({ go }: { go: (to: string) => void }) {
           </button>
         </div>
       )}
+      {saved.length > 0 && (
+        <>
+          <p className="kicker sect shelfname">임시저장</p>
+          <ul className="rows">
+            {saved.map((s) => {
+              const title = draftTitle(s.draft);
+              return (
+                <li key={s.id} className="draft">
+                  <button className="filmrow" onClick={() => go(`/create/${s.id}`)}>
+                    <span className="thumb">
+                      <Art id={s.draft.poster} title={title} />
+                    </span>
+                    <span className="text">
+                      <strong>{title}</strong>
+                      {s.draft.logline.trim() && <span>{s.draft.logline}</span>}
+                      <em>{savedWhen(s.savedAt)}</em>
+                    </span>
+                  </button>
+                  {asking === s.id ? (
+                    <p className="ask">
+                      지울까요?
+                      <button className="textbtn" onClick={() => drop(s.id)}>
+                        지우기
+                      </button>
+                      <button className="textbtn" onClick={() => setAsking('')}>
+                        취소
+                      </button>
+                    </p>
+                  ) : (
+                    <button className="textbtn del" onClick={() => setAsking(s.id)} aria-label={`${title} 지우기`}>
+                      지우기
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+      {saved.length > 0 && mine.length > 0 && <p className="kicker sect shelfname">개봉한 필름</p>}
       <ul className="rows">
         {mine.map((f) => (
           <Row key={f.id} poster={f.poster} title={f.title} onClick={() => go(`/film/${f.id}`)}>

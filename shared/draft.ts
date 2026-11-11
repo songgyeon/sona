@@ -253,3 +253,140 @@ export function readDraft(raw: unknown): Draft {
   const { stills: _stills, situation: _situation, firstLine: _firstLine, ...rest } = base as typeof base & { stills?: unknown; situation?: unknown; firstLine?: unknown };
   return { ...rest, beats, speaker, casts: base.casts.map((c) => ({ ...blankCast(), ...c })) };
 }
+
+/* ── 임시저장 ──
+   만들던 필름을 이 기기에 남겨 둔다. 한 편에 한 자리씩이라 여러 편을 남길 수 있다.
+   새 필름은 쓰는 대로 남고, 「내 필름」에서 골라 이어서 만든다. 개봉하면 그 자리는 비운다. */
+
+/** 남겨 두는 곳. 브라우저의 저장소가 이 모양이다 */
+export interface Store {
+  readonly length: number;
+  key(i: number): string | null;
+  getItem(k: string): string | null;
+  setItem(k: string, v: string): void;
+  removeItem(k: string): void;
+}
+
+/** 임시저장한 필름 한 편 */
+export interface SavedDraft {
+  id: string;
+  draft: Draft;
+  /** 마지막으로 남긴 때(진짜 시각, 밀리초) */
+  savedAt: number;
+}
+
+/** 한 편의 자리. 뒤에 그 필름의 표가 붙는다 */
+const SLOT = 'sona.draft.';
+/** 한 편만 남기던 때의 자리 */
+const OLD_SLOT = 'sona.draft';
+
+/** 아무것도 적지 않은 필름인가. 남겨 둘 것이 없다.
+    시작 시각이나 스위치처럼 처음부터 값이 있는 칸은 치지 않는다 */
+export function isBlank(d: Draft): boolean {
+  const written = [
+    d.title,
+    d.logline,
+    d.poster,
+    d.setting,
+    d.personaName,
+    d.personaLine,
+    d.personaFace,
+    d.place,
+    ...d.casts.flatMap((c) => [c.name, c.face, c.aliases, c.role, c.callsUser, c.speech, c.nature, c.habit, c.trauma, c.lack, c.secret, c.samples, c.dayPlace]),
+    ...Object.values(d.ties).flatMap((t) => [t.relation, t.calls]),
+  ];
+  return d.casts.length <= 1 && d.beats.length === 0 && written.every((v) => v.trim().length === 0);
+}
+
+/** 목록에 적는 이름 */
+export const draftTitle = (d: Draft): string => d.title.trim() || '제목 없는 필름';
+
+function readSaved(id: string, raw: string | null): SavedDraft | null {
+  if (!raw) return null;
+  try {
+    const o = JSON.parse(raw) as { draft?: unknown; savedAt?: unknown } | null;
+    if (!o || typeof o !== 'object' || !o.draft) return null;
+    return { id, draft: readDraft(o.draft), savedAt: Number(o.savedAt) || 0 };
+  } catch {
+    return null;
+  }
+}
+
+/** 임시저장한 필름들을 두는 선반. 저장소가 막혀 있어도 터지지 않는다 — 그때는 남지 않을 뿐이다 */
+export function shelf(store: () => Store, newId: () => string, now: () => number) {
+  /** 한 편만 남기던 때의 것이 있으면 지금 자리로 옮긴다. 옮기지 못하면 그대로 둔다 */
+  const moveOld = (s: Store): void => {
+    const raw = s.getItem(OLD_SLOT);
+    if (raw === null) return;
+    const draft = readDraft(JSON.parse(raw));
+    if (!isBlank(draft)) s.setItem(SLOT + newId(), JSON.stringify({ draft, savedAt: now() }));
+    s.removeItem(OLD_SLOT);
+  };
+  const open = (): Store | null => {
+    try {
+      const s = store();
+      try {
+        moveOld(s);
+      } catch {
+        /* 예전 것을 못 읽거나 못 옮겼다. 지우지 않고 둔다 */
+      }
+      return s;
+    } catch {
+      return null;
+    }
+  };
+
+  return {
+    /** 남겨 둔 필름들. 최근에 남긴 것부터 */
+    list(): SavedDraft[] {
+      const s = open();
+      if (!s) return [];
+      try {
+        const out: SavedDraft[] = [];
+        for (let i = 0; i < s.length; i++) {
+          const k = s.key(i);
+          if (!k || !k.startsWith(SLOT)) continue;
+          const one = readSaved(k.slice(SLOT.length), s.getItem(k));
+          if (one) out.push(one);
+        }
+        return out.sort((a, b) => b.savedAt - a.savedAt);
+      } catch {
+        return [];
+      }
+    },
+
+    load(id: string): SavedDraft | null {
+      const s = open();
+      if (!s) return null;
+      try {
+        return readSaved(id, s.getItem(SLOT + id));
+      } catch {
+        return null;
+      }
+    },
+
+    /** 남긴다. 아무것도 적지 않은 필름은 남기지 않고, 남아 있던 자리도 비운다 */
+    save(id: string, draft: Draft): 'saved' | 'blank' | 'blocked' {
+      const s = open();
+      if (!s) return 'blocked';
+      try {
+        if (isBlank(draft)) {
+          s.removeItem(SLOT + id);
+          return 'blank';
+        }
+        s.setItem(SLOT + id, JSON.stringify({ draft, savedAt: now() }));
+        return 'saved';
+      } catch {
+        return 'blocked';
+      }
+    },
+
+    drop(id: string): void {
+      try {
+        open()?.removeItem(SLOT + id);
+      } catch {
+        /* 무시 */
+      }
+    },
+  };
+}

@@ -78,6 +78,7 @@ export function App() {
   if ((m = new RegExp(`^/film/${ID}/cast/(c[1-9])$`).exec(path))) return <Cast filmId={m[1]!} castKey={m[2]!} go={go} />;
   if ((m = new RegExp(`^/film/${ID}/edit$`).exec(path))) return <Create key={m[1]} editId={m[1]!} go={go} />;
   if ((m = new RegExp(`^/film/${ID}$`).exec(path))) return <Film filmId={m[1]!} go={go} />;
+  if ((m = new RegExp(`^/create/${ID}$`).exec(path))) return <Create key={m[1]} draftId={m[1]!} go={go} />;
   if (path === '/create') return <Create key="new" go={go} />;
   if (path === '/find') return <Find go={go} />;
   if (path === '/living') return <Living go={go} />;

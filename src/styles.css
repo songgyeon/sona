@@ -221,6 +221,13 @@ button:disabled { opacity: 0.4; cursor: default; }
 .filmrow .text span { margin-top: 5px; font-size: 13px; line-height: 1.5; color: var(--ink-3); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .filmrow em { display: block; margin-top: 6px; font-style: normal; font-size: 11.5px; letter-spacing: 0.06em; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .empty { margin: 34px var(--pad) 0; display: grid; gap: 18px; justify-items: start; }
+/* 내 필름: 임시저장한 필름. 줄 오른쪽에 지우는 단추가 선다 */
+.shelfname { margin-top: 30px; }
+.draft { position: relative; border-bottom: 1px solid var(--hair); }
+.draft .filmrow { border-bottom: 0; padding-right: 56px; }
+.draft .del { position: absolute; top: 50%; right: 0; transform: translateY(-50%); padding: 10px 0 10px 12px; }
+.draft .ask { display: flex; justify-content: flex-end; align-items: center; gap: 18px; padding: 0 0 14px; font-size: 12.5px; color: var(--ink-2); }
+.draft .ask .textbtn:first-of-type { color: var(--ink); }
 .empty p { font-family: var(--serif); font-size: 15px; line-height: 1.8; color: var(--ink-2); }
 
 /* ── 열쇠(주인이 걸어 둔 주소에서만) ── */
@@ -251,6 +258,10 @@ button:disabled { opacity: 0.4; cursor: default; }
 .with button.on { color: var(--ink); font-weight: 600; }
 .with .face { width: 26px; height: 26px; font-size: 11px; opacity: 0.55; }
 .with button.on .face { opacity: 1; box-shadow: 0 0 0 1px var(--ink); }
+/* 한자리에 같이 있는 캐스트는 모두 또렷하다. 테가 둘린 사람이 내가 말을 거는 사람이다 */
+.with button.here { color: var(--ink-2); }
+.with button.here.on { color: var(--ink); }
+.with button.here .face { opacity: 1; }
 /* 위로 지나간 줄은 가장자리에서 스르르 사라진다 */
 .flow { position: relative; flex: 1; min-height: 0; overflow-y: auto; padding: 24px var(--pad) 46px; scrollbar-width: none; -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 22px); mask-image: linear-gradient(180deg, transparent 0, #000 22px); }
 .flow::-webkit-scrollbar { display: none; }
@@ -380,6 +391,9 @@ button:disabled { opacity: 0.4; cursor: default; }
 .make .body { padding: 26px var(--pad) 0; }
 .lead { font-family: var(--serif); font-size: 17px; line-height: 1.6; font-weight: 600; letter-spacing: 0.01em; }
 .lead + .sub { margin-top: 6px; }
+/* 새 필름을 열었는데 임시저장해 둔 필름이 있을 때 */
+.resume { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.resume .textbtn { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 .sub { font-size: 13.5px; line-height: 1.6; color: var(--ink-3); }
 
 /* 한 장에 묶은 칸들 */
