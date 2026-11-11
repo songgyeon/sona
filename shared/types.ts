@@ -56,14 +56,24 @@ export interface Tie {
   calls: string;
 }
 
+/** 오프닝의 한 칸. 디렉터가 쌓은 순서대로 흐른다 */
+export type Beat =
+  /** 컷 — 이 자리부터 화면의 그림이 바뀐다 */
+  | { kind: 'cut'; image: string }
+  /** 지문 — 말한 사람이 없다 */
+  | { kind: 'tell'; text: string }
+  /** 대사 — 어느 캐스트의 말인가(cast.key) */
+  | { kind: 'say'; cast: string; text: string };
+
 export interface FirstScene {
   place: string;
-  situation: string;
+  /** 오프닝. 컷·지문·대사가 순서대로. 비어 있어도 된다 */
+  beats: Beat[];
   /** 어느 캐스트와의 방에서 시작하나 */
   room: string;
-  /** 누가 먼저 말하나 */
+  /** 오프닝이 끝나면 누가 먼저 말하나. cast면 대사 모델이 오프닝에 이어 쓴다 */
   speaker: 'persona' | 'cast';
-  /** 캐스트가 먼저 말할 때의 첫 마디. 비우면 모델이 쓴다 */
+  /** 예전 필름에만 있는 첫 마디. 지금은 오프닝의 대사 칸으로 쓴다 — 새 필름에서는 늘 빈 글자다 */
   firstLine: string;
 }
 

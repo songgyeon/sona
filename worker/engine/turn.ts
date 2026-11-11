@@ -1,6 +1,7 @@
 /* 입장, 한 마디, 다시 받기.
    시계를 미는 것은 여기뿐이다 — 유저의 전송 1건에 정해진 만큼. 모델은 못 민다. */
 
+import { wasThere } from '../../shared/opening';
 import { RULES } from '../../shared/rules';
 import type { PlayView } from '../../shared/types';
 import { isUniqueError, newId, q, type Stmt } from '../db';
@@ -51,7 +52,9 @@ export async function enter(ctx: Ctx, filmId: string, playId: unknown): Promise<
       now,
     ),
   ];
-  if (fs.place || fs.situation) {
+  // 첫 장면에서 있었던 일. 그 자리에 있던 사람만 안다
+  const tells = fs.beats.flatMap((b) => (b.kind === 'tell' ? [b.text] : []));
+  if (fs.place || tells.length > 0) {
     stmts.push(
       q(
         'INSERT INTO events (id, play_id, turn_id, at, kind, actor, text, known_by, created_at) VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?)',
@@ -60,8 +63,8 @@ export async function enter(ctx: Ctx, filmId: string, playId: unknown): Promise<
         turnId,
         'scene',
         'world',
-        [fs.place, fs.situation].filter(Boolean).join(' — '),
-        JSON.stringify(['persona', cast.key]),
+        [fs.place, tells.join(' ')].filter(Boolean).join(' — '),
+        JSON.stringify(['persona', ...film.casts.filter((c) => wasThere(film, c.key)).map((c) => c.key)]),
         now,
       ),
     );

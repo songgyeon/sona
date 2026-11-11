@@ -2,6 +2,7 @@
    지금 이 장면의 사실만 싣는다: 때, 이 인물이 아는 일, 최근 대화. */
 
 import { type Clock, formatMin, partOfDay, worldAt } from '../../shared/clock';
+import { wasThere } from '../../shared/opening';
 import { DOW_NAMES } from '../../shared/rules';
 import type { Cast, Film } from '../../shared/types';
 
@@ -42,11 +43,18 @@ export function sceneLayer(s: SceneInput): string {
   out.push('[지금]');
   out.push(`${DOW_NAMES[now.dow]} ${partOfDay(now.min)}.`);
 
+  // 오프닝은 그 자리에 있던 사람에게만 싣는다. 지문은 그대로, 대사는 누가 한 말인지 붙여서
   const fs = s.film.firstScene;
-  if (fs.place || fs.situation) {
+  const lines = fs.beats.filter((b) => b.kind !== 'cut');
+  if (wasThere(s.film, s.cast.key) && (fs.place || lines.length > 0)) {
+    const nameOf = (key: string) => s.film.casts.find((c) => c.key === key)?.name ?? key;
     out.push('');
     out.push('[이야기가 시작된 자리]');
-    out.push([fs.place, fs.situation].filter(Boolean).join(' — '));
+    if (fs.place) out.push(fs.place);
+    for (const b of lines) {
+      if (b.kind === 'tell') out.push(b.text);
+      else if (b.kind === 'say') out.push(`${nameOf(b.cast)}: "${b.text}"`);
+    }
   }
 
   if (s.events.length > 0) {

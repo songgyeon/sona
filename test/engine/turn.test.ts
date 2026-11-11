@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { RULES } from '../../shared/rules';
 import { Fail } from '../../worker/engine/ctx';
-import { fromFilm, toFilm } from '../../shared/draft';
+import { fromFilm, readDraft, toFilm } from '../../shared/draft';
 import { createFilm, getFilm, listFilms, parseFilm, updateFilm } from '../../worker/engine/films';
 import { viewOf } from '../../worker/engine/store';
 import { enter, retry, say } from '../../worker/engine/turn';
 import { FAKE_DEFAULTS, type Script } from '../../worker/model/fake';
 import { DEV_FILM, OTHER_VISITOR, testCtx, uid } from '../helpers/film';
+
+const CUT_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const CUT_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 
 async function setup(script?: Script, film: unknown = DEV_FILM) {
   const ctx = testCtx(script);
@@ -105,8 +108,48 @@ describe('필름 고치기', () => {
   });
 
   it('필름을 만들기 화면의 칸으로 되돌렸다가 다시 필름으로 바꿔도 같다', () => {
-    const film = parseFilm(DEV_FILM);
+    const film = parseFilm({
+      ...DEV_FILM,
+      firstScene: {
+        place: '서점 계산대',
+        beats: [
+          { kind: 'tell', text: '손님이 끊긴 오후.\n둘이 책을 정리하고 있다.' },
+          { kind: 'cut', image: CUT_A },
+          { kind: 'say', cast: 'c1', text: '수아 씨, 그건 이쪽 칸이에요.' },
+          { kind: 'say', cast: 'c2', text: '오늘도 그 자리 비었어요?' },
+          { kind: 'cut', image: CUT_B },
+        ],
+        room: 'c1',
+        speaker: 'persona',
+      },
+    });
+    expect(film.stills).toEqual([CUT_A, CUT_B]);
     expect(parseFilm(toFilm(fromFilm(film)))).toEqual(film);
+  });
+
+  it('예전 필름을 칸으로 되돌리면 첫 마디가 오프닝의 대사 칸이 된다', () => {
+    const old = parseFilm(DEV_FILM);
+    expect(old.firstScene.firstLine).toBe(DEV_FILM.firstScene.firstLine);
+
+    const again = parseFilm(toFilm(fromFilm(old)));
+    expect(again.firstScene.beats).toEqual([
+      { kind: 'tell', text: DEV_FILM.firstScene.situation },
+      { kind: 'say', cast: 'c1', text: DEV_FILM.firstScene.firstLine },
+    ]);
+    // 그 말은 이미 오프닝에 있다. 대사 모델이 또 열지 않는다
+    expect(again.firstScene).toMatchObject({ firstLine: '', speaker: 'persona' });
+  });
+
+  it('이 기기에 남겨 둔 예전 모양의 쓰다 만 내용도 칸으로 읽힌다', () => {
+    const d = readDraft({ title: '쓰다 만 것', stills: [CUT_A, CUT_B], situation: '점심 뒤.', speaker: 'cast', firstLine: '왔어요?' });
+    expect(d.beats.map((b) => [b.kind, b.kind === 'cut' ? b.image : b.text])).toEqual([
+      ['cut', CUT_A],
+      ['tell', '점심 뒤.'],
+      ['say', '왔어요?'],
+      ['cut', CUT_B],
+    ]);
+    expect(d.speaker).toBe('persona');
+    expect(d.title).toBe('쓰다 만 것');
   });
 });
 

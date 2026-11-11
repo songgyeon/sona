@@ -23,6 +23,11 @@ export const Down = () => (
     <path d="M5.5 9.5 12 16l6.5-6.5" />
   </Line>
 );
+export const Up = () => (
+  <Line>
+    <path d="M5.5 14.5 12 8l6.5 6.5" />
+  </Line>
+);
 export const Close = () => (
   <Line>
     <path d="M6 6l12 12M18 6 6 18" />

@@ -1,6 +1,7 @@
 /* 인물의 답을 받는 곳. 모델은 문장만 쓴다. 한 턴에 한 번 부른다. */
 
 import { trialOver } from '../../shared/clock';
+import { hasLines } from '../../shared/opening';
 import { RULES } from '../../shared/rules';
 import type { MessageView, TurnView } from '../../shared/types';
 import { newId, q, type Stmt } from '../db';
@@ -86,13 +87,14 @@ export function logStmt(
 
 /** 이 인물이 아는 일만 고른다. 같은 일도 누가 읽느냐에 따라 다르게 적힌다 —
     제 피드 글은 "올렸다", 남의 피드 글은 "피드에서 봤다"다. */
-export async function eventsFor(ctx: Ctx, play: Play, castKey: string, upTo = Infinity): Promise<SceneEvent[]> {
+export async function eventsFor(ctx: Ctx, play: Play, castKey: string, upTo = Infinity, withScene = true): Promise<SceneEvent[]> {
   const rows = await ctx.db.all<{ at: number; kind: string; actor: string; text: string; known_by: string }>(
     'SELECT at, kind, actor, text, known_by FROM events WHERE play_id = ? ORDER BY at, rowid',
     play.id,
   );
   const nameOf = (key: string) => play.film.casts.find((c) => c.key === key)?.name ?? key;
   return rows
+    .filter((r) => withScene || r.kind !== 'scene')
     .filter((r) => r.at <= upTo && (JSON.parse(r.known_by) as string[]).includes(castKey))
     .map((r) => {
       if (r.kind !== 'post') return { at: r.at, text: r.text };
@@ -104,6 +106,8 @@ export async function eventsFor(ctx: Ctx, play: Play, castKey: string, upTo = In
 }
 
 const FIRST_CUE = '(이야기가 지금 시작된다. 이 장면을 네가 연다.)';
+/** 디렉터가 오프닝을 써 둔 필름: 그 뒤를 잇는다 */
+const AFTER_OPENING_CUE = '(위에 적힌 시작 장면에 바로 이어서, 네가 먼저 움직이고 말한다. 이미 적힌 것을 되풀이하지 않는다.)';
 
 /** 하루 몫에서 덜고 모델을 부른다 */
 export async function ask(ctx: Ctx, call: ModelCall): Promise<ModelOut> {
@@ -127,7 +131,7 @@ export async function answer(ctx: Ctx, play: Play, turn: TurnView): Promise<void
   let before = all;
   if (turn.kind === 'enter') {
     purpose = 'first';
-    user = FIRST_CUE;
+    user = hasLines(film) ? AFTER_OPENING_CUE : FIRST_CUE;
   } else {
     const last = all[all.length - 1];
     if (!last || last.speaker !== 'persona') throw new Fail(500, 'no_user_line', '답할 대사를 찾을 수 없어요.');
@@ -143,7 +147,8 @@ export async function answer(ctx: Ctx, play: Play, turn: TurnView): Promise<void
       film,
       cast,
       clock: play,
-      events: await eventsFor(ctx, play, cast.key),
+      // 첫 장면은 [이야기가 시작된 자리]에 통째로 실린다. 같은 일을 두 번 싣지 않는다
+      events: await eventsFor(ctx, play, cast.key, Infinity, false),
       history: toLines(play, cast.name, before.slice(-RULES.historyLines)),
     }),
   };

@@ -46,7 +46,7 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
     setErr('');
     try {
       const view = await api.enter(filmId, newId());
-      go(`/play/${view.id}`);
+      go(`/play/${view.id}?open=1`);
     } catch (e) {
       setErr(e instanceof ApiFail ? e.message : '필름에 들어가지 못했어요.');
       setBusy(false);
@@ -57,6 +57,8 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
   const { film, card } = data;
   const fs = film.firstScene;
   const stills = film.stills ?? [];
+  /** 오프닝의 첫 지문. 필름이 어떻게 시작하는지 미리 보인다 */
+  const opening = fs.beats.flatMap((b) => (b.kind === 'tell' ? [b.text] : []))[0] ?? '';
   const still = stills[0] ?? film.poster ?? '';
   const when = [`${DOW_NAMES[film.startDow]} ${formatMin(film.startMin)}`, fs.place].filter(Boolean).join(' · ');
   /** 살고 있는 삶이 있으면 그 삶의 프로필로 간다 — 피드가 거기 쌓인다 */
@@ -133,12 +135,12 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
         </section>
       )}
 
-      {(fs.situation || film.setting) && (
+      {(opening || film.setting) && (
         <section className="block sect">
           <div className="rowhead" style={{ padding: 0 }}>
             오프닝<span>{when}</span>
           </div>
-          <p className="prose">{fs.situation || film.setting}</p>
+          <p className="prose">{opening || film.setting}</p>
         </section>
       )}
 

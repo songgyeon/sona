@@ -1,10 +1,11 @@
-import { type FormEvent, Fragment, useEffect, useRef, useState } from 'react';
+import { type FormEvent, Fragment, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { formatWorld, worldAt } from '../../shared/clock';
+import { cutsOf, hasLines } from '../../shared/opening';
 import { RULES } from '../../shared/rules';
-import type { MessageView, PlayView } from '../../shared/types';
+import type { Film, MessageView, PlayView } from '../../shared/types';
 import { ApiFail, api, imgUrl, newId } from '../api';
-import { Arrow, Back, SkipFill } from '../icons';
-import { Face } from '../poster';
+import { Arrow, Back, Down, SkipFill } from '../icons';
+import { Face, titleClass } from '../poster';
 
 type SkipKind = 'evening' | 'sleep';
 
@@ -30,6 +31,51 @@ function skipsAt(min: number): { kind: SkipKind; label: string }[] {
 /** 앞 대사와 이만큼 벌어지면 그 사이에 시각을 적는다(작중 분) */
 const CUT_AFTER = 30;
 
+/** 들어가는 순간 제목이 떠 있는 동안(밀리초) */
+const TITLE_MS = 1900;
+
+/** 오프닝. 디렉터가 쌓은 순서대로 흐른다. 재생 중에는 컷 번호 같은 만드는 말을 보이지 않는다.
+    컷은 글 사이에 끼우지 않는다 — 그 컷 바로 다음에 오는 줄에 표시(data-cut)만 달아 두고,
+    읽는 자리가 그 줄에 닿으면 위 화면의 그림이 바뀐다 */
+function Opening({ film }: { film: Film }) {
+  const out: ReactNode[] = [];
+  let pending = '';
+  film.firstScene.beats.forEach((b, i) => {
+    if (b.kind === 'cut') {
+      pending = b.image;
+      return;
+    }
+    const mark = pending ? { 'data-cut': pending } : {};
+    pending = '';
+    if (b.kind === 'tell') {
+      b.text
+        .split('\n')
+        .filter((line) => line.trim().length > 0)
+        .forEach((line, j) =>
+          out.push(
+            <p className="tell" key={`${i}-${j}`} {...(j === 0 ? mark : {})}>
+              {line}
+            </p>,
+          ),
+        );
+      return;
+    }
+    const who = film.casts.find((c) => c.key === b.cast);
+    out.push(
+      <div className="say" key={i} {...mark}>
+        <Face id={who?.face ?? ''} name={who?.name ?? ''} />
+        <span>
+          <small>{who?.name}</small>
+          <p>{b.text}</p>
+        </span>
+      </div>,
+    );
+  });
+  // 맨 끝에 건 컷: 오프닝을 다 읽으면 걸린다
+  if (pending) out.push(<i className="mark" key="end" data-cut={pending} />);
+  return <div className="opening">{out}</div>;
+}
+
 /** 재생. 위에 지금 장면이 걸리고, 아래로 장면이 흐른다 */
 export function Play({ playId, go }: { playId: string; go: (to: string) => void }) {
   const [view, setView] = useState<PlayView | null>(null);
@@ -42,7 +88,16 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
   const [waiting, setWaiting] = useState(false);
   const [err, setErr] = useState('');
   const [notice, setNotice] = useState('');
-  const bottom = useRef<HTMLDivElement>(null);
+  /** 「필름에 들어가기」로 막 들어왔으면 제목이 먼저 뜬다 */
+  const [card, setCard] = useState(() => new URLSearchParams(window.location.search).has('open'));
+  /** 오프닝을 읽는 중. 끝에 닿으면 말하는 칸이 선다 */
+  const [reading, setReading] = useState(false);
+  /** 지금 화면에 걸린 컷과, 그 밑에 깔린 바로 앞 컷 */
+  const [shot, setShot] = useState('');
+  const [under, setUnder] = useState('');
+  const flow = useRef<HTMLElement>(null);
+  const tick = useRef(0);
+  const still = useRef(0);
 
   useEffect(() => {
     api
@@ -51,14 +106,85 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
         setView(v);
         // 프로필에서 「메시지」로 왔으면 그 사람과의 자리로 연다
         const asked = new URLSearchParams(window.location.search).get('with');
-        setRoom(asked && v.film.casts.some((c) => c.key === asked) ? asked : v.film.firstScene.room);
+        const first = v.film.firstScene.room;
+        const to = asked && v.film.casts.some((c) => c.key === asked) ? asked : first;
+        setRoom(to);
+        // 아직 한마디도 안 했으면 오프닝을 처음부터 읽는다
+        setReading(to === first && hasLines(v.film) && v.elapsed === 0 && !v.messages.some((m) => m.speaker === 'persona'));
       })
       .catch((e) => setErr(e instanceof ApiFail ? e.message : '필름을 불러오지 못했어요.'));
   }, [playId]);
 
+  // 제목은 잠깐 떴다가 걷힌다. 주소에 남은 표시는 지운다 — 새로 고쳐도 다시 뜨지 않게
   useEffect(() => {
-    bottom.current?.scrollIntoView({ block: 'end' });
-  }, [view, out, room, waiting]);
+    if (!card) return;
+    window.history.replaceState(null, '', window.location.pathname);
+    if (!view) return;
+    const t = setTimeout(() => setCard(false), TITLE_MS);
+    return () => clearTimeout(t);
+  }, [card, view !== null]);
+
+  /** 마지막 줄까지 남은 길이. 흐름 맨 아래의 여백(말하는 칸에 가리는 자리)은 치지 않는다 */
+  const restOf = (el: HTMLElement) => {
+    const pad = parseFloat(getComputedStyle(el).paddingBottom) || 0;
+    return Math.max(0, el.scrollHeight - el.clientHeight - el.scrollTop - pad);
+  };
+
+  /** 마지막 줄까지 내려왔나 */
+  const atEnd = () => {
+    const el = flow.current;
+    return !el || restOf(el) <= 12;
+  };
+
+  /** 읽는 자리에 맞는 컷을 고른다. 표시가 달린 줄 가운데, 읽는 자리를 지난 마지막 줄의 컷이다.
+      읽는 자리는 보통 흐름의 위에서 2/5다. 끝이 가까워지면 아래로 내려가서, 맨 끝에서는 흐름의 바닥이 된다 —
+      그래야 마지막 화면에 든 줄들의 컷도 차례로 걸리고, 다 읽으면 마지막 컷이 남는다 */
+  const look = () => {
+    const el = flow.current;
+    if (!el) return;
+    const marks = [...el.querySelectorAll<HTMLElement>('[data-cut]')];
+    if (marks.length === 0) {
+      setShot('');
+      return;
+    }
+    const rest = restOf(el);
+    const reach = el.clientHeight * 0.6;
+    const at = rest >= reach ? 0.4 : 1 - 0.6 * (rest / reach);
+    const line = el.scrollTop + el.clientHeight * at;
+    let cur = marks[0]!;
+    for (const m of marks) if (m.offsetTop <= line) cur = m;
+    setShot(cur.dataset.cut ?? '');
+  };
+
+  const onScroll = () => {
+    cancelAnimationFrame(tick.current);
+    tick.current = requestAnimationFrame(look);
+    // 끝에 닿아 멈추면 오프닝 읽기가 끝난다. 미끄러져 내려가는 중에는 기다린다
+    window.clearTimeout(still.current);
+    still.current = window.setTimeout(() => {
+      if (atEnd()) setReading(false);
+    }, 160);
+  };
+
+  // 오프닝을 읽는 동안에는 끌어내리지 않는다. 그 밖에는 늘 맨 아래를 본다
+  useLayoutEffect(() => {
+    if (!view) return;
+    // 한 화면에 다 들어오는 오프닝은 읽을 것이 남지 않았다
+    if (reading && atEnd()) setReading(false);
+    // 맨 아래 여백까지 내린다 — 마지막 줄이 말하는 칸 위로 올라와 가리지 않게
+    const el = flow.current;
+    if (!reading && el) el.scrollTop = el.scrollHeight;
+    look();
+  }, [view, out, room, waiting, reading]);
+
+  useEffect(() => {
+    window.addEventListener('resize', onScroll);
+    return () => {
+      window.removeEventListener('resize', onScroll);
+      cancelAnimationFrame(tick.current);
+      window.clearTimeout(still.current);
+    };
+  }, []);
 
   const deliver = async (o: Outgoing) => {
     setOut(o);
@@ -128,7 +254,8 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
     setWaiting(false);
   };
 
-  if (!view) return <p className="center">{err || '필름에 들어가는 중'}</p>;
+  // 제목이 뜰 자리. 불러오는 동안에는 검은 화면만 둔다
+  if (!view) return err || !card ? <p className="center">{err || '필름에 들어가는 중'}</p> : <main className="app playing" />;
 
   const film = view.film;
   const clock = { startDow: film.startDow, startMin: film.startMin, elapsed: view.elapsed };
@@ -139,7 +266,8 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
   const locked = waiting || view.ended || !!view.stuck || !!out || !!away;
   const cuts = (m: MessageView, i: number) => i > 0 && m.at - messages[i - 1]!.at >= CUT_AFTER;
   const fs = film.firstScene;
-  const still = (film.stills ?? [])[0] ?? film.poster ?? '';
+  /** 화면에 거는 그림. 읽는 자리의 컷이 먼저고, 없으면 첫 컷, 그것도 없으면 포스터 */
+  const onScreen = shot || cutsOf(film)[0] || (film.stills ?? [])[0] || film.poster || '';
   /** 첫 장면 안에 있는 동안만 장소를 적는다. 그 뒤로는 어디인지 서버가 모른다 */
   const place = view.elapsed < CUT_AFTER ? fs.place : '';
   const profile = () => go(`/play/${playId}/cast/${cast.key}`);
@@ -152,9 +280,10 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
         </button>
       </div>
 
-      {still && (
+      {onScreen && (
         <div className="screen grain">
-          <img src={imgUrl(still)} alt="" />
+          {under && under !== onScreen && <img key={`under-${under}`} src={imgUrl(under)} alt="" />}
+          <img key={onScreen} className="cutin" src={imgUrl(onScreen)} alt="" onAnimationEnd={() => setUnder(onScreen)} />
         </div>
       )}
       <p className="where">
@@ -181,8 +310,8 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
         </nav>
       )}
 
-      <section className="flow" aria-live="polite">
-        {cast.key === fs.room && fs.situation && <p className="tell">{fs.situation}</p>}
+      <section className="flow" aria-live="polite" ref={flow} onScroll={onScroll}>
+        {cast.key === fs.room && fs.beats.length > 0 && <Opening film={film} />}
 
         {messages.map((m, i) => (
           <Fragment key={m.id}>
@@ -276,9 +405,16 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
 
         {notice && <p className="note">{notice}</p>}
         {view.ended && <p className="cut">첫 하루가 끝났어요</p>}
-        <div ref={bottom} />
       </section>
 
+      {reading ? (
+        // 오프닝을 읽는 동안: 아래로 더 있다는 것만 알린다
+        <footer className="foot more">
+          <button className="ico" onClick={() => flow.current?.scrollBy({ top: flow.current.clientHeight * 0.8, behavior: 'smooth' })} aria-label="이어서 읽기">
+            <Down />
+          </button>
+        </footer>
+      ) : (
       <footer className="foot">
         {err && <p className="warn">{err}</p>}
         {!view.ended && (
@@ -310,6 +446,13 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
         </form>
         <div className="safe" />
       </footer>
+      )}
+
+      {card && (
+        <div className="titlecard" aria-hidden="true">
+          <h1 className={titleClass(film.title)}>{film.title}</h1>
+        </div>
+      )}
     </main>
   );
 }

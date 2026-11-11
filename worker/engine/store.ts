@@ -1,6 +1,7 @@
 /* 플레이를 읽는 곳. 화면에 내보내는 모양도 여기서 만든다. */
 
 import type { Clock } from '../../shared/clock';
+import { readFilm } from '../../shared/opening';
 import type { Film, MessageView, PlayCard, PlayView, PostView, TurnView } from '../../shared/types';
 import type { Db } from '../db';
 import { type Ctx, Fail } from './ctx';
@@ -29,7 +30,7 @@ function toPlay(r: PlayRow): Play {
     id: r.id,
     filmId: r.film_id,
     owner: r.owner,
-    film: JSON.parse(r.film) as Film,
+    film: readFilm(JSON.parse(r.film) as Film),
     startDow: r.start_dow,
     startMin: r.start_min,
     elapsed: r.elapsed,
@@ -155,7 +156,8 @@ export async function listPlays(ctx: Ctx): Promise<PlayCard[]> {
       startDow: p.startDow,
       startMin: p.startMin,
       ended: p.ended,
-      lastLine: last?.text ?? '',
+      // 아직 오간 말이 없으면 오프닝의 마지막 대사를 보인다
+      lastLine: last?.text ?? p.film.firstScene.beats.flatMap((b) => (b.kind === 'say' ? [b.text] : [])).pop() ?? '',
     });
   }
   return out;

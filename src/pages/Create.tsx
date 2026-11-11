@@ -1,9 +1,11 @@
-import { type ChangeEvent, cloneElement, type ReactElement, type ReactNode, useEffect, useId, useState } from 'react';
-import { blankCast, blankDraft, type Draft, type DraftCast, fromFilm, toFilm } from '../../shared/draft';
+import { type ChangeEvent, cloneElement, type ReactElement, type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { blankCast, blankDraft, type Draft, type DraftBeat, type DraftCast, fromFilm, readDraft, toFilm } from '../../shared/draft';
+import { openingLength } from '../../shared/opening';
 import { josa } from '../../shared/ko';
 import { DOW_NAMES, RULES } from '../../shared/rules';
 import { ApiFail, api, imgUrl, newId, uploadImage } from '../api';
-import { Arrow, Close, Down, Plus, Upload } from '../icons';
+import { Arrow, Close, Down, Plus, Up, Upload } from '../icons';
+import { Face } from '../poster';
 
 /* 필름 만들기. 디렉터가 채우는 칸이다.
    며칠 치 일정을 쓰는 자리가 아니다 — 이 사람들이 어떤 사이이고 서로를 뭐라고 부르는지를 쓴다.
@@ -15,11 +17,8 @@ const DRAFT_KEY = 'sona.draft';
 function loadDraft(): Draft {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
-    if (raw) {
-      const d = { ...blankDraft(), ...(JSON.parse(raw) as Partial<Draft>) };
-      // 예전에 쓰다 만 초안에는 그림 칸이 없다
-      return { ...d, stills: d.stills ?? [], casts: d.casts.map((c) => ({ ...blankCast(), ...c })) };
-    }
+    // 예전 모양으로 남겨 둔 것도 지금의 칸으로 읽는다
+    if (raw) return readDraft(JSON.parse(raw));
   } catch {
     /* 저장이 막혀 있으면 빈 칸에서 시작한다 */
   }
@@ -94,9 +93,42 @@ export function Create({ go, editId }: { go: (to: string) => void; editId?: stri
     setD((x) => ({ ...x, ties: { ...x.ties, [pair]: { relation: '', calls: '', ...x.ties[pair], [k]: v } } }));
   const addCast = () => setD((x) => ({ ...x, casts: [...x.casts, blankCast()] }));
   const removeCast = (i: number) => {
-    setD((x) => ({ ...x, casts: x.casts.filter((_, j) => j !== i), ties: {}, room: 0 }));
+    setD((x) => ({
+      ...x,
+      casts: x.casts.filter((_, j) => j !== i),
+      ties: {},
+      room: 0,
+      // 그 캐스트가 오프닝에서 한 말도 같이 빠진다. 뒤 캐스트는 한 칸씩 당겨진다
+      beats: x.beats.filter((b) => !(b.kind === 'say' && b.cast === i)).map((b) => (b.kind === 'say' && b.cast > i ? { ...b, cast: b.cast - 1 } : b)),
+    }));
     setMore({});
   };
+
+  /* 오프닝의 칸들 */
+  const [sel, setSel] = useState('');
+  const beatId = () => `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  const setBeats = (f: (b: DraftBeat[]) => DraftBeat[]) => setD((x) => ({ ...x, beats: f(x.beats) }));
+  const addBeat = (kind: 'tell' | 'say') => {
+    const id = beatId();
+    setBeats((b) => [...b, { id, kind, image: '', text: '', cast: Math.min(d.room, d.casts.length - 1) }]);
+    setSel(id);
+  };
+  const addCut = (image: string) => {
+    const id = beatId();
+    setBeats((b) => [...b, { id, kind: 'cut', image, text: '', cast: 0 }]);
+    setSel(id);
+  };
+  const editBeat = (id: string, patch: Partial<DraftBeat>) => setBeats((b) => b.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  const dropBeat = (id: string) => setBeats((b) => b.filter((x) => x.id !== id));
+  const moveBeat = (id: string, by: -1 | 1) =>
+    setBeats((b) => {
+      const i = b.findIndex((x) => x.id === id);
+      const j = i + by;
+      if (i < 0 || j < 0 || j >= b.length) return b;
+      const next = [...b];
+      [next[i], next[j]] = [next[j]!, next[i]!];
+      return next;
+    });
 
   /** 그림을 골라 올리고, 올린 그림을 가리키는 값을 받는다 */
   const pick = async (e: ChangeEvent<HTMLInputElement>, max: number, done: (id: string) => void) => {
@@ -118,6 +150,11 @@ export function Create({ go, editId }: { go: (to: string) => void; editId?: stri
   const me = d.personaName.trim() || '나';
   /** 첫 장면을 함께 여는 캐스트. 아직 이름이 없으면 「캐스트」라고 부른다 */
   const opener = d.casts[Math.min(d.room, d.casts.length - 1)]?.name.trim() || '캐스트';
+  /** 오프닝에 쓴 글자 수와 남은 자리 */
+  const used = openingLength(d.beats);
+  const spare = Math.max(0, RULES.limits.opening - used);
+  const cuts = d.beats.filter((b) => b.kind === 'cut').length;
+  const full = d.beats.length >= RULES.limits.beats;
 
   /** 개봉하려면 채워야 하는 칸 */
   const todo: { step: Step; label: string; done: boolean }[] = [
@@ -147,7 +184,7 @@ export function Create({ go, editId }: { go: (to: string) => void; editId?: stri
       }
       if (thenEnter) {
         const view = await api.enter(id, newId());
-        go(`/play/${view.id}`);
+        go(`/play/${view.id}?open=1`);
       } else {
         go(`/film/${id}`);
       }
@@ -408,45 +445,143 @@ export function Create({ go, editId }: { go: (to: string) => void; editId?: stri
 
         {step === 'open' && (
           <>
-            <p className="lead">필름의 첫 장면을 만들어 주세요.</p>
+            <p className="lead">오프닝을 순서대로 쌓아 주세요.</p>
+            <p className="sub">필름에 들어가면 이 순서대로 흘러요.</p>
 
-            <Card title="컷" count={`${d.stills.length} / ${RULES.limits.stills}`} sub="가로로 긴 그림이 잘 맞고, 첫 컷은 필름 정보와 재생 화면에 걸려요.">
-              <div className="stillgrid">
-                {d.stills.map((id) => (
-                  <div className="tile grain" key={id}>
-                    <img src={imgUrl(id)} alt="" />
-                    <button onClick={() => set('stills', d.stills.filter((s) => s !== id))} aria-label="이 컷 빼기">
-                      <Close />
-                    </button>
+            <div className="boardhead">
+              <span className="kicker">오프닝</span>
+              <span className="count">
+                {used.toLocaleString('ko-KR')} / {RULES.limits.opening.toLocaleString('ko-KR')}
+              </span>
+            </div>
+
+            {/* 왼쪽 여백에 무엇인지 적고, 오른쪽에는 재생될 모습 그대로 둔다. 고른 칸은 그 자리에서 고친다 */}
+            <div className="board">
+              {d.beats.length === 0 && (
+                <div className="blk">
+                  <span className="kind" />
+                  <div className="what">
+                    <p className="none">지문이나 대사로 첫 장면을 시작해 보세요.</p>
                   </div>
-                ))}
-                {d.stills.length < RULES.limits.stills && (
-                  <label className="drop">
-                    <Upload />
-                    <b>컷 올리기</b>
-                    <input type="file" accept={PICTURES} disabled={busy} aria-label="컷 그림 고르기" onChange={(e) => pick(e, 1440, (id) => set('stills', [...d.stills, id]))} />
+                </div>
+              )}
+
+              {d.beats.map((b, i) => {
+                const on = sel === b.id;
+                const no = d.beats.slice(0, i + 1).filter((x) => x.kind === 'cut').length;
+                const who = Math.min(b.cast, d.casts.length - 1);
+                return (
+                  <div className={on ? 'blk on' : 'blk'} key={b.id}>
+                    <span className="kind">{b.kind === 'cut' ? `컷 ${no}` : b.kind === 'tell' ? '지문' : '대사'}</span>
+                    <div className="what">
+                      {b.kind === 'cut' && (
+                        <button className="frame" onClick={() => setSel(on ? '' : b.id)} aria-pressed={on} aria-label={`컷 ${no}`}>
+                          <span className="pic grain">
+                            <img src={imgUrl(b.image)} alt="" />
+                          </span>
+                        </button>
+                      )}
+
+                      {b.kind === 'tell' &&
+                        (on ? (
+                          <div className="edit">
+                            <Grow
+                              label="지문"
+                              value={b.text}
+                              maxLength={b.text.length + spare}
+                              placeholder="예) 오랜만에 문을 열고 들어왔다. 서하가 큐시트를 넘기고 있다."
+                              onChange={(v) => editBeat(b.id, { text: v })}
+                            />
+                          </div>
+                        ) : (
+                          <button className="peek" onClick={() => setSel(b.id)}>
+                            <p className={b.text.trim() ? 'tell' : 'tell empty'}>{b.text.trim() || '지문을 적어 주세요.'}</p>
+                          </button>
+                        ))}
+
+                      {b.kind === 'say' &&
+                        (on ? (
+                          <div className="edit">
+                            {d.casts.length > 1 && (
+                              <div className="chips" role="group" aria-label="말하는 캐스트">
+                                {names.map((n, j) => (
+                                  <button key={j} className={j === who ? 'chip on' : 'chip'} aria-pressed={j === who} onClick={() => editBeat(b.id, { cast: j })}>
+                                    {n}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                            <input
+                              className="line"
+                              autoFocus
+                              value={b.text}
+                              maxLength={Math.min(RULES.limits.line, b.text.length + spare)}
+                              placeholder="예) 어, 진짜 왔네."
+                              aria-label={`${names[who]}의 대사`}
+                              onChange={(e) => editBeat(b.id, { text: e.target.value })}
+                            />
+                          </div>
+                        ) : (
+                          <button className="peek" onClick={() => setSel(b.id)}>
+                            <span className="say">
+                              <Face id={d.casts[who]?.face ?? ''} name={names[who] ?? ''} />
+                              <span>
+                                <small>{names[who]}</small>
+                                <p className={b.text.trim() ? '' : 'empty'}>{b.text.trim() || '대사를 적어 주세요.'}</p>
+                              </span>
+                            </span>
+                          </button>
+                        ))}
+
+                      {on && (
+                        <div className="tools">
+                          <button disabled={i === 0} onClick={() => moveBeat(b.id, -1)}>
+                            <Up />
+                            위로
+                          </button>
+                          <button disabled={i === d.beats.length - 1} onClick={() => moveBeat(b.id, 1)}>
+                            <Down />
+                            아래로
+                          </button>
+                          <button onClick={() => dropBeat(b.id)}>빼기</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              <div className="adder">
+                <span />
+                <div className="row">
+                  <label className={busy || full || cuts >= RULES.limits.stills ? 'add off' : 'add'}>
+                    <Plus />
+                    컷
+                    <input
+                      type="file"
+                      accept={PICTURES}
+                      disabled={busy || full || cuts >= RULES.limits.stills}
+                      aria-label="컷으로 넣을 그림 고르기"
+                      onChange={(e) => pick(e, 1440, addCut)}
+                    />
                   </label>
-                )}
+                  <button className="add" disabled={full} onClick={() => addBeat('tell')}>
+                    <Plus />
+                    지문
+                  </button>
+                  <button className="add" disabled={full} onClick={() => addBeat('say')}>
+                    <Plus />
+                    대사
+                  </button>
+                </div>
               </div>
-            </Card>
+            </div>
+            <p className="hint boardhint">컷을 넣은 자리부터 화면의 그림이 바뀌어요.</p>
 
             <Card title="첫 장면">
               <Field label="장소">
                 <input value={d.place} maxLength={40} placeholder="예) 방송부 부실" onChange={(e) => set('place', e.target.value)} />
               </Field>
-              <Field label="장면" count={[d.situation.length, RULES.limits.opening]} hint="필름에 들어갔을 때 보이는 모습을 적어 주세요.">
-                <textarea
-                  className="serif"
-                  rows={7}
-                  value={d.situation}
-                  maxLength={RULES.limits.opening}
-                  placeholder="예) 오랜만에 문을 열고 들어왔다. 서하가 큐시트를 넘기고 있다."
-                  onChange={(e) => set('situation', e.target.value)}
-                />
-              </Field>
-            </Card>
-
-            <Card title="첫 대사">
               {d.casts.length > 1 && (
                 <Chips
                   label="함께 시작하는 캐스트"
@@ -459,16 +594,11 @@ export function Create({ go, editId }: { go: (to: string) => void; editId?: stri
                 label="먼저 말하는 사람"
                 value={d.speaker}
                 options={[
-                  { value: 'cast', label: opener, desc: `${josa(opener, '이', '가')} 첫 대사로 장면을 열어요.` },
-                  { value: 'persona', label: me, desc: '첫 장면만 보이고, 내가 먼저 말해요.' },
+                  { value: 'cast', label: opener, desc: `오프닝에 이어 ${josa(opener, '이', '가')} 먼저 말해요.` },
+                  { value: 'persona', label: me, desc: '오프닝이 끝나면 내가 먼저 말해요.' },
                 ]}
                 onChange={(v) => set('speaker', v)}
               />
-              {d.speaker === 'cast' && (
-                <Field label="대사" hint="비워 두면 장면에 맞는 대사가 들어가요.">
-                  <input value={d.firstLine} maxLength={200} placeholder="예) 어, 진짜 왔네." onChange={(e) => set('firstLine', e.target.value)} />
-                </Field>
-              )}
             </Card>
           </>
         )}
@@ -542,6 +672,24 @@ export function Create({ go, editId }: { go: (to: string) => void; editId?: stri
       )}
     </main>
   );
+}
+
+/** 지문을 고치는 칸. 쓴 만큼 자라고, 고르면 맨 끝에서 이어 쓴다 */
+function Grow({ label, value, maxLength, placeholder, onChange }: { label: string; value: string; maxLength: number; placeholder: string; onChange: (v: string) => void }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  }, []);
+  return <textarea ref={ref} rows={2} value={value} maxLength={maxLength} placeholder={placeholder} aria-label={label} onChange={(e) => onChange(e.target.value)} />;
 }
 
 /** 관련된 칸을 묶은 한 장 */

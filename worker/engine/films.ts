@@ -1,7 +1,8 @@
 /* 필름 — 디렉터가 쓴 것을 받아 확인하고 저장한다. */
 
 import { RULES } from '../../shared/rules';
-import type { Cast, Film, FilmCard, Tie } from '../../shared/types';
+import { readFilm } from '../../shared/opening';
+import type { Beat, Cast, Film, FilmCard, Tie } from '../../shared/types';
 import { newId } from '../db';
 import { isUuid } from '../guard';
 import { type Ctx, Fail } from './ctx';
@@ -93,7 +94,40 @@ export function parseFilm(input: unknown): Film {
   const room = text(fs.room, 4, '첫 장면의 상대') || casts[0]!.key;
   if (!keys.has(room)) throw new Fail(400, 'film_invalid', '첫 장면의 상대가 캐스트에 없어요.');
 
-  const stills = (Array.isArray(f.stills) ? f.stills : []).map((s) => image(s, '컷')).filter((s) => s.length > 0);
+  // 오프닝. 화면은 컷·지문·대사를 쌓은 칸으로 보낸다. 예전 모양(장면 글 한 덩이와 첫 마디)도 받는다
+  let beats: Beat[] = [];
+  let stills: string[];
+  let firstLine = '';
+  if (Array.isArray(fs.beats)) {
+    if (fs.beats.length > L.beats) throw new Fail(400, 'film_invalid', `오프닝은 ${L.beats}칸까지 쌓을 수 있어요.`);
+    for (const raw of fs.beats) {
+      const b = obj(raw);
+      if (b.kind === 'cut') {
+        const img = image(b.image, '컷');
+        if (img) beats.push({ kind: 'cut', image: img });
+      } else if (b.kind === 'tell') {
+        const t = text(b.text, L.opening, '오프닝의 지문');
+        if (t) beats.push({ kind: 'tell', text: t });
+      } else if (b.kind === 'say') {
+        const t = text(b.text, L.line, '오프닝의 대사');
+        const who = text(b.cast, 4, '오프닝의 대사') || room;
+        if (!keys.has(who)) throw new Fail(400, 'film_invalid', '오프닝에서 말하는 캐스트가 캐스트에 없어요.');
+        if (t) beats.push({ kind: 'say', cast: who, text: t });
+      } else {
+        throw new Fail(400, 'film_invalid', '오프닝의 칸이 올바르지 않아요.');
+      }
+    }
+    const total = beats.reduce((n, b) => n + (b.kind === 'cut' ? 0 : b.text.length), 0);
+    if (total > L.opening) throw new Fail(400, 'film_invalid', `오프닝은 모두 합쳐 ${L.opening}자까지 쓸 수 있어요.`);
+    // 필름의 컷은 오프닝에 건 컷들이다
+    stills = [...new Set(beats.flatMap((b) => (b.kind === 'cut' ? [b.image] : [])))];
+  } else {
+    stills = (Array.isArray(f.stills) ? f.stills : []).map((s) => image(s, '컷')).filter((s) => s.length > 0);
+    const situation = text(fs.situation, L.opening, '첫 장면');
+    if (stills[0]) beats.push({ kind: 'cut', image: stills[0] });
+    if (situation) beats.push({ kind: 'tell', text: situation });
+    firstLine = text(fs.firstLine, L.line, '첫 대사');
+  }
   if (stills.length > L.stills) throw new Fail(400, 'film_invalid', `컷은 ${L.stills}장까지 넣을 수 있어요.`);
 
   return {
@@ -113,10 +147,10 @@ export function parseFilm(input: unknown): Film {
     ties,
     firstScene: {
       place: text(fs.place, 40, '첫 장면의 장소'),
-      situation: text(fs.situation, L.opening, '첫 장면'),
+      beats,
       room,
       speaker: fs.speaker === 'cast' ? 'cast' : 'persona',
-      firstLine: text(fs.firstLine, 200, '첫 대사'),
+      firstLine,
     },
   };
 }
@@ -157,7 +191,7 @@ export async function updateFilm(ctx: Ctx, id: string, input: unknown): Promise<
 }
 
 function card(row: FilmRow, visitor: string): FilmCard {
-  const film = JSON.parse(row.data) as Film;
+  const film = readFilm(JSON.parse(row.data) as Film);
   return {
     id: row.id,
     title: row.title,
@@ -185,5 +219,5 @@ export async function listFilms(ctx: Ctx): Promise<FilmCard[]> {
 export async function getFilm(ctx: Ctx, id: string): Promise<{ card: FilmCard; film: Film }> {
   const row = await ctx.db.first<FilmRow>('SELECT id, owner, title, logline, featured, data FROM films WHERE id = ?', id);
   if (!row) throw new Fail(404, 'film_missing', '필름을 찾을 수 없어요.');
-  return { card: card(row, ctx.visitor), film: JSON.parse(row.data) as Film };
+  return { card: card(row, ctx.visitor), film: readFilm(JSON.parse(row.data) as Film) };
 }
