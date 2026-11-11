@@ -13,6 +13,7 @@ import { castsLayer } from '../prompt/cast';
 import { lineOf, type SceneEvent, type SceneLine, writerLayer } from '../prompt/scene';
 import { SCENE_SYSTEM } from '../prompt/system';
 import { type Ctx, Fail } from './ctx';
+import { overused } from './echo';
 import { asNow } from './persona';
 import { type Play, SCENE, sceneMessages } from './store';
 
@@ -78,6 +79,20 @@ export function parseScene(raw: string, film: Film): { pieces: Piece[]; personaS
     else pieces.push({ speaker: 'tell', text: line });
   }
   return { pieces, personaSpoke, place };
+}
+
+/** 프롬프트에 실을 지나간 장면을 고른다. 뒤에서부터 정해진 글자 수가 찰 때까지 */
+export function recent(messages: MessageView[]): MessageView[] {
+  let chars = 0;
+  let from = messages.length;
+  while (from > 0 && messages.length - from < RULES.history.lines) {
+    // 줄마다 이름표와 줄바꿈이 붙는다
+    const next = messages[from - 1]!.text.length + 8;
+    if (chars + next > RULES.history.chars) break;
+    chars += next;
+    from -= 1;
+  }
+  return messages.slice(from);
 }
 
 /** 지나간 장면을 프롬프트에 적을 모양으로 바꾼다. 누가 한 말인지 이름으로 적힌다 */
@@ -216,7 +231,29 @@ export function rhythmFor(messages: MessageView[], seed: string): string {
 
 /** 이번 대목의 모양을 이르는 말. 유저가 쓴 것 바로 뒤에 붙인다 */
 export const shapeCue = (messages: MessageView[], seed: string): string =>
-  `(이번 대목의 모양: ${rhythmFor(messages, seed)}. 길이는 한 줄에서 다섯 줄 사이에서 그때그때 다르게 쓴다.)`;
+  `(이번 대목의 모양: ${rhythmFor(messages, seed)}. 길이는 세 줄에서 여섯 줄 사이에서 그때그때 다르게 쓴다.)`;
+
+/** 요즘 대목들에 자주 나온 말을 알려 준다. 지문과 대사를 따로 센다.
+    같은 말이 돌기 시작하면 모델은 스스로 못 빠져나온다 — 앞에 쓴 것을 보고 또 쓴다.
+    대목을 고치지는 않는다. 세어서 알려 줄 뿐이다. 자주 나온 말이 없으면 빈 글자 */
+export function echoCue(messages: MessageView[], film: Film): string {
+  // 작가가 쓴 것만 본다. 유저의 말과 폰으로 온 메시지는 치지 않는다
+  const written = messages.filter((m) => m.speaker !== 'persona' && m.kind !== 'ping');
+  // 이름과 부르는 말은 자주 나오는 것이 당연하다
+  const names = [film.persona.name, ...film.casts.flatMap((c) => [c.name, c.callsUser]), ...film.ties.map((t) => t.calls)].filter(Boolean);
+  const found = (tell: boolean) =>
+    overused(
+      written
+        .filter((m) => (m.speaker === 'tell') === tell)
+        .slice(-RULES.echo.window)
+        .map((m) => m.text),
+      names,
+    );
+  const list = (label: string, words: string[]) => (words.length > 0 ? `${label}에 자주 나온 말: ${words.map((w) => `「${w}」`).join(', ')}.` : '');
+  const told = [list('요즘 지문', found(true)), list('요즘 대사', found(false))].filter(Boolean);
+  if (told.length === 0) return '';
+  return `(${told.join(' ')} 버릇처럼 붙는 말과 되풀이되는 몸짓이면 이번에는 쓰지 않는다. 이야기에 꼭 있어야 하는 말은 그대로 쓴다.)`;
+}
 
 const FIRST_CUE = '(이야기가 지금 시작된다. 이 장면을 연다.)';
 /** 디렉터가 오프닝을 써 둔 필름: 그 뒤를 잇는다 */
@@ -248,7 +285,7 @@ export async function answer(ctx: Ctx, play: Play, turn: TurnView): Promise<void
     if (mine.length === 0) throw new Fail(500, 'no_user_line', '답할 대사를 찾을 수 없어요.');
     purpose = 'reply';
     before = all.filter((m) => m.turnId !== turn.id);
-    user = `${toLines(play, mine).map(lineOf).join('\n')}\n${shapeCue(before, turn.id)}`;
+    user = [toLines(play, mine).map(lineOf).join('\n'), shapeCue(before, turn.id), echoCue(before, film)].filter(Boolean).join('\n');
   }
 
   const layers: Layers = {
@@ -258,7 +295,7 @@ export async function answer(ctx: Ctx, play: Play, turn: TurnView): Promise<void
       film,
       clock: play,
       ...(await knownTo(ctx, play)),
-      history: toLines(play, before.slice(-RULES.historyLines)),
+      history: toLines(play, recent(before)),
       place: play.place,
     }),
   };

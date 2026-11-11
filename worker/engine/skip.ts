@@ -17,7 +17,7 @@ import { GAP_CUE, type GapItem, gapLayers, parseGap, parsePresent, presentLayers
 import { asNow } from './persona';
 import { pingHeld, pingSlots } from './ping';
 import { lastTurn, loadPlay, type Play, sceneMessages, viewOf } from './store';
-import { ask, bubbles, errText, eventsFor, logStmt, toLines } from './talk';
+import { ask, bubbles, errText, eventsFor, logStmt, recent, toLines } from './talk';
 
 export type SkipKind = 'short' | 'errand' | 'evening' | 'sleep';
 
@@ -397,7 +397,7 @@ async function reachOut(
             ...(await eventsFor(ctx, play, cast.key, slot)),
             ...before.filter((i) => i.kind === 'daily').map((i) => ({ at: i.at, text: i.text })),
           ],
-          history: toLines(play, room.slice(-RULES.historyLines)),
+          history: toLines(play, recent(room)),
         }),
       },
       user: `(${when(clockAt, slot)}. ${film.persona.name}에게서 온 말은 없다. 네가 먼저 연락한다. 얘깃거리: ${hook.text})`,

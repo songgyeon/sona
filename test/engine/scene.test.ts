@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { RULES } from '../../shared/rules';
 import { createFilm, parseFilm } from '../../worker/engine/films';
 import { skip } from '../../worker/engine/skip';
 import { viewOf } from '../../worker/engine/store';
@@ -261,13 +262,105 @@ describe('본편: 대목의 모양', () => {
     const { ctx, playId, send, calls } = await setup(FILM, { reply: () => (n++ === 0 ? '' : '한서가 고개를 든다.\n한서: "응, 듣고 있어."') });
     await send('첫째 말.');
     const first = calls('reply')[0]!.user;
-    expect(first).toMatch(/^수아: 첫째 말\.\n\(이번 대목의 모양: (지문으로|대사로) 시작해서 (지문으로|대사로) 끝낸다.*\. 길이는 한 줄에서 다섯 줄 사이에서 그때그때 다르게 쓴다\.\)$/);
+    expect(first).toMatch(/^수아: 첫째 말\.\n\(이번 대목의 모양: (지문으로|대사로) 시작해서 (지문으로|대사로) 끝낸다.*\. 길이는 세 줄에서 여섯 줄 사이에서 그때그때 다르게 쓴다\.\)$/);
     await retry(ctx, playId);
     expect(calls('reply')[1]!.user).toBe(first);
 
     // 앞 대목이 「지문 → 대사」였으니 이번에는 그렇게 이르지 않는다
     await send('둘째 말.');
     expect(calls('reply')[2]!.user).not.toContain('지문으로 시작해서 대사로 끝낸다.');
+  });
+});
+
+describe('본편: 같은 말이 돌 때', () => {
+  /** 대목마다 글은 다른데 지문에는 「무심-」이, 대사에는 「글쎄요」가 번번이 붙는다 */
+  const TICS = [
+    '한서가 무심하게 책장을 넘긴다.\n한서: "글쎄요. 잘 모르겠어요."',
+    '무심한 얼굴로 계산대를 닦는다.\n한서: "글쎄요, 내일은 어떨지."',
+    '종이 울린다. 한서는 무심히 문 쪽을 본다.\n한서: "어서 오세요."\n한서: "글쎄요."',
+  ];
+  const CUE =
+    '(요즘 지문에 자주 나온 말: 「무심」. 요즘 대사에 자주 나온 말: 「글쎄요」. 버릇처럼 붙는 말과 되풀이되는 몸짓이면 이번에는 쓰지 않는다. 이야기에 꼭 있어야 하는 말은 그대로 쓴다.)';
+
+  it('요즘 대목들에 자주 나온 말을 지문과 대사로 갈라 알려 준다. 이름은 세지 않는다', async () => {
+    let n = 0;
+    const { send, calls } = await setup(FILM, { reply: () => TICS[n++ % TICS.length]! });
+    await send('하나.');
+    await send('둘.');
+    await send('셋.');
+    // 두 번 나온 말은 아직 버릇이 아니다
+    expect(calls('reply')[2]!.user.split('\n')).toHaveLength(2);
+    await send('넷.');
+    const told = calls('reply')[3]!.user.split('\n');
+    expect(told[0]).toBe('수아: 넷.');
+    expect(told[1]).toMatch(/^\(이번 대목의 모양: /);
+    expect(told[2]).toBe(CUE);
+  });
+
+  it('알려 주기만 한다. 받은 대목은 그대로 놓인다', async () => {
+    let n = 0;
+    const { send } = await setup(FILM, { reply: () => TICS[n++ % TICS.length]! });
+    for (const text of ['하나.', '둘.', '셋.', '넷.']) await send(text);
+    const v = await send('다섯.');
+    expect(v.messages.slice(-2).map((m) => m.text)).toEqual(['무심한 얼굴로 계산대를 닦는다.', '글쎄요, 내일은 어떨지.']);
+  });
+
+  it('도는 말이 없으면 아무것도 붙이지 않는다. 유저가 되풀이한 말은 세지 않는다', async () => {
+    let n = 0;
+    const { send, calls } = await setup(FILM, { reply: () => `한서가 ${['책을 꽂는다', '창을 연다', '불을 켠다', '의자를 뺀다'][n++ % 4]}.` });
+    for (const text of ['글쎄요.', '글쎄요.', '글쎄요.', '글쎄요.']) await send(text, '무심하게 선다.');
+    expect(calls('reply').at(-1)!.user.split('\n')).toHaveLength(3);
+    expect(calls('reply').at(-1)!.user).not.toContain('자주 나온 말');
+  });
+
+  it('다시 받아도 같은 말을 건넨다', async () => {
+    let n = 0;
+    const { ctx, playId, send, calls } = await setup(FILM, { reply: () => (n === 3 ? (n++, '') : TICS[n++ % TICS.length]!) });
+    for (const text of ['하나.', '둘.', '셋.', '넷.']) await send(text);
+    await retry(ctx, playId);
+    expect(calls('reply')[4]!.user).toBe(calls('reply')[3]!.user);
+    expect(calls('reply')[4]!.user).toContain(CUE);
+  });
+});
+
+describe('본편: 지나간 장면을 얼마나 건네나', () => {
+  it('스무 턴 전에 한 말도 건네진다', async () => {
+    const { send, calls } = await setup();
+    await send('제 일당은 십일만 원이에요.');
+    for (let i = 0; i < 20; i++) await send(`${i}번째 말.`);
+    expect(calls('reply').at(-1)!.layers.scene).toContain('[지금까지의 장면]\n수아: 제 일당은 십일만 원이에요.');
+  });
+
+  it('아주 길어지면 오래된 말부터 빠진다. 방금 오간 말은 남는다', async () => {
+    const { send, calls } = await setup(FILM, { reply: `한서: "${'나'.repeat(300)}"` });
+    await send('맨 처음 한 말.');
+    // 한 턴에 700자쯤 쌓인다. 스물네 턴이면 건네는 양을 넘긴다
+    for (let i = 0; i < 24; i++) await send(`${i}번째. ${'가'.repeat(380)}`);
+    await send('방금 한 말.');
+    const { scene } = calls('reply').at(-1)!.layers;
+    const history = scene.split('[지금까지의 장면]\n')[1]!;
+    expect(history).not.toContain('맨 처음 한 말.');
+    expect(history).not.toContain('수아: 0번째.');
+    expect(history).toContain('수아: 23번째.');
+    expect(history.length).toBeLessThanOrEqual(RULES.history.chars);
+    // 줄 수로 자르지 않는다. 서른 줄보다 많이 실린다
+    expect(history.split('\n').length).toBeGreaterThan(30);
+    expect(calls('reply').at(-1)!.user.split('\n')[0]).toBe('수아: 방금 한 말.');
+  });
+
+  it('먼저 거는 연락을 쓸 때도 같은 만큼 건넨다', async () => {
+    const OPEN = { ...FILM, opens: { feed: false, ping: true, aside: false } };
+    const { ctx, playId, send, calls } = await setup(OPEN, {
+      reply: '한서가 책을 꽂는다.\n한서: "네."\n종이 울린다.\n한서: "어서 오세요."',
+      gap: '19:10 | 말거리 | 저녁에 뭘 먹을지 한참 골랐다.',
+    });
+    await send('제 일당은 십일만 원이에요.');
+    // 한 턴에 다섯 줄씩, 그 뒤로 마흔 줄 넘게 쌓인다
+    for (let i = 0; i < 9; i++) await send(`${i}번째 말.`);
+    await skip(ctx, playId, { kind: 'sleep', requestId: uid() });
+    const pings = calls('ping');
+    expect(pings.length).toBeGreaterThan(0);
+    expect(pings[0]!.layers.scene).toContain('[지금까지의 장면]\n수아: 제 일당은 십일만 원이에요.');
   });
 });
 
@@ -292,14 +385,14 @@ describe('본편: 지금 있는 곳', () => {
     });
     expect((await viewOf(ctx, playId)).place).toBe('서점 계산대');
     expect((await send('안녕하세요.')).place).toBe('서점 계산대');
-    expect(calls('reply')[0]!.layers.scene).toContain('[지금]\n금요일 낮.\n지금 있는 곳: 서점 계산대');
+    expect(calls('reply')[0]!.layers.scene).toContain('[지금]\n금요일 낮.\n바로 앞 대목까지 있던 곳: 서점 계산대');
 
     const v = await send('', '책을 안고 안쪽 서가로 들어간다.');
     expect(v.place).toBe('안쪽 서가');
     expect(v.messages.some((m) => m.text.includes('장소'))).toBe(false);
     // 다음 대목을 쓸 때는 옮겨 간 곳을 안다
     await send('여기 맞아요?');
-    expect(calls('reply').at(-1)!.layers.scene).toContain('지금 있는 곳: 안쪽 서가');
+    expect(calls('reply').at(-1)!.layers.scene).toContain('바로 앞 대목까지 있던 곳: 안쪽 서가');
   });
 
   it('오래 비우고 돌아오면 어디인지 모른다. 잠깐 비운 것은 그대로다', async () => {
@@ -308,7 +401,7 @@ describe('본편: 지금 있는 곳', () => {
     expect((await skip(ctx, playId, { kind: 'short', requestId: uid() })).place).toBe('서점 계산대');
     expect((await skip(ctx, playId, { kind: 'sleep', requestId: uid() })).place).toBe('');
     await send('좋은 아침이에요.');
-    expect(calls('reply').at(-1)!.layers.scene).not.toContain('지금 있는 곳');
+    expect(calls('reply').at(-1)!.layers.scene).not.toContain('있던 곳');
   });
 });
 
