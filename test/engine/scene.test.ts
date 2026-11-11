@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createFilm, parseFilm } from '../../worker/engine/films';
 import { skip } from '../../worker/engine/skip';
 import { viewOf } from '../../worker/engine/store';
-import { parseScene } from '../../worker/engine/talk';
+import { lastShapes, parseScene } from '../../worker/engine/talk';
 import { enter, say } from '../../worker/engine/turn';
 import { Fail } from '../../worker/engine/ctx';
 import { FAKE_DEFAULTS } from '../../worker/model/fake';
@@ -138,7 +138,7 @@ describe('본편: 채팅은 하나다', () => {
     const { scene } = calls('reply').at(-1)!.layers;
     expect(scene).toContain('[이야기가 시작된 자리]\n서점 계산대\n손님이 끊긴 오후.\n한서: "수아 씨, 그건 이쪽 칸이에요."');
     expect(scene).toContain('[지금까지의 장면]\n수아: 이 책은 어디에 꽂아요?\n한서: "그건 제가 할게요."\n지후: "오늘도 그 자리 비었어요?"');
-    expect(calls('reply').at(-1)!.user).toBe('수아: 두 분은 원래 아는 사이예요?');
+    expect(calls('reply').at(-1)!.user.split('\n')[0]).toBe('수아: 두 분은 원래 아는 사이예요?');
   });
 
   it('작가가 유저의 인물 대사를 쓰면 그 줄은 받지 않는다. 그 줄뿐이면 못 받은 것이다', async () => {
@@ -230,6 +230,32 @@ describe('본편: 누가 무엇을 아는가', () => {
     await skip(ctx, playId, { kind: 'sleep', requestId: uid() });
     await send('좋은 아침이에요.');
     expect(calls('reply').at(-1)!.layers.scene).toContain('[한서만 아는 일 — 다른 사람은 듣기 전에는 모른다]\n- (금요일 저녁) 퇴근길에 약국에 들렀다.');
+  });
+});
+
+describe('본편: 대목의 모양', () => {
+  it('앞 대목들의 모양을 알려 주고, 이번에는 다르게 쓰라고 이른다', async () => {
+    const { send, calls } = await setup(FILM, {
+      reply: (call) => (call.user.includes('둘째') ? '한서: "네."\n한서: "그렇죠."\n한서가 웃는다.' : '한서가 고개를 든다.\n한서: "응, 듣고 있어."'),
+    });
+    await send('첫째 말.');
+    // 처음에는 앞에 쓴 대목이 없다
+    expect(calls('reply')[0]!.user).toBe('수아: 첫째 말.');
+
+    await send('둘째 말.');
+    expect(calls('reply')[1]!.user).toBe(
+      '수아: 둘째 말.\n(이번 대목의 모양: 바로 앞 대목들은 「지문 → 대사」 모양이었다. 이번에는 그와 다른 모양으로 쓴다. 대사로 시작해도 되고, 대사 한 줄이나 지문만으로 끝내도 된다.)',
+    );
+
+    // 잇달아 나온 대사는 한 덩이로 친다. 바로 앞 두 대목을 알려 준다
+    await send('셋째 말.');
+    expect(calls('reply')[2]!.user).toContain('바로 앞 대목들은 「지문 → 대사」, 「대사 → 지문」 모양이었다.');
+  });
+
+  it('유저가 쓴 것과 폰으로 온 메시지는 모양으로 치지 않는다', () => {
+    const line = (turnId: string, speaker: string, kind: 'chat' | 'ping' | 'act' = 'chat') => ({ id: uid(), room: 'scene', speaker, text: '', at: 0, kind, turnId });
+    expect(lastShapes([line('t1', 'persona', 'act'), line('t1', 'persona'), line('t1', 'tell'), line('t1', 'c1'), line('t2', 'c1', 'ping'), line('t3', 'persona'), line('t3', 'c1')])).toEqual(['지문 → 대사', '대사']);
+    expect(lastShapes([line('t1', 'persona')])).toEqual([]);
   });
 });
 

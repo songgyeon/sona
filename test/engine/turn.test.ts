@@ -280,7 +280,7 @@ describe('한 마디', () => {
     expect(layers.system).toContain('소나');
     expect(layers.cast).toContain('이름: 한서');
     expect(layers.scene).toContain('[지금]');
-    expect(layers.user).toBe('수아: 안녕');
+    expect(layers.user!.split('\n')[0]).toBe('수아: 안녕');
   });
 });
 

@@ -174,6 +174,33 @@ export async function knownTo(ctx: Ctx, play: Play): Promise<{ shared: SceneEven
   return { shared, only: [...groups.values()] };
 }
 
+/** 바로 앞 대목들의 모양. 대목마다 지문과 대사가 놓인 차례를 적는다 — 「지문 → 대사」.
+    작가는 같은 모양을 되풀이하기 쉽다. 말로만 일러서는 안 고쳐져서, 앞에서 쓴 모양을 그때그때 알려 준다 */
+export function lastShapes(messages: MessageView[], count = 2): string[] {
+  const shapes: string[][] = [];
+  let turn = '';
+  for (const m of messages) {
+    // 작가가 쓴 대목만 본다. 유저의 말과 폰으로 온 메시지는 치지 않는다
+    if (m.speaker === 'persona' || m.kind === 'ping') continue;
+    if (m.turnId !== turn) {
+      shapes.push([]);
+      turn = m.turnId;
+    }
+    const part = m.speaker === 'tell' ? '지문' : '대사';
+    const now = shapes[shapes.length - 1]!;
+    // 잇달아 나온 대사는 한 덩이로 친다
+    if (now[now.length - 1] !== part) now.push(part);
+  }
+  return shapes.slice(-count).map((s) => s.join(' → '));
+}
+
+/** 이번 대목은 앞의 모양과 다르게 쓰라고 이른다. 앞에 쓴 대목이 없으면 빈 글자 */
+export function shapeCue(messages: MessageView[]): string {
+  const shapes = [...new Set(lastShapes(messages))];
+  if (shapes.length === 0) return '';
+  return `(이번 대목의 모양: 바로 앞 대목들은 「${shapes.join('」, 「')}」 모양이었다. 이번에는 그와 다른 모양으로 쓴다. 대사로 시작해도 되고, 대사 한 줄이나 지문만으로 끝내도 된다.)`;
+}
+
 const FIRST_CUE = '(이야기가 지금 시작된다. 이 장면을 연다.)';
 /** 디렉터가 오프닝을 써 둔 필름: 그 뒤를 잇는다 */
 const AFTER_OPENING_CUE = '(위에 적힌 시작 장면에 바로 이어서 다음 대목을 쓴다. 이미 적힌 것을 되풀이하지 않는다.)';
@@ -203,8 +230,8 @@ export async function answer(ctx: Ctx, play: Play, turn: TurnView): Promise<void
     const mine = all.filter((m) => m.turnId === turn.id && m.speaker === 'persona');
     if (mine.length === 0) throw new Fail(500, 'no_user_line', '답할 대사를 찾을 수 없어요.');
     purpose = 'reply';
-    user = toLines(play, mine).map(lineOf).join('\n');
     before = all.filter((m) => m.turnId !== turn.id);
+    user = [toLines(play, mine).map(lineOf).join('\n'), shapeCue(before)].filter(Boolean).join('\n');
   }
 
   const layers: Layers = {
