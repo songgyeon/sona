@@ -98,6 +98,8 @@ export interface AsideKnown {
   only: [SceneEvent[], SceneEvent[]];
   /** 각자가 유저의 인물과 최근에 나눈 말. 그 사람만 안다 */
   recent: [{ speaker: string; text: string }[], { speaker: string; text: string }[]];
+  /** 두 사람이 유저의 인물과 한자리에 있는 사이라면, 그 자리에서 최근에 오간 말. 둘 다 들었다. 그런 사이가 아니면 null */
+  together: { speaker: string; text: string }[] | null;
 }
 
 export function asideLayers(film: Film, a: Cast, b: Cast, clock: Clock, at: number, known: AsideKnown): Layers {
@@ -111,17 +113,27 @@ export function asideLayers(film: Film, a: Cast, b: Cast, clock: Clock, at: numb
   out.push('[그 자리에 없는 사람]');
   out.push(film.persona.line ? `${film.persona.name} — ${film.persona.line}` : film.persona.name);
   // 아는 것의 주인을 갈라서 건넨다: 둘 다 아는 일, 한 사람만 아는 일
-  if (known.shared.length > 0) {
+  const heard = known.together ?? [];
+  if (known.shared.length > 0 || heard.length > 0) {
     out.push('');
     out.push('[둘 다 아는 일]');
     for (const e of known.shared) out.push(`- (${when(clock, e.at)}) ${e.text}`);
+    if (heard.length > 0) {
+      // 셋이 한자리에 있었다. 그 자리에서 오간 말은 둘 다 들었다
+      out.push(`- ${film.persona.name}까지 셋이 함께 있던 자리에서 오간 말:`);
+      for (const r of heard) out.push(`    ${r.speaker}: ${r.text}`);
+    }
   }
   [a, b].forEach((who, i) => {
     const other = i === 0 ? b : a;
     const recent = known.recent[i]!;
+    const only = known.only[i]!;
+    // 늘 한자리에 있는 사이라면 따로 나눈 말이 없다. 혼자만 아는 일이 없으면 그 묶음도 적지 않는다
+    if (known.together !== null && only.length === 0) return;
     out.push('');
     out.push(`[${who.name}만 아는 일 — ${josa(other.name, '은', '는')} ${who.name}에게 듣기 전에는 모른다]`);
-    for (const e of known.only[i]!) out.push(`- (${when(clock, e.at)}) ${e.text}`);
+    for (const e of only) out.push(`- (${when(clock, e.at)}) ${e.text}`);
+    if (known.together !== null) return;
     if (recent.length > 0) {
       out.push(`- ${josa(film.persona.name, '과', '와')} 나눈 말:`);
       for (const r of recent) out.push(`    ${r.speaker}: ${r.text}`);

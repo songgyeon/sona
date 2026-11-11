@@ -49,3 +49,40 @@ export const hasLines = (film: Film): boolean => film.firstScene.beats.some((b) 
 /** 이 캐스트가 오프닝의 자리에 있었나 — 그 방의 캐스트이거나, 오프닝에서 말을 했거나 */
 export const wasThere = (film: Film, castKey: string): boolean =>
   castKey === film.firstScene.room || film.firstScene.beats.some((b) => b.kind === 'say' && b.cast === castKey);
+
+/** 오프닝의 자리에 함께 있던 캐스트들. 둘 이상이면 그 뒤로도 한자리에서 이야기한다 —
+    한 사람에게 한 말을 모두가 듣고, 누구든 말할 수 있다. 하나뿐이면 빈 목록이다(따로 묶을 자리가 없다) */
+export const together = (film: Film): string[] => {
+  const keys = film.casts.filter((c) => wasThere(film, c.key)).map((c) => c.key);
+  return keys.length > 1 ? keys : [];
+};
+
+/** 이 캐스트와 한자리에 있는 캐스트들(자기도 든다). 같이 있는 사람이 없으면 자기뿐이다 */
+export const sceneOf = (film: Film, castKey: string): string[] => {
+  const group = together(film);
+  return group.includes(castKey) ? group : [castKey];
+};
+
+/** 오프닝의 컷마다 그 컷의 사람을 짚는다 — 그 컷 다음에, 다음 컷이 오기 전에 처음 말하는 캐스트.
+    그 사이에 아무도 말하지 않으면 누구의 컷도 아니다(빈 글자) */
+export function cutOwners(film: Film): { image: string; cast: string }[] {
+  const out: { image: string; cast: string }[] = [];
+  let open: { image: string; cast: string } | null = null;
+  for (const b of film.firstScene.beats) {
+    if (b.kind === 'cut') {
+      open = { image: b.image, cast: '' };
+      out.push(open);
+    } else if (b.kind === 'say' && open && !open.cast) {
+      open.cast = b.cast;
+    }
+  }
+  return out;
+}
+
+/** 이 캐스트가 말할 때 화면에 걸 그림. 그 사람의 컷 가운데 마지막 것이다.
+    제 컷이 없으면 누구의 것도 아닌 컷, 그것도 없으면 포스터 — 다른 사람의 컷은 걸지 않는다 */
+export function cutFor(film: Film, castKey: string): string {
+  const owners = cutOwners(film);
+  const pick = (cast: string) => owners.filter((o) => o.cast === cast).at(-1)?.image ?? '';
+  return pick(castKey) || pick('') || film.poster || '';
+}

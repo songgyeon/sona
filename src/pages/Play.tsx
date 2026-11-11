@@ -1,7 +1,7 @@
 import { type FormEvent, Fragment, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { dayEnd, dayName, formatWorld, worldAt } from '../../shared/clock';
 import { josa } from '../../shared/ko';
-import { cutsOf, hasLines } from '../../shared/opening';
+import { cutFor, cutsOf, hasLines, sceneOf } from '../../shared/opening';
 import { RULES } from '../../shared/rules';
 import type { AsideView, Film, MessageView, PlayView } from '../../shared/types';
 import { ApiFail, api, imgUrl, newId } from '../api';
@@ -306,9 +306,13 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
   const film = view.film;
   const clock = { startDow: film.startDow, startMin: film.startMin, elapsed: view.elapsed };
   const cast = film.casts.find((c) => c.key === room) ?? film.casts[0]!;
-  const messages = view.messages.filter((m) => m.room === cast.key);
-  const pendingHere = out && out.room === cast.key ? out : null;
-  const stuckHere = view.stuck && view.stuck.room === cast.key;
+  /** 이 사람과 한자리에 있는 캐스트들. 여럿이면 그 자리에서 오간 말이 한 흐름으로 보이고,
+      고른 사람은 내가 말을 거는 사람이다. 따로 있는 캐스트는 그 사람과 둘만의 흐름이다 */
+  const here = sceneOf(film, cast.key);
+  const inScene = (r: string | null | undefined) => !!r && here.includes(r);
+  const messages = view.messages.filter((m) => inScene(m.room));
+  const pendingHere = out && inScene(out.room) ? out : null;
+  const stuckHere = view.stuck && inScene(view.stuck.room);
   const locked = waiting || view.ended || !!view.stuck || !!out || !!away;
   /** 흐름에 놓이는 것들: 이 사람과 오간 말, 그리고 그 사이사이에 있었던 한편. 작중 시각 순 */
   const items: ({ at: number; m: MessageView; a?: undefined } | { at: number; a: AsideView; m?: undefined })[] = [
@@ -317,12 +321,17 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
   ].sort((x, y) => x.at - y.at);
   const cuts = (i: number) => i > 0 && items[i]!.at - items[i - 1]!.at >= CUT_AFTER;
   const castOf = (key: string) => film.casts.find((c) => c.key === key);
+  /** 여럿이 나오는 필름에서는 말하는 사람의 컷이 위 화면에 걸린다. 그 줄에 표시(data-cut)를 달아 둔다 */
+  const cutOf = (key: string) => {
+    const image = film.casts.length > 1 ? cutFor(film, key) : '';
+    return image ? { 'data-cut': image } : {};
+  };
   const fs = film.firstScene;
   /** 화면에 거는 그림. 읽는 자리의 컷이 먼저고, 없으면 첫 컷, 그것도 없으면 포스터 */
   const onScreen = shot || cutsOf(film)[0] || (film.stills ?? [])[0] || film.poster || '';
   /** 첫 장면 안에 있는 동안만 장소를 적는다. 그 뒤로는 어디인지 서버가 모른다 */
   const place = view.elapsed < CUT_AFTER ? fs.place : '';
-  const profile = () => go(`/play/${playId}/cast/${cast.key}`);
+  const profile = (key: string) => go(`/play/${playId}/cast/${key}`);
   /** 내 배역 */
   const me = film.persona;
   /** 「첫 하루」, 「둘째 날」 … */
@@ -362,7 +371,11 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
       {film.casts.length > 1 && (
         <nav className="with" aria-label="함께 있는 캐스트">
           {film.casts.map((c) => (
-            <button key={c.key} className={c.key === cast.key ? 'on' : ''} onClick={() => setRoom(c.key)}>
+            <button
+              key={c.key}
+              className={[c.key === cast.key ? 'on' : '', here.length > 1 && here.includes(c.key) ? 'here' : ''].join(' ').trim()}
+              onClick={() => setRoom(c.key)}
+            >
               <Face id={c.face ?? ''} name={c.name} />
               {c.name}
             </button>
@@ -371,7 +384,7 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
       )}
 
       <section className="flow" aria-live="polite" ref={flow} onScroll={onScroll}>
-        {cast.key === fs.room && fs.beats.length > 0 && <Opening film={film} />}
+        {inScene(fs.room) && fs.beats.length > 0 && <Opening film={film} />}
 
         {items.map(({ m, a }, i) =>
           a ? (
@@ -400,9 +413,9 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
           <Fragment key={m.id}>
             {cuts(i) && <p className="cut">{formatWorld(clock, m.at)}</p>}
             {m.speaker === 'tell' ? (
-              // 지문. 말한 사람이 없다
+              // 지문. 말한 사람이 없다. 누구의 차례에 쓰인 지문인지는 방이 안다
               m.text.split('\n').map((line, j) => (
-                <p className="tell" key={j}>
+                <p className="tell" key={j} {...(j === 0 ? cutOf(m.room) : {})}>
                   {line}
                 </p>
               ))
@@ -414,23 +427,27 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
                 </div>
                 {me.face && <Face id={me.face} name={me.name} />}
               </div>
-            ) : m.kind === 'ping' ? (
-              // 작품 속 폰으로 먼저 온 연락. 말풍선은 여기만 쓴다
-              <button className="msg" onClick={profile} aria-label={`${cast.name}의 프로필 보기`}>
-                <Face id={cast.face ?? ''} name={cast.name} />
-                <span>
-                  <small>{cast.name} · 메시지</small>
-                  <p>{m.text}</p>
-                </span>
-              </button>
             ) : (
-              <button className="say" onClick={profile} aria-label={`${cast.name}의 프로필 보기`}>
-                <Face id={cast.face ?? ''} name={cast.name} />
-                <span>
-                  <small>{cast.name}</small>
-                  <p>{m.text}</p>
-                </span>
-              </button>
+              // 캐스트의 말. 한자리에 여럿이 있으면 저마다 제 얼굴과 이름으로 나온다
+              ((who) =>
+                m.kind === 'ping' ? (
+                  // 작품 속 폰으로 먼저 온 연락. 말풍선은 여기만 쓴다
+                  <button className="msg" onClick={() => profile(who.key)} aria-label={`${who.name}의 프로필 보기`} {...cutOf(who.key)}>
+                    <Face id={who.face ?? ''} name={who.name} />
+                    <span>
+                      <small>{who.name} · 메시지</small>
+                      <p>{m.text}</p>
+                    </span>
+                  </button>
+                ) : (
+                  <button className="say" onClick={() => profile(who.key)} aria-label={`${who.name}의 프로필 보기`} {...cutOf(who.key)}>
+                    <Face id={who.face ?? ''} name={who.name} />
+                    <span>
+                      <small>{who.name}</small>
+                      <p>{m.text}</p>
+                    </span>
+                  </button>
+                ))(castOf(m.speaker) ?? cast)
             )}
           </Fragment>
           ),

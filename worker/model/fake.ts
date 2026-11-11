@@ -8,6 +8,8 @@ export type Script = (call: ModelCall) => string | Promise<string>;
 export const FAKE_DEFAULTS: Record<ModelCall['purpose'], string> = {
   reply: '고개를 든다.\n"응, 듣고 있어."',
   first: '문 쪽을 본다.\n"왔네."',
+  // 끼지 않고 넘긴다
+  join: '…',
   ping: '지금 뭐 해?',
   gap: '',
   check: '판정: 없음',
@@ -45,4 +47,4 @@ function demoAside(call: ModelCall): string {
 
 /** 로컬 화면에서 자리 비우기와 피드, 한편을 눌러 볼 수 있게 하는 흉내 */
 export const demoScript: Script = (call) =>
-  call.purpose === 'gap' ? DEMO_DAY : call.purpose === 'aside' ? demoAside(call) : FAKE_DEFAULTS[call.purpose];
+  call.purpose === 'gap' ? DEMO_DAY : call.purpose === 'aside' ? demoAside(call) : call.purpose === 'join' ? '옆에서 책을 덮는다.\n"나도 들었어."' : FAKE_DEFAULTS[call.purpose];

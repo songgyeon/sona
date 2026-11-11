@@ -1,7 +1,7 @@
 /* 플레이를 읽는 곳. 화면에 내보내는 모양도 여기서 만든다. */
 
 import type { Clock } from '../../shared/clock';
-import { readFilm } from '../../shared/opening';
+import { readFilm, sceneOf } from '../../shared/opening';
 import type { AsideView, Film, MessageView, PlayCard, PlayView, PostView, TurnView } from '../../shared/types';
 import type { Db } from '../db';
 import { type Ctx, Fail } from './ctx';
@@ -109,6 +109,14 @@ export async function messagesOf(db: Db, playId: string, room?: string): Promise
         playId,
       );
   return rows.map(toMessage);
+}
+
+/** 한자리에서 오간 말들. 이 캐스트와 같이 있는 캐스트들의 방을 한데 모은다 — 작중 시각 순, 같은 시각이면 들어온 순.
+    같이 있는 사람이 없으면 이 캐스트와 둘이 나눈 말뿐이다 */
+export async function sceneMessages(db: Db, play: Play, castKey: string): Promise<MessageView[]> {
+  const rooms = sceneOf(play.film, castKey);
+  if (rooms.length === 1) return messagesOf(db, play.id, castKey);
+  return (await messagesOf(db, play.id)).filter((m) => rooms.includes(m.room));
 }
 
 export async function postsOf(db: Db, playId: string): Promise<PostView[]> {

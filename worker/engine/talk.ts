@@ -1,9 +1,9 @@
 /* 인물의 답을 받는 곳. 모델은 문장만 쓴다. 한 턴에 한 번 부른다. */
 
 import { trialOver } from '../../shared/clock';
-import { hasLines } from '../../shared/opening';
+import { hasLines, sceneOf } from '../../shared/opening';
 import { RULES } from '../../shared/rules';
-import type { MessageView, TurnView } from '../../shared/types';
+import type { Cast, Film, MessageView, TurnView } from '../../shared/types';
 import { newId, q, type Stmt } from '../db';
 import { spend } from '../guard';
 import type { Layers, ModelCall, ModelOut, Purpose } from '../model/index';
@@ -11,7 +11,7 @@ import { castLayer } from '../prompt/cast';
 import { sceneLayer, type SceneEvent, type SceneLine } from '../prompt/scene';
 import { SCENE_SYSTEM } from '../prompt/system';
 import { type Ctx, Fail } from './ctx';
-import { messagesOf, type Play } from './store';
+import { type Play, sceneMessages } from './store';
 
 /** 줄바꿈 하나가 메시지 하나다. 줄을 지우거나 고치지 않는다 — 빈 줄만 걷는다 */
 export function bubbles(raw: string): string[] {
@@ -47,14 +47,21 @@ export function pieces(raw: string): Piece[] {
   return out;
 }
 
-/** 지나간 장면을 프롬프트에 적을 모양으로 바꾼다 */
-export function toLines(play: Play, castName: string, messages: MessageView[]): SceneLine[] {
+/** 지나간 장면을 프롬프트에 적을 모양으로 바꾼다. 한자리에 여럿이 있었으면 누가 한 말인지 이름으로 적힌다 */
+export function toLines(play: Play, messages: MessageView[]): SceneLine[] {
+  const nameOf = (key: string) => play.film.casts.find((c) => c.key === key)?.name ?? key;
   return messages.map((m) => {
-    if (m.speaker === 'tell') return { kind: 'tell', speaker: '', text: m.text, mine: false };
+    if (m.speaker === 'tell') return { kind: 'tell', speaker: '', text: m.text, mine: false, at: m.at };
     const mine = m.speaker === 'persona';
-    return { kind: m.kind === 'ping' ? 'msg' : 'say', speaker: mine ? play.film.persona.name : castName, text: m.text, mine };
+    return { kind: m.kind === 'ping' ? 'msg' : 'say', speaker: mine ? play.film.persona.name : nameOf(m.speaker), text: m.text, mine, at: m.at };
   });
 }
+
+/** 이 캐스트와 한자리에 있는 다른 캐스트들 */
+export const othersHere = (film: Film, cast: Cast): Cast[] =>
+  sceneOf(film, cast.key)
+    .filter((key) => key !== cast.key)
+    .flatMap((key) => film.casts.filter((c) => c.key === key));
 
 /** 모델을 부른 일을 남긴다. 화면에는 안 보이고, 답이 이상할 때 까닭을 찾는 데 쓴다 */
 export function logStmt(
@@ -109,6 +116,28 @@ const FIRST_CUE = '(이야기가 지금 시작된다. 이 장면을 네가 연�
 /** 디렉터가 오프닝을 써 둔 필름: 그 뒤를 잇는다 */
 const AFTER_OPENING_CUE = '(위에 적힌 시작 장면에 바로 이어서, 네가 먼저 움직이고 말한다. 이미 적힌 것을 되풀이하지 않는다.)';
 
+/** 한자리에 있는 다른 사람의 차례. 낄 까닭이 없으면 넘긴다 */
+const JOIN_CUE =
+  '(위의 장면을 너도 그 자리에서 보고 들었다. 네가 할 말이나 행동이 있으면 이어서 쓴다. 이미 나온 말을 되풀이하지 않는다. 지금 끼어들 까닭이 없으면 「…」 한 줄만 쓴다.)';
+/** 넘긴다는 표시. 이 글자뿐이면 아무 말도 하지 않은 것이다 */
+const PASS = ['…', '...', '「…」', '「...」', '"…"', '"..."', '(…)', '(...)'];
+
+/** 한자리에 있는 다른 캐스트가 이번에 낄 차례인가. 모델이 아니라 코드가 정한다 —
+    방금 오간 말에 그 사람이 불렸거나, 내 말이 잇달아 이어지는 동안 한마디도 못 했으면 낀다 */
+export function takesTurn(film: Film, cast: Cast, scene: MessageView[], heard: string[]): boolean {
+  // 한 글자짜리 이름은 다른 낱말 속에도 흔해서 불렸다고 보지 않는다
+  const names = [cast.name, ...cast.aliases, ...film.ties.filter((t) => t.to === cast.key).map((t) => t.calls)].filter((n) => n.length >= 2);
+  if (heard.some((text) => names.some((n) => text.includes(n)))) return true;
+  let quiet = 0;
+  for (let i = scene.length - 1; i >= 0; i--) {
+    const m = scene[i]!;
+    // 이 사람이 마지막으로 말하거나 움직인 데까지만 센다
+    if (m.speaker === cast.key || (m.speaker === 'tell' && m.room === cast.key)) break;
+    if (m.speaker === 'persona') quiet += 1;
+  }
+  return quiet >= RULES.scene.quietTurns;
+}
+
 /** 하루 몫에서 덜고 모델을 부른다 */
 export async function ask(ctx: Ctx, call: ModelCall): Promise<ModelOut> {
   await spend(ctx.db, ctx.now());
@@ -124,7 +153,8 @@ export async function answer(ctx: Ctx, play: Play, turn: TurnView): Promise<void
   const cast = film.casts.find((c) => c.key === turn.room);
   if (!cast) throw new Fail(500, 'room_missing', '이 장면의 인물을 찾을 수 없어요.');
 
-  const all = await messagesOf(ctx.db, play.id, cast.key);
+  // 한자리에 여럿이 있으면 그 자리에서 오간 말을 모두 듣는다
+  const all = await sceneMessages(ctx.db, play, cast.key);
 
   let purpose: Purpose;
   let user: string;
@@ -149,7 +179,8 @@ export async function answer(ctx: Ctx, play: Play, turn: TurnView): Promise<void
       clock: play,
       // 첫 장면은 [이야기가 시작된 자리]에 통째로 실린다. 같은 일을 두 번 싣지 않는다
       events: await eventsFor(ctx, play, cast.key, Infinity, false),
-      history: toLines(play, cast.name, before.slice(-RULES.historyLines)),
+      history: toLines(play, before.slice(-RULES.historyLines)),
+      here: othersHere(film, cast).map((c) => c.name),
     }),
   };
   const call: ModelCall = { purpose, layers, user, temperature: 0.8, maxTokens: 600 };
@@ -199,4 +230,62 @@ export async function answer(ctx: Ctx, play: Play, turn: TurnView): Promise<void
   stmts.push(logStmt(ctx, play.id, turn.id, call, out, true, null));
   if (trialOver(play.elapsed, play.days)) stmts.push(q('UPDATE plays SET ended = 1 WHERE id = ?', play.id));
   await ctx.db.batch(stmts);
+
+  // 내 말에 한 사람이 답했다. 같이 있는 다른 사람에게도 차례가 간다
+  if (turn.kind === 'say') await joinIn(ctx, play, turn, cast, [user, ...parts.map((p) => p.text)]);
+}
+
+/** 한자리에 있는 다른 캐스트의 차례. 낄지 말지는 코드가 정하고, 끼면 그 사람이 제 말로 쓴다.
+    못 받아도 턴은 이미 끝났다 — 그 사람이 이번에 아무 말도 안 한 것으로 남는다 */
+async function joinIn(ctx: Ctx, play: Play, turn: TurnView, spoke: Cast, heard: string[]): Promise<void> {
+  const film = play.film;
+  for (const cast of othersHere(film, spoke)) {
+    // 방금 답까지 들어 있다. 앞사람이 낀 말도 뒷사람은 듣는다
+    const scene = await sceneMessages(ctx.db, play, cast.key);
+    if (!takesTurn(film, cast, scene, heard)) continue;
+
+    const call: ModelCall = {
+      purpose: 'join',
+      layers: {
+        system: SCENE_SYSTEM,
+        cast: castLayer(film, cast),
+        scene: sceneLayer({
+          film,
+          cast,
+          clock: play,
+          events: await eventsFor(ctx, play, cast.key, Infinity, false),
+          history: toLines(play, scene.slice(-RULES.historyLines)),
+          here: othersHere(film, cast).map((c) => c.name),
+        }),
+      },
+      user: JOIN_CUE,
+      temperature: 0.8,
+      maxTokens: 400,
+    };
+    let out: ModelOut;
+    try {
+      out = await ask(ctx, call);
+    } catch (e) {
+      await ctx.db.batch([logStmt(ctx, play.id, turn.id, call, null, false, `끼는 말을 못 받음: ${errText(e)}`)]);
+      continue;
+    }
+    const parts = PASS.includes(out.text.trim()) ? [] : pieces(out.text);
+    const stmts: Stmt[] = parts.map((part) =>
+      q(
+        'INSERT INTO messages (id, play_id, turn_id, room, speaker, text, at, kind, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        newId(),
+        play.id,
+        turn.id,
+        cast.key,
+        part.kind === 'tell' ? 'tell' : cast.key,
+        part.text,
+        play.elapsed,
+        'chat',
+        ctx.now(),
+      ),
+    );
+    stmts.push(logStmt(ctx, play.id, turn.id, call, out, parts.length > 0, parts.length > 0 ? null : '끼지 않고 넘김'));
+    await ctx.db.batch(stmts);
+    heard = [...heard, ...parts.map((p) => p.text)];
+  }
 }

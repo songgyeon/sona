@@ -3,8 +3,9 @@
    그 구간은 조용한 구간으로 남는다. */
 
 import { dayEnd, nextEvening, nextWake, trialOver } from '../../shared/clock';
+import { sceneOf } from '../../shared/opening';
 import { RULES } from '../../shared/rules';
-import type { Cast, PlayView } from '../../shared/types';
+import type { Cast, MessageView, PlayView } from '../../shared/types';
 import { isUniqueError, newId, q, type Stmt } from '../db';
 import { isUuid } from '../guard';
 import type { ModelCall, ModelOut } from '../model/index';
@@ -15,7 +16,7 @@ import { ASIDE_CUE, asideLayers, asideMemory, asideSlot, parseAside, pickPair } 
 import { type Ctx, Fail } from './ctx';
 import { GAP_CUE, type GapItem, gapLayers, parseGap, parsePresent, presentLayers, presentUser } from './gap';
 import { pingHeld, pingSlots } from './ping';
-import { lastTurn, loadPlay, messagesOf, type Play, viewOf } from './store';
+import { lastTurn, loadPlay, messagesOf, type Play, sceneMessages, viewOf } from './store';
 import { ask, bubbles, errText, eventsFor, logStmt, toLines } from './talk';
 
 export type SkipKind = 'short' | 'errand' | 'evening' | 'sleep';
@@ -162,17 +163,21 @@ async function meanwhile(ctx: Ctx, play: Play, turnId: string, from: number, to:
     at: r.at,
     text: r.kind === 'post' ? `${nameOf(r.actor)}의 피드에 올라온 글: 「${r.text}」` : r.text,
   });
-  const talked = async (who: Cast) =>
-    (await messagesOf(ctx.db, play.id, who.key))
+  const said = (lines: MessageView[]) =>
+    lines
       .filter((m) => m.speaker !== 'tell' && m.at <= at)
       .slice(-6)
-      .map((m) => ({ speaker: m.speaker === 'persona' ? film.persona.name : who.name, text: m.text }));
+      .map((m) => ({ speaker: m.speaker === 'persona' ? film.persona.name : nameOf(m.speaker), text: m.text }));
+  const talked = async (who: Cast) => said(await messagesOf(ctx.db, play.id, who.key));
+  // 두 사람이 유저의 인물과 한자리에 있던 사이라면, 그 자리에서 오간 말은 둘 다 들었다
+  const sameScene = sceneOf(film, a.key).includes(b.key);
   const call: ModelCall = {
     purpose: 'aside',
     layers: asideLayers(film, a, b, play, at, {
       shared: rows.filter((r) => knows(r, a) && knows(r, b)).map(told),
       only: [rows.filter((r) => knows(r, a) && !knows(r, b)).map(told), rows.filter((r) => knows(r, b) && !knows(r, a)).map(told)],
-      recent: [await talked(a), await talked(b)],
+      recent: sameScene ? [[], []] : [await talked(a), await talked(b)],
+      together: sameScene ? said(await sceneMessages(ctx.db, play, a.key)) : null,
     }),
     user: ASIDE_CUE,
     temperature: 0.8,
@@ -285,8 +290,9 @@ async function lived(
   stmts: Stmt[],
 ): Promise<GapItem[]> {
   const film = play.film;
-  const room = await messagesOf(ctx.db, play.id, cast.key);
-  const nameOf = (speaker: string) => (speaker === 'persona' ? film.persona.name : cast.name);
+  // 한자리에 여럿이 있었으면 그 자리에서 오간 말이다
+  const room = await sceneMessages(ctx.db, play, cast.key);
+  const nameOf = (speaker: string) => (speaker === 'persona' ? film.persona.name : (film.casts.find((c) => c.key === speaker)?.name ?? speaker));
   const call: ModelCall = {
     purpose: 'gap',
     layers: gapLayers(
@@ -358,7 +364,7 @@ async function reachOut(
   stmts: Stmt[],
 ): Promise<void> {
   const film = play.film;
-  const room = await messagesOf(ctx.db, play.id, cast.key);
+  const room = await sceneMessages(ctx.db, play, cast.key);
   let lastContact = room.length > 0 ? room[room.length - 1]!.at : null;
   let sent = false;
 
@@ -392,7 +398,7 @@ async function reachOut(
             ...(await eventsFor(ctx, play, cast.key, slot)),
             ...before.filter((i) => i.kind === 'daily').map((i) => ({ at: i.at, text: i.text })),
           ],
-          history: toLines(play, cast.name, room.slice(-RULES.historyLines)),
+          history: toLines(play, room.slice(-RULES.historyLines)),
         }),
       },
       user: `(${when(clockAt, slot)}. ${film.persona.name}에게서 온 말은 없다. 네가 먼저 연락한다. 얘깃거리: ${hook.text})`,
