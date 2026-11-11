@@ -171,7 +171,7 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
       </div>
 
       {film.casts.length > 1 && (
-        <nav className="with" aria-label="지금 누구와 있나">
+        <nav className="with" aria-label="함께 있는 캐스트">
           {film.casts.map((c) => (
             <button key={c.key} className={c.key === cast.key ? 'on' : ''} onClick={() => setRoom(c.key)}>
               <Face id={c.face ?? ''} name={c.name} />

@@ -153,7 +153,7 @@ const STEPS: { id: Step; label: string; must: boolean }[] = [
   { id: 'cast', label: '캐스팅', must: true },
   { id: 'world', label: '세계', must: false },
   { id: 'open', label: '오프닝', must: false },
-  { id: 'release', label: '공개', must: false },
+  { id: 'release', label: '개봉', must: false },
 ];
 
 const PICTURES = 'image/jpeg,image/png,image/webp';
@@ -221,6 +221,8 @@ export function Create({ go }: { go: (to: string) => void }) {
   const names = d.casts.map((c, i) => c.name.trim() || `캐스트 ${i + 1}`);
   const pairs = d.casts.flatMap((_, a) => d.casts.map((__, b) => [a, b] as const)).filter(([a, b]) => a !== b);
   const me = d.personaName.trim() || '나';
+  /** 첫 장면을 함께 여는 캐스트. 아직 이름이 없으면 「캐스트」라고 부른다 */
+  const opener = d.casts[Math.min(d.room, d.casts.length - 1)]?.name.trim() || '캐스트';
 
   /** 개봉하려면 채워야 하는 칸 */
   const todo: { step: Step; label: string; done: boolean }[] = [
@@ -316,7 +318,7 @@ export function Create({ go }: { go: (to: string) => void }) {
                   <input type="file" accept={PICTURES} disabled={busy} aria-label="포스터 그림 고르기" onChange={(e) => pick(e, 1440, (id) => set('poster', id))} />
                 </label>
                 <div className="side">
-                  <p>홈 맨 위에 걸려요. 올리지 않으면 제목만 걸려요.</p>
+                  <p>{d.poster ? '홈 맨 위에 이렇게 걸려요.' : '올리지 않으면 홈에 제목만 걸려요.'}</p>
                   {d.poster && (
                     <button className="textbtn" onClick={() => set('poster', '')}>
                       그림 빼기
@@ -326,11 +328,11 @@ export function Create({ go }: { go: (to: string) => void }) {
               </div>
             </Card>
 
-            <Card title="제목과 한 줄">
+            <Card title="기본 정보">
               <Field label="제목" must count={[d.title.length, RULES.limits.title]}>
                 <input value={d.title} maxLength={RULES.limits.title} placeholder="예) 방송부의 금요일" onChange={(e) => set('title', e.target.value)} />
               </Field>
-              <Field label="한 줄" count={[d.logline.length, RULES.limits.logline]} hint="포스터에서 제목 아래에 놓여요.">
+              <Field label="한 줄 소개" count={[d.logline.length, RULES.limits.logline]} hint="포스터의 제목 아래에 보여요.">
                 <textarea
                   className="serif"
                   rows={2}
@@ -347,11 +349,10 @@ export function Create({ go }: { go: (to: string) => void }) {
         {step === 'cast' && (
           <>
             <p className="lead">필름에 나오는 인물을 적어 주세요.</p>
-            <p className="sub">일정이 아니라, 어떤 사람이고 서로 어떤 사이인지를 적어요.</p>
 
             <Card title="내 배역" sub="필름 안에서 내가 맡는 인물이에요.">
               <Field label="이름" must count={[d.personaName.length, 20]}>
-                <input value={d.personaName} maxLength={20} placeholder="필름 안에서 불릴 이름. 예) 다온" onChange={(e) => set('personaName', e.target.value)} />
+                <input value={d.personaName} maxLength={20} placeholder="예) 다온" onChange={(e) => set('personaName', e.target.value)} />
               </Field>
               <Field label="어떤 사람">
                 <input
@@ -364,7 +365,7 @@ export function Create({ go }: { go: (to: string) => void }) {
             </Card>
 
             {d.casts.map((c, i) => (
-              <Card key={i} title={`캐스트 ${i + 1}`} count={`${i + 1} / ${RULES.limits.casts}`}>
+              <Card key={i} title={`캐스트 ${i + 1}`} count={`${i + 1} / ${RULES.limits.casts}`} sub={i === 0 ? '필름에서 만나는 인물이에요.' : undefined}>
                 <div className="castcard">
                   <div className="casthead">
                     <label className={c.face ? 'drop facepick has' : 'drop facepick'}>
@@ -379,11 +380,11 @@ export function Create({ go }: { go: (to: string) => void }) {
                       <input type="file" accept={PICTURES} disabled={busy} aria-label={`${names[i]}의 사진 고르기`} onChange={(e) => pick(e, 640, (id) => setCast(i, 'face', id))} />
                     </label>
                     <Field label="이름" must count={[c.name.length, 20]}>
-                      <input value={c.name} maxLength={20} placeholder="짧은 이름이 부르기 편해요. 예) 서하" onChange={(e) => setCast(i, 'name', e.target.value)} />
+                      <input value={c.name} maxLength={20} placeholder="예) 서하" onChange={(e) => setCast(i, 'name', e.target.value)} />
                     </Field>
                   </div>
 
-                  <Field label={`${me}에게 누구인가`}>
+                  <Field label={`${josa(me, '과', '와')}의 관계`}>
                     <input value={c.role} maxLength={RULES.limits.short} placeholder="예) 방송부 부장. 같이 입학한 동기" onChange={(e) => setCast(i, 'role', e.target.value)} />
                   </Field>
                   <Field label={`${josa(me, '을', '를')} 부르는 말`}>
@@ -392,7 +393,7 @@ export function Create({ go }: { go: (to: string) => void }) {
                   <Field label="말투">
                     <input value={c.speech} maxLength={RULES.limits.short} placeholder="예) 반말. 짧게 말하고 일 얘기부터 한다" onChange={(e) => setCast(i, 'speech', e.target.value)} />
                   </Field>
-                  <Field label="예시 대사" hint="한 줄에 하나씩, 세 줄까지 적어요.">
+                  <Field label="예시 대사" hint="한 줄에 하나씩, 세 줄까지 적을 수 있어요.">
                     <textarea value={c.samples} rows={3} placeholder={'예) 왔어?\n그건 내가 할게.\n내일 큐시트 봤어?'} onChange={(e) => setCast(i, 'samples', e.target.value)} />
                   </Field>
 
@@ -402,7 +403,7 @@ export function Create({ go }: { go: (to: string) => void }) {
                   </button>
                   {more[i] && (
                     <>
-                      <Field label="불리는 이름들" hint="다른 사람이 이 인물을 부르는 말을 쉼표로 나눠 적어요.">
+                      <Field label="불리는 이름들" hint="다른 인물이 부르는 이름을 쉼표로 나눠 적어 주세요.">
                         <input value={c.aliases} placeholder="예) 서하 씨, 부장" onChange={(e) => setCast(i, 'aliases', e.target.value)} />
                       </Field>
                       <Field label="낮에 주로 있는 곳">
@@ -441,7 +442,7 @@ export function Create({ go }: { go: (to: string) => void }) {
             )}
 
             {pairs.length > 0 && (
-              <Card title="캐스트끼리" sub="서로 아는 사이라면 적어 주세요. 부르는 말은 방향마다 달라요.">
+              <Card title="캐스트끼리" sub="서로 아는 사이라면 적어 주세요.">
                 {pairs.map(([a, b]) => {
                   const pair = `${a}>${b}`;
                   const t = d.ties[pair] ?? { relation: '', calls: '' };
@@ -468,8 +469,8 @@ export function Create({ go }: { go: (to: string) => void }) {
           <>
             <p className="lead">이야기가 벌어지는 곳과 때를 정해 주세요.</p>
 
-            <Card title="배경">
-              <Field label="설명" count={[d.setting.length, RULES.limits.setting]}>
+            <Card title="배경" count={`${d.setting.length} / ${RULES.limits.setting}`}>
+              <Field label="배경" quiet>
                 <textarea
                   className="serif"
                   rows={5}
@@ -481,7 +482,7 @@ export function Create({ go }: { go: (to: string) => void }) {
               </Field>
             </Card>
 
-            <Card title="시작하는 때" sub="여기서부터 작중 24시간이 첫 하루예요.">
+            <Card title="시작하는 때" sub="이때부터 24시간이 첫 하루예요.">
               <Chips
                 label="요일"
                 week
@@ -505,7 +506,7 @@ export function Create({ go }: { go: (to: string) => void }) {
           <>
             <p className="lead">필름의 첫 장면을 만들어 주세요.</p>
 
-            <Card title="컷" count={`${d.stills.length} / ${RULES.limits.stills}`} sub="첫 컷이 필름 정보와 재생 화면에 걸려요. 가로로 긴 그림이 잘 맞아요.">
+            <Card title="컷" count={`${d.stills.length} / ${RULES.limits.stills}`} sub="가로로 긴 그림이 잘 맞고, 첫 컷은 필름 정보와 재생 화면에 걸려요.">
               <div className="stillgrid">
                 {d.stills.map((id) => (
                   <div className="tile grain" key={id}>
@@ -529,7 +530,7 @@ export function Create({ go }: { go: (to: string) => void }) {
               <Field label="장소">
                 <input value={d.place} maxLength={40} placeholder="예) 방송부 부실" onChange={(e) => set('place', e.target.value)} />
               </Field>
-              <Field label="장면" count={[d.situation.length, RULES.limits.opening]} hint="들어갔을 때 보이는 것을 지문으로 적어요.">
+              <Field label="장면" count={[d.situation.length, RULES.limits.opening]} hint="필름에 들어갔을 때 보이는 모습을 적어 주세요.">
                 <textarea
                   className="serif"
                   rows={7}
@@ -544,23 +545,23 @@ export function Create({ go }: { go: (to: string) => void }) {
             <Card title="첫 대사">
               {d.casts.length > 1 && (
                 <Chips
-                  label="누구와 시작하나"
+                  label="함께 시작하는 캐스트"
                   value={Math.min(d.room, d.casts.length - 1)}
                   options={names.map((n, i) => ({ value: i, label: n }))}
                   onChange={(v) => set('room', v)}
                 />
               )}
               <Chips
-                label="누가 먼저 말하나"
+                label="먼저 말하는 사람"
                 value={d.speaker}
                 options={[
-                  { value: 'cast', label: '캐스트', desc: '캐스트가 첫 대사로 장면을 열어요.' },
+                  { value: 'cast', label: opener, desc: `${josa(opener, '이', '가')} 첫 대사로 장면을 열어요.` },
                   { value: 'persona', label: me, desc: '첫 장면만 보이고, 내가 먼저 말해요.' },
                 ]}
                 onChange={(v) => set('speaker', v)}
               />
               {d.speaker === 'cast' && (
-                <Field label="첫 대사" hint="비워 두면 장면에 맞춰 자동으로 써요.">
+                <Field label="대사" hint="비워 두면 장면에 맞는 대사가 들어가요.">
                   <input value={d.firstLine} maxLength={200} placeholder="예) 어, 진짜 왔네." onChange={(e) => set('firstLine', e.target.value)} />
                 </Field>
               )}
@@ -646,18 +647,21 @@ function Field({
   hint,
   must,
   count,
+  quiet,
   children,
 }: {
   label: string;
   hint?: string;
   must?: boolean;
   count?: [number, number];
+  /** 묶음 제목이 이미 같은 말을 하면 이름표를 화면에서 감춘다. 읽어 주는 기기에는 그대로 들린다 */
+  quiet?: boolean;
   children: ReactElement<Record<string, unknown>>;
 }) {
   const id = useId();
   return (
-    <div className="field">
-      <label htmlFor={id}>
+    <div className={quiet ? 'field quiet' : 'field'}>
+      <label htmlFor={id} className={quiet ? 'sr' : undefined}>
         {label}
         {must && <em>*</em>}
         {count && (

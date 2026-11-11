@@ -59,7 +59,7 @@ export function parseFilm(input: unknown): Film {
       name: text(c.name, 20, '캐스트 이름', true),
       face: image(c.face, '캐스트'),
       aliases: list(c.aliases, 6, 20, '불리는 이름'),
-      role: text(c.role, L.short, '캐스트 설명'),
+      role: text(c.role, L.short, '캐스트와의 관계'),
       callsUser: text(c.callsUser, 20, '나를 부르는 말'),
       speech: text(c.speech, L.short, '말투'),
       samples: list(c.samples, 3, L.sample, '예시 대사'),
@@ -98,7 +98,7 @@ export function parseFilm(input: unknown): Film {
 
   return {
     title: text(f.title, L.title, '제목', true),
-    logline: text(f.logline, L.logline, '한 줄'),
+    logline: text(f.logline, L.logline, '한 줄 소개'),
     poster: image(f.poster, '포스터'),
     stills,
     setting: text(f.setting, L.setting, '배경'),
