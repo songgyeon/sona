@@ -508,6 +508,9 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
             <SkipFill />
             다음 날 이어 살기
           </button>
+          <button className="btn more wide" disabled={closing} onClick={again}>
+            처음부터 다시 살기
+          </button>
           <button className="textbtn" onClick={() => setCredits(true)}>
             크레딧 보기
           </button>

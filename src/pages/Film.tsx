@@ -84,8 +84,8 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
                 <PlayFill />
                 이어 살기
               </button>
-              <button className="textbtn" disabled={busy} onClick={enter}>
-                {busy ? '들어가는 중' : '처음부터 다시 들어가기'}
+              <button className="btn more wide" disabled={busy} onClick={enter}>
+                {busy ? '들어가는 중' : '처음부터 다시 살기'}
               </button>
             </>
           ) : (
