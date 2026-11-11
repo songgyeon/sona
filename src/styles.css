@@ -239,12 +239,13 @@ button:disabled { opacity: 0.4; cursor: default; }
 .day { flex: none; height: 1px; background: var(--hair); }
 .day span { display: block; height: 100%; background: var(--ink); }
 /* 여럿이 나오는 필름: 지금 누구와 있나 */
-.with { flex: none; display: flex; gap: 18px; padding: 14px var(--pad) 0; overflow-x: auto; scrollbar-width: none; }
+.with { flex: none; display: flex; gap: 18px; padding: 14px var(--pad) 12px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--hair); }
 .with button { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--ink-3); white-space: nowrap; }
 .with button.on { color: var(--ink); font-weight: 600; }
 .with .face { width: 26px; height: 26px; font-size: 11px; opacity: 0.55; }
 .with button.on .face { opacity: 1; box-shadow: 0 0 0 1px var(--ink); }
-.flow { flex: 1; min-height: 0; overflow-y: auto; padding: 24px var(--pad) 46px; scrollbar-width: none; }
+/* 위로 지나간 줄은 가장자리에서 스르르 사라진다 */
+.flow { flex: 1; min-height: 0; overflow-y: auto; padding: 24px var(--pad) 46px; scrollbar-width: none; -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 22px); mask-image: linear-gradient(180deg, transparent 0, #000 22px); }
 .flow::-webkit-scrollbar { display: none; }
 .tell { font-family: var(--serif); font-size: 15px; line-height: 1.86; font-weight: 400; letter-spacing: 0.005em; color: rgba(255, 255, 255, 0.7); white-space: pre-wrap; text-wrap: pretty; }
 .tell + .tell { margin-top: 12px; }
