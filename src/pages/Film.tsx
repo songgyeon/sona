@@ -3,7 +3,7 @@ import { formatMin } from '../../shared/clock';
 import { DOW_NAMES } from '../../shared/rules';
 import type { Film as FilmData, FilmCard, PlayCard } from '../../shared/types';
 import { ApiFail, api, imgUrl, newId } from '../api';
-import { Back, LinkIcon, Next, PlayFill } from '../icons';
+import { Back, LinkIcon, Next, Pen, PlayFill } from '../icons';
 import { Face, StillStrip, titleClass } from '../poster';
 
 /** 필름 정보. 그 필름의 한 장면, 제목, 캐스트, 컷, 오프닝을 보고 들어간다 */
@@ -97,6 +97,10 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
               <button className="textbtn" onClick={copyLink}>
                 <LinkIcon />
                 링크 복사
+              </button>
+              <button className="textbtn" onClick={() => go(`/film/${filmId}/edit`)}>
+                <Pen />
+                고치기
               </button>
             </div>
           )}

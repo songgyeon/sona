@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { RULES } from '../../shared/rules';
 import { Fail } from '../../worker/engine/ctx';
-import { createFilm, getFilm, listFilms, parseFilm } from '../../worker/engine/films';
+import { fromFilm, toFilm } from '../../shared/draft';
+import { createFilm, getFilm, listFilms, parseFilm, updateFilm } from '../../worker/engine/films';
 import { viewOf } from '../../worker/engine/store';
 import { enter, retry, say } from '../../worker/engine/turn';
 import { FAKE_DEFAULTS, type Script } from '../../worker/model/fake';
@@ -71,6 +72,41 @@ describe('필름을 링크로 보여 주기', () => {
   it('없는 필름은 없다고 한다', async () => {
     const { ctx } = await setup();
     expect(await failCode(getFilm(ctx, uid()))).toBe('film_missing');
+  });
+});
+
+describe('필름 고치기', () => {
+  it('만든 사람이 고치면 필름이 바뀐다', async () => {
+    const { ctx, filmId } = await setup();
+    await updateFilm(ctx, filmId, { ...DEV_FILM, title: '고친 제목', logline: '고친 한 줄' });
+    const { card, film } = await getFilm(ctx, filmId);
+    expect(card).toMatchObject({ title: '고친 제목', logline: '고친 한 줄', mine: true });
+    expect(film.title).toBe('고친 제목');
+    expect((await listFilms(ctx)).map((f) => f.title)).toEqual(['고친 제목']);
+  });
+
+  it('다른 사람은 못 고친다. 필름은 그대로다', async () => {
+    const { ctx, filmId } = await setup();
+    expect(await failCode(updateFilm({ ...ctx, visitor: OTHER_VISITOR }, filmId, { ...DEV_FILM, title: '남이 고침' }))).toBe('not_owner');
+    expect((await getFilm(ctx, filmId)).film.title).toBe(DEV_FILM.title);
+  });
+
+  it('맞지 않는 내용으로는 안 고쳐진다', async () => {
+    const { ctx, filmId } = await setup();
+    expect(await failCode(updateFilm(ctx, filmId, { ...DEV_FILM, title: ' ' }))).toBe('film_invalid');
+    expect((await getFilm(ctx, filmId)).film.title).toBe(DEV_FILM.title);
+  });
+
+  it('살고 있던 삶은 들어갈 때의 필름 그대로 간다. 새로 들어가면 고친 필름이다', async () => {
+    const { ctx, filmId, playId } = await setup();
+    await updateFilm(ctx, filmId, { ...DEV_FILM, title: '고친 제목' });
+    expect((await viewOf(ctx, playId)).film.title).toBe(DEV_FILM.title);
+    expect((await enter(ctx, filmId, uid())).film.title).toBe('고친 제목');
+  });
+
+  it('필름을 만들기 화면의 칸으로 되돌렸다가 다시 필름으로 바꿔도 같다', () => {
+    const film = parseFilm(DEV_FILM);
+    expect(parseFilm(toFilm(fromFilm(film)))).toEqual(film);
   });
 });
 

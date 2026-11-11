@@ -145,6 +145,17 @@ export async function createFilm(ctx: Ctx, input: unknown): Promise<{ id: string
   return { id };
 }
 
+/** 개봉한 필름을 고친다. 만든 사람만 고친다.
+    살고 있던 삶은 들어갈 때의 필름을 들고 있어서 그대로 간다 — 고친 내용은 새로 들어갈 때부터다 */
+export async function updateFilm(ctx: Ctx, id: string, input: unknown): Promise<{ id: string }> {
+  const row = await ctx.db.first<{ owner: string }>('SELECT owner FROM films WHERE id = ?', id);
+  if (!row) throw new Fail(404, 'film_missing', '필름을 찾을 수 없어요.');
+  if (row.owner !== ctx.visitor) throw new Fail(403, 'not_owner', '만든 사람만 고칠 수 있어요.');
+  const film = parseFilm(input);
+  await ctx.db.run('UPDATE films SET title = ?, logline = ?, data = ? WHERE id = ?', film.title, film.logline, JSON.stringify(film), id);
+  return { id };
+}
+
 function card(row: FilmRow, visitor: string): FilmCard {
   const film = JSON.parse(row.data) as Film;
   return {

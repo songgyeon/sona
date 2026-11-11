@@ -2,7 +2,7 @@
 
 import { d1 } from './db';
 import { type Ctx, Fail } from './engine/ctx';
-import { createFilm, getFilm, listFilms } from './engine/films';
+import { createFilm, getFilm, listFilms, updateFilm } from './engine/films';
 import { loadImage, saveImage } from './engine/images';
 import { skip } from './engine/skip';
 import { listPlays, viewOf } from './engine/store';
@@ -49,6 +49,7 @@ const ROUTES: [string, RegExp, Handler][] = [
   ['GET', /^\/api\/films$/, (ctx) => listFilms(ctx)],
   ['POST', /^\/api\/films$/, (ctx, _p, body) => createFilm(ctx, body)],
   ['GET', /^\/api\/films\/([^/]+)$/, (ctx, p) => getFilm(ctx, p[0]!)],
+  ['PUT', /^\/api\/films\/([^/]+)$/, (ctx, p, body) => updateFilm(ctx, p[0]!, body)],
   ['POST', /^\/api\/films\/([^/]+)\/enter$/, (ctx, p, body) => enter(ctx, p[0]!, body.playId)],
   ['GET', /^\/api\/plays$/, (ctx) => listPlays(ctx)],
   ['GET', /^\/api\/plays\/([^/]+)$/, (ctx, p) => viewOf(ctx, p[0]!)],
@@ -114,7 +115,7 @@ export default {
         await ensureSchema(db);
         const ctx: Ctx = { db, model: pickModel(env), visitor: visitorOf(req), now: () => Date.now() };
         let body: Record<string, unknown> = {};
-        if (method === 'POST') {
+        if (method === 'POST' || method === 'PUT') {
           try {
             const parsed: unknown = await req.json();
             if (parsed && typeof parsed === 'object') body = parsed as Record<string, unknown>;

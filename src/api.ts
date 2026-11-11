@@ -50,7 +50,7 @@ export class ApiFail extends Error {
   }
 }
 
-async function call<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+async function call<T>(method: 'GET' | 'POST' | 'PUT', path: string, body?: unknown): Promise<T> {
   let res: Response;
   try {
     res = await fetch(path, {
@@ -113,6 +113,7 @@ export const api = {
   films: () => call<FilmCard[]>('GET', '/api/films'),
   film: (id: string) => call<{ card: FilmCard; film: Film }>('GET', `/api/films/${id}`),
   createFilm: (film: unknown) => call<{ id: string }>('POST', '/api/films', film),
+  updateFilm: (id: string, film: unknown) => call<{ id: string }>('PUT', `/api/films/${id}`, film),
   enter: (filmId: string, playId: string) => call<PlayView>('POST', `/api/films/${filmId}/enter`, { playId }),
   plays: () => call<PlayCard[]>('GET', '/api/plays'),
   play: (id: string) => call<PlayView>('GET', `/api/plays/${id}`),

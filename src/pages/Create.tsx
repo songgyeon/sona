@@ -1,4 +1,5 @@
 import { type ChangeEvent, cloneElement, type ReactElement, type ReactNode, useEffect, useId, useState } from 'react';
+import { blankCast, blankDraft, type Draft, type DraftCast, fromFilm, toFilm } from '../../shared/draft';
 import { josa } from '../../shared/ko';
 import { DOW_NAMES, RULES } from '../../shared/rules';
 import { ApiFail, api, imgUrl, newId, uploadImage } from '../api';
@@ -6,76 +7,8 @@ import { Arrow, Close, Down, Plus, Upload } from '../icons';
 
 /* 필름 만들기. 디렉터가 채우는 칸이다.
    며칠 치 일정을 쓰는 자리가 아니다 — 이 사람들이 어떤 사이이고 서로를 뭐라고 부르는지를 쓴다.
-   칸마다 무엇을 쓰는지 알려 주고 예를 든다. */
-
-interface DraftCast {
-  name: string;
-  face: string;
-  aliases: string;
-  role: string;
-  callsUser: string;
-  speech: string;
-  samples: string;
-  sleepFrom: string;
-  sleepTo: string;
-  dayPlace: string;
-}
-
-interface Draft {
-  title: string;
-  logline: string;
-  poster: string;
-  stills: string[];
-  setting: string;
-  startDow: number;
-  startTime: string;
-  feed: boolean;
-  ping: boolean;
-  personaName: string;
-  personaLine: string;
-  casts: DraftCast[];
-  /** 「0>1」 = 첫째 캐스트가 둘째 캐스트를 */
-  ties: Record<string, { relation: string; calls: string }>;
-  place: string;
-  situation: string;
-  room: number;
-  speaker: 'persona' | 'cast';
-  firstLine: string;
-}
-
-const blankCast = (): DraftCast => ({
-  name: '',
-  face: '',
-  aliases: '',
-  role: '',
-  callsUser: '',
-  speech: '',
-  samples: '',
-  sleepFrom: '00:00',
-  sleepTo: '07:00',
-  dayPlace: '',
-});
-
-const blank = (): Draft => ({
-  title: '',
-  logline: '',
-  poster: '',
-  stills: [],
-  setting: '',
-  startDow: 5,
-  startTime: '16:00',
-  feed: true,
-  ping: true,
-  personaName: '',
-  personaLine: '',
-  casts: [blankCast()],
-  ties: {},
-  place: '',
-  situation: '',
-  room: 0,
-  speaker: 'cast',
-  firstLine: '',
-});
+   칸마다 무엇을 쓰는지 알려 주고 예를 든다.
+   개봉한 필름을 고칠 때도 이 화면을 쓴다(editId). 그때는 필름을 칸으로 되돌려 놓고 시작한다. */
 
 const DRAFT_KEY = 'sona.draft';
 
@@ -83,67 +16,14 @@ function loadDraft(): Draft {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (raw) {
-      const d = { ...blank(), ...(JSON.parse(raw) as Partial<Draft>) };
+      const d = { ...blankDraft(), ...(JSON.parse(raw) as Partial<Draft>) };
       // 예전에 쓰다 만 초안에는 그림 칸이 없다
       return { ...d, stills: d.stills ?? [], casts: d.casts.map((c) => ({ ...blankCast(), ...c })) };
     }
   } catch {
     /* 저장이 막혀 있으면 빈 칸에서 시작한다 */
   }
-  return blank();
-}
-
-const toMin = (hhmm: string): number => {
-  const [h, m] = hhmm.split(':').map(Number);
-  return (h ?? 0) * 60 + (m ?? 0);
-};
-
-const split = (s: string, by: RegExp): string[] =>
-  s
-    .split(by)
-    .map((x) => x.trim())
-    .filter((x) => x.length > 0);
-
-/** 화면의 칸을 서버가 받는 필름 모양으로 바꾼다 */
-export function toFilm(d: Draft): unknown {
-  const key = (i: number) => `c${i + 1}`;
-  return {
-    title: d.title,
-    logline: d.logline,
-    poster: d.poster,
-    stills: d.stills,
-    setting: d.setting,
-    startDow: d.startDow,
-    startMin: toMin(d.startTime),
-    opens: { feed: d.feed, ping: d.ping },
-    persona: { name: d.personaName, line: d.personaLine },
-    casts: d.casts.map((c) => ({
-      name: c.name,
-      face: c.face,
-      aliases: split(c.aliases, /[,，\n]/),
-      role: c.role,
-      callsUser: c.callsUser,
-      speech: c.speech,
-      samples: split(c.samples, /\n/).slice(0, 3),
-      sleepFrom: toMin(c.sleepFrom),
-      sleepTo: toMin(c.sleepTo),
-      dayPlace: c.dayPlace,
-    })),
-    ties: Object.entries(d.ties)
-      .map(([pair, t]) => {
-        const [from, to] = pair.split('>').map(Number);
-        return { from: key(from ?? 0), to: key(to ?? 0), relation: t.relation, calls: t.calls, ok: (from ?? 0) < d.casts.length && (to ?? 0) < d.casts.length };
-      })
-      .filter((t) => t.ok && (t.relation.trim() || t.calls.trim()))
-      .map(({ ok: _ok, ...t }) => t),
-    firstScene: {
-      place: d.place,
-      situation: d.situation,
-      room: key(Math.min(d.room, d.casts.length - 1)),
-      speaker: d.speaker,
-      firstLine: d.speaker === 'cast' ? d.firstLine : '',
-    },
-  };
+  return blankDraft();
 }
 
 type Step = 'plan' | 'cast' | 'world' | 'open' | 'release';
@@ -158,8 +38,11 @@ const STEPS: { id: Step; label: string; must: boolean }[] = [
 
 const PICTURES = 'image/jpeg,image/png,image/webp';
 
-export function Create({ go }: { go: (to: string) => void }) {
-  const [d, setD] = useState<Draft>(loadDraft);
+export function Create({ go, editId }: { go: (to: string) => void; editId?: string }) {
+  const [d, setD] = useState<Draft>(() => (editId ? blankDraft() : loadDraft()));
+  /** 고칠 필름을 불러오는 중인가, 못 불러왔다면 왜인가 */
+  const [loading, setLoading] = useState(!!editId);
+  const [loadErr, setLoadErr] = useState('');
   const [step, setStep] = useState<Step>('plan');
   const [more, setMore] = useState<Record<number, boolean>>({});
   const [busy, setBusy] = useState(false);
@@ -175,10 +58,22 @@ export function Create({ go }: { go: (to: string) => void }) {
     }
   };
 
-  // 쓰다가 새로 고쳐도 남게 한다
+  // 새 필름은 쓰다가 새로 고쳐도 남게 한다. 고치는 중인 필름은 남기지 않는다 — 저장된 필름이 원본이다
   useEffect(() => {
-    keep();
+    if (!editId) keep();
   }, [d]);
+
+  useEffect(() => {
+    if (!editId) return;
+    api
+      .film(editId)
+      .then(({ card, film }) => {
+        if (card.mine) setD(fromFilm(film));
+        else setLoadErr('만든 사람만 고칠 수 있어요.');
+      })
+      .catch((e) => setLoadErr(e instanceof ApiFail ? e.message : '필름을 불러오지 못했어요.'))
+      .finally(() => setLoading(false));
+  }, [editId]);
 
   useEffect(() => {
     if (!toast) return;
@@ -242,11 +137,13 @@ export function Create({ go }: { go: (to: string) => void }) {
     setBusy(true);
     setErr('');
     try {
-      const { id } = await api.createFilm(toFilm(d));
-      try {
-        localStorage.removeItem(DRAFT_KEY);
-      } catch {
-        /* 무시 */
+      const { id } = editId ? await api.updateFilm(editId, toFilm(d)) : await api.createFilm(toFilm(d));
+      if (!editId) {
+        try {
+          localStorage.removeItem(DRAFT_KEY);
+        } catch {
+          /* 무시 */
+        }
       }
       if (thenEnter) {
         const view = await api.enter(id, newId());
@@ -255,27 +152,34 @@ export function Create({ go }: { go: (to: string) => void }) {
         go(`/film/${id}`);
       }
     } catch (x) {
-      setErr(x instanceof ApiFail ? x.message : '개봉하지 못했어요.');
+      setErr(x instanceof ApiFail ? x.message : editId ? '저장하지 못했어요.' : '개봉하지 못했어요.');
       setBusy(false);
     }
   };
 
   const at = STEPS.findIndex((s) => s.id === step);
   const next = STEPS[at + 1];
+  /** 고칠 때는 마지막 탭이 「저장」이다 */
+  const labelOf = (s: { id: Step; label: string }) => (editId && s.id === 'release' ? '저장' : s.label);
+
+  if (loading) return <p className="center">불러오는 중</p>;
+  if (loadErr) return <p className="center">{loadErr}</p>;
 
   return (
     <main className="app make">
       <div className="head">
-        <button className="ico" onClick={() => go('/')} aria-label="닫기">
+        <button className="ico" onClick={() => go(editId ? `/film/${editId}` : '/')} aria-label="닫기">
           <Close />
         </button>
-        <b>필름 만들기</b>
+        <b>{editId ? '필름 고치기' : '필름 만들기'}</b>
         <div className="right">
-          <button className="mini keep" onClick={() => setToast(keep() ? '이 기기에 저장했어요' : '저장하지 못했어요')}>
-            임시저장
-          </button>
+          {!editId && (
+            <button className="mini keep" onClick={() => setToast(keep() ? '이 기기에 저장했어요' : '저장하지 못했어요')}>
+              임시저장
+            </button>
+          )}
           <button className="mini open" disabled={busy} onClick={() => release(false)}>
-            개봉
+            {editId ? '저장' : '개봉'}
           </button>
         </div>
       </div>
@@ -285,7 +189,7 @@ export function Create({ go }: { go: (to: string) => void }) {
         {STEPS.map((s) => (
           <button key={s.id} className={s.id === step ? 'step on' : 'step'} onClick={() => move(s.id)}>
             {s.must && <sup aria-hidden="true">*</sup>}
-            {s.label}
+            {labelOf(s)}
             {left(s.id) && (
               <span className="todo" aria-label="필수 항목이 남았어요">
                 !
@@ -571,8 +475,17 @@ export function Create({ go }: { go: (to: string) => void }) {
 
         {step === 'release' && (
           <>
-            <p className="lead">{ready ? '개봉할 준비가 됐어요.' : '개봉 전에 채워야 할 항목이 있어요.'}</p>
-            <p className="sub">개봉한 필름은 내 목록에만 보이고, 링크를 보내면 다른 사람도 들어올 수 있어요.</p>
+            {editId ? (
+              <>
+                <p className="lead">{ready ? '저장할 준비가 됐어요.' : '저장 전에 채워야 할 항목이 있어요.'}</p>
+                <p className="sub">고친 내용은 새로 들어갈 때부터 반영돼요.</p>
+              </>
+            ) : (
+              <>
+                <p className="lead">{ready ? '개봉할 준비가 됐어요.' : '개봉 전에 채워야 할 항목이 있어요.'}</p>
+                <p className="sub">개봉한 필름은 내 목록에만 보이고, 링크를 보내면 다른 사람도 들어올 수 있어요.</p>
+              </>
+            )}
 
             <Card title="필수 항목">
               <ul className="checklist">
@@ -599,8 +512,12 @@ export function Create({ go }: { go: (to: string) => void }) {
         <div className="next">
           {next ? (
             <button className="btn more" onClick={() => move(next.id)}>
-              다음 · {next.label}
+              다음 · {labelOf(next)}
               <Arrow />
+            </button>
+          ) : editId ? (
+            <button className="btn play" disabled={busy} onClick={() => release(false)}>
+              저장
             </button>
           ) : (
             <>
@@ -610,7 +527,7 @@ export function Create({ go }: { go: (to: string) => void }) {
               <button className="btn more" disabled={busy} onClick={() => release(false)}>
                 개봉만 하기
               </button>
-              <button className="textbtn" disabled={busy} onClick={() => setD(blank())}>
+              <button className="textbtn" disabled={busy} onClick={() => setD(blankDraft())}>
                 모두 지우기
               </button>
             </>
