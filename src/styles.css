@@ -1,0 +1,577 @@
+/* 색과 간격은 여기 토큰 한 곳에서 정한다. 덧칠하지 않는다. */
+
+:root {
+  --bg: #f5f2ec;
+  --surface: #fffdf9;
+  --ink: #1d1b18;
+  --muted: #6f6a61;
+  --line: #e2dcd0;
+  --accent: #27324f;
+  --accent-ink: #fffdf9;
+  --me: #27324f;
+  --me-ink: #fffdf9;
+  --them: #ece6da;
+  --them-ink: #1d1b18;
+  --warn: #9a3b2c;
+  --radius: 14px;
+  --gap: 16px;
+  --phone: 460px;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141519;
+    --surface: #1c1e24;
+    --ink: #ece9e2;
+    --muted: #9a968d;
+    --line: #2c2f38;
+    --accent: #c9b08a;
+    --accent-ink: #17181c;
+    --me: #c9b08a;
+    --me-ink: #17181c;
+    --them: #262931;
+    --them-ink: #ece9e2;
+    --warn: #e08a78;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic',
+    sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+p,
+ul {
+  margin: 0;
+  padding: 0;
+}
+
+ul {
+  list-style: none;
+}
+
+h1 {
+  font-size: 22px;
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+button.ghost {
+  background: transparent;
+  color: var(--muted);
+  font-weight: 500;
+  padding: 6px 8px;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--surface);
+}
+
+textarea {
+  resize: vertical;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.warn {
+  color: var(--warn);
+  font-size: 14px;
+}
+
+.center {
+  display: grid;
+  place-items: center;
+  height: 100%;
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.chip {
+  font-size: 12px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.when {
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 열쇠 ── */
+
+.gate {
+  max-width: 340px;
+  margin: 0 auto;
+  padding: 22vh var(--gap) 0;
+  display: grid;
+  gap: 12px;
+}
+
+.gate form {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.gate label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ── 홈 ── */
+
+.home {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 28px var(--gap) 48px;
+  display: grid;
+  gap: 28px;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.top .push {
+  margin-left: auto;
+}
+
+strong .chip {
+  margin-left: 8px;
+  font-weight: 400;
+}
+
+.cards {
+  display: grid;
+  gap: 12px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.card.resume {
+  width: 100%;
+  text-align: left;
+  color: var(--ink);
+  font-weight: 400;
+  display: grid;
+  gap: 2px;
+  padding: 14px 16px;
+}
+
+.card.resume .last {
+  color: var(--muted);
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card.film {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  overflow: hidden;
+}
+
+.poster {
+  aspect-ratio: 2 / 3;
+  background: linear-gradient(160deg, #27324f 0%, #5b4a63 55%, #c9a27e 100%);
+  color: #fffdf9;
+  display: flex;
+  align-items: flex-end;
+  padding: 10px;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.card.film .body {
+  padding: 14px 16px;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.card.film .body p {
+  font-size: 14px;
+}
+
+.card.film .body em {
+  font-style: normal;
+  color: var(--ink);
+}
+
+.card.film .body button {
+  justify-self: start;
+  margin-top: 6px;
+}
+
+/* ── 플레이 ── */
+
+.play {
+  max-width: var(--phone);
+  height: 100%;
+  margin: 0 auto;
+  display: grid;
+  /* 머리 / 방 / 본문(대화·피드·선 가운데 하나) / 발 */
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  background: var(--surface);
+  border-inline: 1px solid var(--line);
+}
+
+.play .top {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.play .where {
+  display: grid;
+  line-height: 1.3;
+  flex: 1;
+  min-width: 0;
+}
+
+.pill {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.pill.on {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+
+.rooms {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+
+.rooms[hidden],
+.chat[hidden],
+.say[hidden] {
+  display: none;
+}
+
+.rooms button {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.rooms button.on {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+
+.chat {
+  grid-row: 3;
+  overflow-y: auto;
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bubble {
+  max-width: 78%;
+  padding: 8px 12px;
+  border-radius: 16px;
+  white-space: pre-wrap;
+}
+
+.bubble.them {
+  align-self: flex-start;
+  background: var(--them);
+  color: var(--them-ink);
+  border-bottom-left-radius: 4px;
+}
+
+.bubble.me {
+  align-self: flex-end;
+  background: var(--me);
+  color: var(--me-ink);
+  border-bottom-right-radius: 4px;
+}
+
+.bubble.sending {
+  opacity: 0.6;
+}
+
+.bubble.typing {
+  color: var(--muted);
+  letter-spacing: 0.2em;
+}
+
+.divider,
+.passing,
+.notice {
+  align-self: center;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  padding: 8px 0 2px;
+}
+
+.notice {
+  font-size: 13px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 12px;
+  margin-top: 8px;
+}
+
+.stuck,
+.ended {
+  align-self: center;
+  text-align: center;
+  font-size: 14px;
+  color: var(--muted);
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  padding: 10px 0;
+}
+
+/* 발: 알림, 자리 비우기, 입력 */
+
+.foot {
+  grid-row: 4;
+  border-top: 1px solid var(--line);
+  padding: 8px 12px calc(10px + env(safe-area-inset-bottom));
+  display: grid;
+  gap: 8px;
+}
+
+.say {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.away {
+  display: grid;
+  gap: 6px;
+}
+
+.away button {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--bg);
+  color: var(--ink);
+  font-weight: 500;
+  text-align: left;
+}
+
+/* 피드 */
+
+.feed {
+  grid-row: 3;
+  overflow-y: auto;
+  padding: 16px 14px;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.feed ul {
+  display: grid;
+  gap: 10px;
+}
+
+.post {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 14px;
+}
+
+.post p {
+  grid-column: 1 / -1;
+  font-size: 15px;
+  padding-top: 4px;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.check input {
+  width: auto;
+}
+
+/* ── 필름 만들기 ── */
+
+.create {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 20px var(--gap) 64px;
+  display: grid;
+  gap: 16px;
+}
+
+.create form {
+  display: grid;
+  gap: 18px;
+}
+
+fieldset {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 14px 16px 16px;
+  margin: 0;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+legend {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.field > label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.field small {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.row.checks {
+  gap: 6px 16px;
+}
+
+.add {
+  justify-self: start;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}

@@ -1,0 +1,41 @@
+{
+  // Cloudflare가 이 저장소에서 무엇을 배포할지 알려주는 파일.
+  // 저장소에 올리면 Cloudflare가 이 파일대로 빌드하고 배포한다.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sona",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-11-01",
+
+  // 배포할 때 화면(React)을 먼저 빌드한다. 그래서 `npx wrangler deploy` 하나로 끝난다 —
+  // 대시보드에서 빌드 명령을 따로 적지 않아도 된다.
+  "build": {
+    "command": "npm run build",
+    "watch_dir": ["src", "shared", "index.html"]
+  },
+
+  // 빌드한 화면을 같은 Worker가 내보낸다. /api/* 만 Worker 코드로 간다.
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  // 저장소(D1). ID를 적지 않는다 — 첫 배포 때 Cloudflare가 만들어 붙인다.
+  // 표는 Worker가 처음 불릴 때 스스로 만든다(worker/schema.ts).
+  "d1_databases": [{ "binding": "DB", "database_name": "sona" }],
+
+  // 대시보드에서 넣은 값을 배포 때 지우지 않는다:
+  //   OPENROUTER_API_KEY — 오픈라우터 열쇠
+  //   ACCESS_KEY         — 이 주소를 여는 열쇠. 안 넣으면 잠겨 있다
+  "keep_vars": true,
+
+  // 모델 이름은 여기 한 곳에만 적는다. 오픈라우터의 모델 이름 그대로.
+  "vars": {
+    "MODEL_ID": "google/gemma-4-31b-it"
+  },
+
+  // Workers → sona → Logs 에서 console 출력이 보인다.
+  "observability": { "enabled": true }
+
+  // 열쇠는 절대 이 파일에 적지 말 것 — 저장소는 공개다.
+}
