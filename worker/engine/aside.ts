@@ -14,7 +14,8 @@ export const ASIDE_SYSTEM = `너는 「소나」의 필름 속 한 장면을 쓰
 
 [지킬 것]
 - [그 자리에 없는 사람]은 이 장면에 없다. 그 사람이 말하거나, 들어오거나, 연락해 오는 것을 쓰지 않는다. 두 사람이 그 사람 이야기를 하는 것은 된다.
-- 두 사람은 각자 아는 것만 안다. 한 사람만 아는 일은 그 사람이 말해야 다른 사람이 안다. 적혀 있지 않은 일을 지어내 아는 척하지 않는다.
+- 아는 것의 주인을 지킨다. [○○만 아는 일]에 적힌 일은 ○○만 안다. 그 일을 먼저 꺼낼 수 있는 사람은 ○○뿐이다. 다른 사람은 이 장면에서 ○○에게 듣고 나서야 알고, 듣기 전에는 그 일을 아는 것처럼 말하지 않는다.
+- 적혀 있지 않은 일을 지어내지 않는다. [그 자리에 없는 사람]과 있었던 일은 아래에 적힌 것이 전부다. 적혀 있지 않은 만남이나 대화를 있었던 것처럼 말하지 않는다.
 - 두 사람의 사이, 서로를 부르는 말, 말투는 [두 사람]에 적힌 그대로 쓴다.
 - 큰 사건을 만들지 않는다. 평범한 하루의 한 토막이면 된다. 시간을 건너뛰지 않는다.
 
@@ -83,14 +84,17 @@ function card(film: Film, who: Cast, other: Cast): string {
   return out.join('\n');
 }
 
+/** 두 사람이 아는 것. 주인을 갈라서 건넨다 */
 export interface AsideKnown {
-  /** 그 사람이 아는 일 */
-  events: SceneEvent[];
-  /** 그 사람이 유저의 인물과 최근에 나눈 말 */
-  recent: { speaker: string; text: string }[];
+  /** 둘 다 아는 일 */
+  shared: SceneEvent[];
+  /** 한 사람만 아는 일. 앞이 첫째 사람, 뒤가 둘째 사람 */
+  only: [SceneEvent[], SceneEvent[]];
+  /** 각자가 유저의 인물과 최근에 나눈 말. 그 사람만 안다 */
+  recent: [{ speaker: string; text: string }[], { speaker: string; text: string }[]];
 }
 
-export function asideLayers(film: Film, a: Cast, b: Cast, clock: Clock, at: number, known: [AsideKnown, AsideKnown]): Layers {
+export function asideLayers(film: Film, a: Cast, b: Cast, clock: Clock, at: number, known: AsideKnown): Layers {
   const cast = ['[두 사람]', card(film, a, b), '', card(film, b, a)];
   if (film.setting) cast.push('', '[이 세계]', film.setting);
 
@@ -100,17 +104,23 @@ export function asideLayers(film: Film, a: Cast, b: Cast, clock: Clock, at: numb
   out.push('');
   out.push('[그 자리에 없는 사람]');
   out.push(film.persona.line ? `${film.persona.name} — ${film.persona.line}` : film.persona.name);
+  // 아는 것의 주인을 갈라서 건넨다: 둘 다 아는 일, 한 사람만 아는 일
+  if (known.shared.length > 0) {
+    out.push('');
+    out.push('[둘 다 아는 일]');
+    for (const e of known.shared) out.push(`- (${when(clock, e.at)}) ${e.text}`);
+  }
   [a, b].forEach((who, i) => {
-    const k = known[i]!;
-    if (k.events.length > 0) {
-      out.push('');
-      out.push(`[${josa(who.name, '이', '가')} 아는 일]`);
-      for (const e of k.events) out.push(`- (${when(clock, e.at)}) ${e.text}`);
-    }
-    if (k.recent.length > 0) {
-      out.push('');
-      out.push(`[${josa(who.name, '이', '가')} ${josa(film.persona.name, '과', '와')} 최근에 나눈 말 — ${who.name}만 안다]`);
-      for (const r of k.recent) out.push(`${r.speaker}: ${r.text}`);
+    const other = i === 0 ? b : a;
+    const recent = known.recent[i]!;
+    out.push('');
+    out.push(`[${who.name}만 아는 일 — ${josa(other.name, '은', '는')} ${who.name}에게 듣기 전에는 모른다]`);
+    for (const e of known.only[i]!) out.push(`- (${when(clock, e.at)}) ${e.text}`);
+    if (recent.length > 0) {
+      out.push(`- ${josa(film.persona.name, '과', '와')} 나눈 말:`);
+      for (const r of recent) out.push(`    ${r.speaker}: ${r.text}`);
+    } else {
+      out.push(`- ${josa(film.persona.name, '과', '와')} 말을 나눈 적이 없다.`);
     }
   });
   return { system: ASIDE_SYSTEM, cast: cast.join('\n'), scene: out.join('\n') };

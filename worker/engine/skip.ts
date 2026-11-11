@@ -150,19 +150,30 @@ async function meanwhile(ctx: Ctx, play: Play, turnId: string, from: number, to:
   const at = asideSlot(play, a, b, from, to);
   if (at === null) return;
 
-  const knownTo = async (who: Cast) => {
-    const room = await messagesOf(ctx.db, play.id, who.key);
-    return {
-      events: await eventsFor(ctx, play, who.key, at),
-      recent: room
-        .filter((m) => m.speaker !== 'tell' && m.at <= at)
-        .slice(-6)
-        .map((m) => ({ speaker: m.speaker === 'persona' ? film.persona.name : who.name, text: m.text })),
-    };
-  };
+  // 아는 것의 주인을 가른다: 둘 다 아는 일과 한 사람만 아는 일. 피드의 글은 누가 읽어도 같은 말로 적는다
+  const rows = await ctx.db.all<{ at: number; kind: string; actor: string; text: string; known_by: string }>(
+    'SELECT at, kind, actor, text, known_by FROM events WHERE play_id = ? AND at <= ? ORDER BY at, rowid',
+    play.id,
+    at,
+  );
+  const nameOf = (key: string) => film.casts.find((c) => c.key === key)?.name ?? key;
+  const knows = (r: { known_by: string }, who: Cast) => (JSON.parse(r.known_by) as string[]).includes(who.key);
+  const told = (r: { at: number; kind: string; actor: string; text: string }) => ({
+    at: r.at,
+    text: r.kind === 'post' ? `${nameOf(r.actor)}의 피드에 올라온 글: 「${r.text}」` : r.text,
+  });
+  const talked = async (who: Cast) =>
+    (await messagesOf(ctx.db, play.id, who.key))
+      .filter((m) => m.speaker !== 'tell' && m.at <= at)
+      .slice(-6)
+      .map((m) => ({ speaker: m.speaker === 'persona' ? film.persona.name : who.name, text: m.text }));
   const call: ModelCall = {
     purpose: 'aside',
-    layers: asideLayers(film, a, b, play, at, [await knownTo(a), await knownTo(b)]),
+    layers: asideLayers(film, a, b, play, at, {
+      shared: rows.filter((r) => knows(r, a) && knows(r, b)).map(told),
+      only: [rows.filter((r) => knows(r, a) && !knows(r, b)).map(told), rows.filter((r) => knows(r, b) && !knows(r, a)).map(told)],
+      recent: [await talked(a), await talked(b)],
+    }),
     user: ASIDE_CUE,
     temperature: 0.8,
     maxTokens: 700,

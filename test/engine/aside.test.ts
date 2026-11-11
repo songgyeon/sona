@@ -144,10 +144,32 @@ describe('한편: 자리를 비운 사이', () => {
     expect(layers.cast).toContain('민아를 「민아」라고 부른다');
     expect(layers.scene).toContain('[그 자리에 없는 사람]\n수아');
     expect(layers.scene).toContain('금요일 밤');
-    // 수아가 민아에게 한 말은 민아만 안다
-    expect(layers.scene).toContain('[민아가 수아와 최근에 나눈 말 — 민아만 안다]');
-    expect(layers.scene).toContain('수아: 민아 씨, 팀장님이랑은 원래 알던 사이예요?');
-    expect(layers.scene).not.toContain('[이도현이 수아와 최근에 나눈 말');
+    // 아는 것의 주인을 갈라서 건넨다. 수아가 민아에게 한 말은 민아만 안다
+    const [ofMina, ofDohyun] = layers.scene.split('[이도현만 아는 일');
+    expect(ofMina).toContain('[민아만 아는 일 — 이도현은 민아에게 듣기 전에는 모른다]');
+    expect(ofMina).toContain('수아: 민아 씨, 팀장님이랑은 원래 알던 사이예요?');
+    expect(ofDohyun).toContain('— 민아는 이도현에게 듣기 전에는 모른다]');
+    expect(ofDohyun).toContain('수아와 말을 나눈 적이 없다.');
+    expect(ofDohyun).not.toContain('팀장님이랑은');
+  });
+
+  it('둘 다 아는 일은 한 번만 건넨다. 한 사람만 아는 일은 그 사람 아래에 적힌다', async () => {
+    const withFeed = { ...OPEN_FILM, opens: { feed: true, ping: false, aside: true } };
+    const day = (call: ModelCall) => (call.layers.cast.includes('이름: 민아') ? '17:10 | 일상 | 퇴근길에 서점에 들렀다.\n17:30 | 피드 | 오늘은 일찍 잔다' : '');
+    const { away, calls } = await setup({ aside: SCENE, gap: day }, withFeed);
+    await away('evening');
+    await away('sleep');
+
+    const scene = calls('aside')[1]!.layers.scene;
+    const [both, rest] = scene.split('[민아만 아는 일');
+    // 피드에 올린 글은 모두가 본다
+    expect(both).toContain('[둘 다 아는 일]');
+    expect(both).toContain('오늘은 일찍 잔다');
+    // 혼자 한 일은 그 사람만 안다
+    expect(both).not.toContain('퇴근길에 서점에 들렀다.');
+    const [ofMina, ofDohyun] = rest!.split('[이도현만 아는 일');
+    expect(ofMina).toContain('퇴근길에 서점에 들렀다.');
+    expect(ofDohyun).not.toContain('퇴근길에 서점에 들렀다.');
   });
 
   it('그 일은 두 사람만 안다. 다른 캐스트의 프롬프트에는 실리지 않는다', async () => {
