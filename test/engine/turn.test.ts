@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { RULES } from '../../shared/rules';
 import { Fail } from '../../worker/engine/ctx';
-import { createFilm, parseFilm } from '../../worker/engine/films';
+import { createFilm, getFilm, listFilms, parseFilm } from '../../worker/engine/films';
 import { viewOf } from '../../worker/engine/store';
 import { enter, retry, say } from '../../worker/engine/turn';
 import { FAKE_DEFAULTS, type Script } from '../../worker/model/fake';
@@ -43,6 +43,34 @@ describe('필름 읽기', () => {
         Promise.resolve().then(() => parseFilm({ ...DEV_FILM, ties: [{ from: 'c1', to: 'c9', relation: '?', calls: '' }] })),
       ),
     ).toBe('film_invalid');
+  });
+});
+
+describe('필름을 링크로 보여 주기', () => {
+  it('주소를 아는 다른 사람도 필름을 읽고 들어갈 수 있다', async () => {
+    const { ctx, filmId } = await setup();
+    const other = { ...ctx, visitor: OTHER_VISITOR };
+
+    const got = await getFilm(other, filmId);
+    expect(got.card.mine).toBe(false);
+    expect(got.film.title).toBe(DEV_FILM.title);
+
+    const view = await enter(other, filmId, uid());
+    expect(view.filmId).toBe(filmId);
+    expect(view.messages).toHaveLength(1);
+    // 그 사람이 사는 삶은 그 사람 것이다. 만든 사람도 못 읽는다
+    expect(await failCode(viewOf(ctx, view.id))).toBe('play_missing');
+  });
+
+  it('다른 사람의 목록에는 나오지 않는다', async () => {
+    const { ctx, filmId } = await setup();
+    expect((await listFilms(ctx)).map((f) => f.id)).toEqual([filmId]);
+    expect(await listFilms({ ...ctx, visitor: OTHER_VISITOR })).toEqual([]);
+  });
+
+  it('없는 필름은 없다고 한다', async () => {
+    const { ctx } = await setup();
+    expect(await failCode(getFilm(ctx, uid()))).toBe('film_missing');
   });
 });
 

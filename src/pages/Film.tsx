@@ -3,7 +3,7 @@ import { formatMin } from '../../shared/clock';
 import { DOW_NAMES } from '../../shared/rules';
 import type { Film as FilmData, FilmCard, PlayCard } from '../../shared/types';
 import { ApiFail, api, imgUrl, newId } from '../api';
-import { Back, Next, PlayFill } from '../icons';
+import { Back, LinkIcon, Next, PlayFill } from '../icons';
 import { Face, StillStrip, titleClass } from '../poster';
 
 /** 필름 정보. 그 필름의 한 장면, 제목, 캐스트, 컷, 오프닝을 보고 들어간다 */
@@ -12,6 +12,7 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
   const [living, setLiving] = useState<PlayCard | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [toast, setToast] = useState('');
 
   useEffect(() => {
     Promise.all([api.film(filmId), api.plays()])
@@ -21,6 +22,24 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
       })
       .catch((e) => setErr(e instanceof ApiFail ? e.message : '필름을 불러오지 못했어요.'));
   }, [filmId]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(''), 2200);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  /** 이 필름의 주소를 복사한다. 받은 사람은 이 화면으로 바로 온다 */
+  const copyLink = async () => {
+    const link = `${window.location.origin}/film/${filmId}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      setToast('링크를 복사했어요');
+    } catch {
+      // 복사가 막힌 브라우저. 이 화면의 주소가 곧 그 링크다
+      setToast('주소창의 주소를 복사해 주세요');
+    }
+  };
 
   const enter = async () => {
     setBusy(true);
@@ -73,6 +92,14 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
               {busy ? '들어가는 중' : '필름에 들어가기'}
             </button>
           )}
+          {card.mine && (
+            <div className="own">
+              <button className="textbtn" onClick={copyLink}>
+                <LinkIcon />
+                링크 복사
+              </button>
+            </div>
+          )}
           {err && <p className="warn">{err}</p>}
         </div>
       </section>
@@ -121,6 +148,12 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
           캐스트<b>{film.casts.map((c) => c.name).join(' · ')}</b>
         </span>
       </p>
+
+      {toast && (
+        <p className="toast" role="status">
+          {toast}
+        </p>
+      )}
     </main>
   );
 }

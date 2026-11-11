@@ -166,6 +166,10 @@ button:disabled { opacity: 0.4; cursor: default; }
 .info .head .title.long { font-size: clamp(24px, 8vw, 34px); }
 .info .line1 { margin-top: 10px; }
 .go { margin-top: 24px; display: grid; gap: 14px; justify-items: center; }
+/* 만든 사람에게만 보이는 단추들 */
+.own { display: flex; gap: 24px; }
+.own .textbtn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); }
+.own .textbtn svg { width: 15px; height: 15px; }
 .block { margin-top: 34px; }
 .block.first { margin: 38px var(--pad) 0; padding-top: 30px; border-top: 1px solid var(--hair); }
 .sect { padding: 0 var(--pad); }

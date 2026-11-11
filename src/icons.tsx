@@ -60,6 +60,16 @@ export const Arrow = () => (
     <path d="M5 12h13.5M13 6.5l5.5 5.5-5.5 5.5" />
   </Line>
 );
+export const LinkIcon = () => (
+  <Line>
+    <path d="M10.2 13.8a3.6 3.6 0 0 0 5.1 0l3-3a3.6 3.6 0 0 0-5.1-5.1l-1.2 1.2M13.8 10.2a3.6 3.6 0 0 0-5.1 0l-3 3a3.6 3.6 0 0 0 5.1 5.1l1.2-1.2" />
+  </Line>
+);
+export const Pen = () => (
+  <Line>
+    <path d="M5 19l.9-3.9L16.6 4.4a1.6 1.6 0 0 1 2.3 0l.7.7a1.6 1.6 0 0 1 0 2.3L8.9 18.1 5 19zM14.8 6.2l3 3" />
+  </Line>
+);
 export const Upload = () => (
   <Line>
     <path d="M12 16V5M7.5 9.5 12 5l4.5 4.5M5 19h14" />

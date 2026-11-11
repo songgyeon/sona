@@ -169,12 +169,10 @@ export async function listFilms(ctx: Ctx): Promise<FilmCard[]> {
   return rows.map((r) => card(r, ctx.visitor));
 }
 
+/** 필름 하나. 주소를 아는 사람은 누구나 읽는다 — 링크를 받은 사람이 바로 들어올 수 있게.
+    목록(listFilms)에는 여전히 만든 사람의 것만 나온다 */
 export async function getFilm(ctx: Ctx, id: string): Promise<{ card: FilmCard; film: Film }> {
-  const row = await ctx.db.first<FilmRow>(
-    'SELECT id, owner, title, logline, featured, data FROM films WHERE id = ? AND (owner = ? OR featured = 1)',
-    id,
-    ctx.visitor,
-  );
+  const row = await ctx.db.first<FilmRow>('SELECT id, owner, title, logline, featured, data FROM films WHERE id = ?', id);
   if (!row) throw new Fail(404, 'film_missing', '필름을 찾을 수 없어요.');
   return { card: card(row, ctx.visitor), film: JSON.parse(row.data) as Film };
 }

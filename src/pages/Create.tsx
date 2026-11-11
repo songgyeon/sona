@@ -572,7 +572,7 @@ export function Create({ go }: { go: (to: string) => void }) {
         {step === 'release' && (
           <>
             <p className="lead">{ready ? '개봉할 준비가 됐어요.' : '개봉 전에 채워야 할 항목이 있어요.'}</p>
-            <p className="sub">개봉한 필름은 만든 사람에게만 보여요.</p>
+            <p className="sub">개봉한 필름은 내 목록에만 보이고, 링크를 보내면 다른 사람도 들어올 수 있어요.</p>
 
             <Card title="필수 항목">
               <ul className="checklist">
