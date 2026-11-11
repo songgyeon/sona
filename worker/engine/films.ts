@@ -218,17 +218,17 @@ export function forScreen(film: Film): Film {
   return { ...film, casts: film.casts.map((c) => ({ ...c, nature: '', habit: '', trauma: '', lack: '', secret: '' })) };
 }
 
-/** 내가 만든 필름과, 모두에게 보이게 걸어 둔 필름 */
+/** 개봉한 필름들. 누구에게나 보인다 — 어느 기기, 어느 길로 들어와도 같은 목록이다.
+    시험하느라 만든 필름(제목으로 가린다)만 만든 사람에게만 보인다. 최근에 개봉한 것부터 */
 export async function listFilms(ctx: Ctx): Promise<FilmCard[]> {
   const rows = await ctx.db.all<FilmRow>(
-    'SELECT id, owner, title, logline, featured, data FROM films WHERE owner = ? OR featured = 1 ORDER BY featured DESC, created_at DESC',
-    ctx.visitor,
+    'SELECT id, owner, title, logline, featured, data FROM films ORDER BY featured DESC, created_at DESC LIMIT 300',
   );
-  return rows.map((r) => card(r, ctx.visitor));
+  const unlisted = (title: string) => RULES.unlisted.some((head) => title.startsWith(head));
+  return rows.filter((r) => r.owner === ctx.visitor || !unlisted(r.title)).map((r) => card(r, ctx.visitor));
 }
 
-/** 필름 하나. 주소를 아는 사람은 누구나 읽는다 — 링크를 받은 사람이 바로 들어올 수 있게.
-    목록(listFilms)에는 여전히 만든 사람의 것만 나온다 */
+/** 필름 하나. 누구나 읽는다 */
 export async function getFilm(ctx: Ctx, id: string): Promise<{ card: FilmCard; film: Film }> {
   const { row, film } = await loadFilm(ctx, id);
   // 고치는 화면은 만든 사람만 쓴다. 그 사람에게만 다 보낸다

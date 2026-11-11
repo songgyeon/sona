@@ -67,10 +67,35 @@ describe('필름을 링크로 보여 주기', () => {
     expect(await failCode(viewOf(ctx, view.id))).toBe('play_missing');
   });
 
-  it('다른 사람의 목록에는 나오지 않는다', async () => {
+  it('개봉한 필름은 누구의 목록에나 나온다. 내 것인지는 사람마다 다르게 적힌다', async () => {
+    const { ctx } = await setup();
+    const { id } = await createFilm(ctx, { ...DEV_FILM, title: '동네 서점' });
+    const mine = (await listFilms(ctx)).find((f) => f.id === id)!;
+    const theirs = (await listFilms({ ...ctx, visitor: OTHER_VISITOR })).find((f) => f.id === id)!;
+    expect([mine.title, mine.mine]).toEqual(['동네 서점', true]);
+    expect([theirs.title, theirs.mine]).toEqual(['동네 서점', false]);
+  });
+
+  it('시험하느라 만든 필름은 만든 사람에게만 보인다. 주소로는 누구나 들어온다', async () => {
     const { ctx, filmId } = await setup();
+    expect(DEV_FILM.title.startsWith('개발용 —')).toBe(true);
     expect((await listFilms(ctx)).map((f) => f.id)).toEqual([filmId]);
     expect(await listFilms({ ...ctx, visitor: OTHER_VISITOR })).toEqual([]);
+    expect((await getFilm({ ...ctx, visitor: OTHER_VISITOR }, filmId)).film.title).toBe(DEV_FILM.title);
+  });
+
+  it('남이 개봉한 필름에 들어가도 삶은 저마다 따로다. 서로의 삶을 읽지 못한다', async () => {
+    const { ctx } = await setup();
+    const { id } = await createFilm(ctx, { ...DEV_FILM, title: '동네 서점' });
+    const other = { ...ctx, visitor: OTHER_VISITOR };
+    const mine = await enter(ctx, id, uid());
+    const theirs = await enter(other, id, uid());
+    await say(ctx, mine.id, { room: 'c1', text: '이건 나만 한 말이에요.', requestId: uid() });
+    expect(mine.id).not.toBe(theirs.id);
+    expect((await viewOf(other, theirs.id)).messages.some((m) => m.text.includes('나만 한 말'))).toBe(false);
+    expect(await failCode(viewOf(other, mine.id))).toBe('play_missing');
+    expect(await failCode(viewOf(ctx, theirs.id))).toBe('play_missing');
+    expect(await failCode(say(other, mine.id, { room: 'c1', text: '끼어들기', requestId: uid() }))).toBe('play_missing');
   });
 
   it('없는 필름은 없다고 한다', async () => {

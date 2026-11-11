@@ -349,7 +349,8 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
         </button>
       </div>
 
-      {onScreen && (
+      {/* 그림은 오프닝을 읽는 동안에만 걸린다. 다 읽으면 치우고, 그 뒤로는 화면 전체가 오가는 말이다 */}
+      {onScreen && reading && (
         <div className="screen grain">
           {under && under !== onScreen && <img key={`under-${under}`} src={imgUrl(under)} alt="" />}
           <img key={onScreen} className="cutin" src={imgUrl(onScreen)} alt="" onAnimationEnd={() => setUnder(onScreen)} />
