@@ -101,7 +101,7 @@ describe('오프닝으로 들어가기', () => {
   it('오프닝이 비어 있고 캐스트가 먼저 말하는 필름: 대사 모델이 장면을 연다', async () => {
     const { ctx } = await setup(film('cast', []));
     expect(ctx.model.calls.map((c) => c.purpose)).toEqual(['first']);
-    expect(ctx.model.calls[0]!.user).toContain('이 장면을 네가 연다');
+    expect(ctx.model.calls[0]!.user).toContain('이 장면을 연다');
   });
 
   it('아직 오간 말이 없으면 목록에는 오프닝의 마지막 대사가 보인다', async () => {
@@ -111,20 +111,15 @@ describe('오프닝으로 들어가기', () => {
 });
 
 describe('오프닝과 프롬프트', () => {
-  it('오프닝은 그 자리에 있던 캐스트에게만 실린다. 같은 일을 두 번 싣지 않는다', async () => {
+  it('오프닝은 장면을 쓰는 작가에게 통째로 실린다. 같은 일을 두 번 싣지 않는다', async () => {
     const { ctx, view } = await setup(film('persona'));
 
-    await say(ctx, view.id, { room: 'c1', text: '어느 칸이요?', requestId: uid() });
-    const toHanseo = ctx.model.calls.at(-1)!.layers.scene;
-    expect(toHanseo).toContain('[이야기가 시작된 자리]');
-    expect(toHanseo).toContain('한서: "수아 씨, 그건 이쪽 칸이에요."');
-    expect(toHanseo.split('손님이 끊긴 오후.')).toHaveLength(2);
-
-    await say(ctx, view.id, { room: 'c2', text: '안녕하세요.', requestId: uid() });
-    const toJihu = ctx.model.calls.at(-1)!;
-    expect(toJihu.layers.cast).toContain('이름: 지후');
-    expect(toJihu.layers.scene).not.toContain('[이야기가 시작된 자리]');
-    expect(toJihu.layers.scene).not.toContain('이쪽 칸이에요');
+    await say(ctx, view.id, { text: '어느 칸이요?', requestId: uid() });
+    const scene = ctx.model.calls.at(-1)!.layers.scene;
+    expect(scene).toContain('[이야기가 시작된 자리]');
+    expect(scene).toContain('한서: "수아 씨, 그건 이쪽 칸이에요."');
+    expect(scene.split('손님이 끊긴 오후.')).toHaveLength(2);
+    expect(scene.split('[이야기가 시작된 자리]')).toHaveLength(2);
   });
 
   it('오프닝에서 말한 캐스트는 그 자리에 있었던 것이다', async () => {

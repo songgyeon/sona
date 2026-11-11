@@ -95,7 +95,7 @@ describe('내 배역 고치기', () => {
     const { ctx, playId } = await setup();
     await setMine(ctx, playId, { name: '수아', line: '서점에서 일한 지 일주일. 책을 좋아한다.', face: '' });
     await say(ctx, playId, { room: 'c1', text: '안녕하세요.', requestId: uid() });
-    expect(ctx.model.calls.at(-1)!.layers.cast).toContain('[상대]\n수아 — 서점에서 일한 지 일주일. 책을 좋아한다.');
+    expect(ctx.model.calls.at(-1)!.layers.cast).toContain('[유저의 인물]\n수아 — 서점에서 일한 지 일주일. 책을 좋아한다.');
   });
 
   it('이름을 바꾸면 캐스트가 부르는 말과 오프닝 속의 이름도 바뀐다', async () => {
@@ -110,7 +110,7 @@ describe('내 배역 고치기', () => {
   });
 
   it('이름을 바꾼 뒤에 캐스트는 전의 이름을 모른다. 지나간 말 속의 이름도 지금 이름으로 건네진다', async () => {
-    const ctx = testCtx((call) => (call.purpose === 'reply' ? '고개를 든다.\n"수아 씨, 거기 말고요."' : ''));
+    const ctx = testCtx((call) => (call.purpose === 'reply' ? '고개를 든다.\n한서: "수아 씨, 거기 말고요."' : ''));
     const { id: filmId } = await createFilm(ctx, FILM);
     const playId = uid();
     await enter(ctx, filmId, playId);
@@ -119,7 +119,7 @@ describe('내 배역 고치기', () => {
     const v = await say(ctx, playId, { room: 'c1', text: '여기요?', requestId: uid() });
 
     const { cast, scene } = ctx.model.calls.at(-1)!.layers;
-    expect(cast).toContain('[상대]\n문리현');
+    expect(cast).toContain('[유저의 인물]\n문리현');
     expect(cast).toContain('문리현을 부르는 말: 문리현 씨');
     expect(scene).toContain('문리현: 어느 칸이요?');
     // 이름을 바꾸기 전에 한서가 한 말. 캐스트에게는 지금 이름으로 건네진다
@@ -180,7 +180,7 @@ describe('내 배역 고치기', () => {
     expect(again.film.casts[0]!.callsUser).toBe('문리현 씨');
     await say(ctx, againId, { room: 'c1', text: '내 이름이 뭐예요?', requestId: uid() });
     const { cast, scene } = ctx.model.calls.at(-1)!.layers;
-    expect(cast).toContain('[상대]\n문리현 — 새로 온 알바');
+    expect(cast).toContain('[유저의 인물]\n문리현 — 새로 온 알바');
     expect(`${cast}\n${scene}`).not.toContain('수아');
 
     const guest = await enter({ ...ctx, visitor: OTHER_VISITOR }, filmId, uid());

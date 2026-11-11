@@ -1,35 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { cutFor, cutOwners, sceneOf, together } from '../../shared/opening';
-import { RULES } from '../../shared/rules';
 import { createFilm, parseFilm } from '../../worker/engine/films';
 import { skip } from '../../worker/engine/skip';
-import { takesTurn } from '../../worker/engine/talk';
+import { viewOf } from '../../worker/engine/store';
+import { parseScene } from '../../worker/engine/talk';
 import { enter, say } from '../../worker/engine/turn';
+import { Fail } from '../../worker/engine/ctx';
 import { FAKE_DEFAULTS } from '../../worker/model/fake';
 import type { ModelCall, Purpose } from '../../worker/model/index';
 import { DEV_FILM, testCtx, uid } from '../helpers/film';
 
-/* 한자리 — 오프닝에 함께 나온 캐스트들은 그 뒤로도 한자리에서 이야기한다.
+/* 본편 — 채팅은 하나다. 작가(대사 모델)가 나오는 사람들을 모두 맡아 쓰고, 누가 나오고 누가 말할지도 정한다.
+   유저의 인물만은 쓰지 못한다. 그 사람의 말과 지문은 유저가 쓴다.
    임시 필름(동네 서점): 유저의 인물은 수아, 한서(c1)와 지후(c2). 금요일 오후 4시에 시작한다. */
 
-const CUT_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
-const CUT_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-const CUT_C = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
-const POSTER = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
-
-/** 한서와 지후가 오프닝에 함께 나온다 */
-const TOGETHER = {
+const FILM = {
   ...DEV_FILM,
   opens: { feed: false, ping: false, aside: false },
   firstScene: {
     place: '서점 계산대',
     beats: [
-      { kind: 'cut', image: CUT_A },
       { kind: 'tell', text: '손님이 끊긴 오후.' },
       { kind: 'say', cast: 'c1', text: '수아 씨, 그건 이쪽 칸이에요.' },
-      { kind: 'cut', image: CUT_B },
-      { kind: 'say', cast: 'c2', text: '오늘도 그 자리 비었어요?' },
-      { kind: 'cut', image: CUT_C },
       { kind: 'tell', text: '문 위의 종이 한 번 울린다.' },
     ],
     room: 'c1',
@@ -37,14 +28,8 @@ const TOGETHER = {
   },
 };
 
-/** 오프닝에는 한서만 나온다. 지후는 그 자리에 없다 */
-const APART = {
-  ...TOGETHER,
-  firstScene: { ...TOGETHER.firstScene, beats: TOGETHER.firstScene.beats.filter((b) => !(b.kind === 'say' && b.cast === 'c2')) },
-};
-
 type Part = string | ((call: ModelCall) => string);
-async function setup(film: unknown = TOGETHER, parts: Partial<Record<Purpose, Part>> = {}) {
+async function setup(film: unknown = FILM, parts: Partial<Record<Purpose, Part>> = {}) {
   const ctx = testCtx((call) => {
     const p = parts[call.purpose];
     if (p === undefined) return FAKE_DEFAULTS[call.purpose];
@@ -53,180 +38,202 @@ async function setup(film: unknown = TOGETHER, parts: Partial<Record<Purpose, Pa
   const { id: filmId } = await createFilm(ctx, film);
   const playId = uid();
   await enter(ctx, filmId, playId);
-  const send = (text: string, room = 'c1') => say(ctx, playId, { room, text, requestId: uid() });
+  const send = (text: string, tell = '') => say(ctx, playId, { text, tell, requestId: uid() });
   const calls = (purpose: Purpose) => ctx.model.calls.filter((c) => c.purpose === purpose);
-  return { ctx, playId, send, calls };
+  return { ctx, filmId, playId, send, calls };
 }
 
-describe('한자리: 누가 같이 있나', () => {
-  it('오프닝에 함께 나온 캐스트가 둘 이상이면 한자리다', () => {
-    expect(together(parseFilm(TOGETHER))).toEqual(['c1', 'c2']);
-    expect(sceneOf(parseFilm(TOGETHER), 'c2')).toEqual(['c1', 'c2']);
+async function failOf(p: Promise<unknown>): Promise<Fail | null> {
+  try {
+    await p;
+  } catch (e) {
+    if (e instanceof Fail) return e;
+    throw e;
+  }
+  return null;
+}
+
+describe('본편: 작가가 쓴 대목 읽기', () => {
+  const film = parseFilm(FILM);
+  const read = (raw: string) => parseScene(raw, film);
+
+  it('「이름: "대사"」 줄은 그 캐스트의 대사고, 나머지는 지문이다. 대사를 감싼 따옴표만 벗긴다', () => {
+    const r = read('한서가 책을 내려놓는다.\n한서: "그건 제가 할게요."\n창가에서 지후가 고개를 든다.\n지후: "오늘도 그 자리 비었어요?"');
+    expect(r.pieces).toEqual([
+      { speaker: 'tell', text: '한서가 책을 내려놓는다.' },
+      { speaker: 'c1', text: '그건 제가 할게요.' },
+      { speaker: 'tell', text: '창가에서 지후가 고개를 든다.' },
+      { speaker: 'c2', text: '오늘도 그 자리 비었어요?' },
+    ]);
+    expect(r.personaSpoke).toBe(false);
   });
 
-  it('오프닝에 혼자 나오면 묶을 자리가 없다. 저마다 따로다', () => {
-    expect(together(parseFilm(APART))).toEqual([]);
-    expect(sceneOf(parseFilm(APART), 'c1')).toEqual(['c1']);
-    expect(sceneOf(parseFilm(APART), 'c2')).toEqual(['c2']);
-    expect(together(parseFilm({ ...TOGETHER, casts: [TOGETHER.casts[0]], ties: [], firstScene: APART.firstScene }))).toEqual([]);
-  });
-});
-
-describe('한자리: 누구의 컷인가', () => {
-  const film = parseFilm(TOGETHER);
-
-  it('컷 다음에 처음 말하는 캐스트가 그 컷의 사람이다. 아무도 말하지 않으면 누구의 컷도 아니다', () => {
-    expect(cutOwners(film)).toEqual([
-      { image: CUT_A, cast: 'c1' },
-      { image: CUT_B, cast: 'c2' },
-      { image: CUT_C, cast: '' },
+  it('이어지는 지문은 한 덩이로 둔다. 모르는 이름이 붙은 줄은 지문이다', () => {
+    const r = read('물이 끓는다.\n컵이 두 개 놓여 있다.\n손님: "이 책 있어요?"\n한서: 네, 있어요.');
+    expect(r.pieces).toEqual([
+      { speaker: 'tell', text: '물이 끓는다.\n컵이 두 개 놓여 있다.\n손님: "이 책 있어요?"' },
+      { speaker: 'c1', text: '네, 있어요.' },
     ]);
   });
 
-  it('말하는 사람의 컷이 걸린다. 다른 사람의 컷은 걸지 않는다', () => {
-    expect(cutFor(film, 'c1')).toBe(CUT_A);
-    expect(cutFor(film, 'c2')).toBe(CUT_B);
-    // 제 컷이 없는 사람: 누구의 것도 아닌 컷
-    const three = parseFilm({ ...TOGETHER, casts: [...TOGETHER.casts, { ...TOGETHER.casts[0], name: '서준' }] });
-    expect(cutFor(three, 'c3')).toBe(CUT_C);
-    // 그런 컷도 없으면 포스터, 그것도 없으면 걸지 않는다
-    const owned = { ...TOGETHER, firstScene: { ...TOGETHER.firstScene, beats: TOGETHER.firstScene.beats.slice(0, 5) } };
-    expect(cutFor(parseFilm({ ...owned, poster: POSTER, casts: [...TOGETHER.casts, { ...TOGETHER.casts[0], name: '서준' }] }), 'c3')).toBe(POSTER);
-    expect(cutFor(parseFilm({ ...owned, casts: [...TOGETHER.casts, { ...TOGETHER.casts[0], name: '서준' }] }), 'c3')).toBe('');
+  it('이름표를 꾸민 기호는 떼고 읽는다', () => {
+    expect(read('**한서**: "왔어요?"\n[지후] : "어서 와요."').pieces).toEqual([
+      { speaker: 'c1', text: '왔어요?' },
+      { speaker: 'c2', text: '어서 와요.' },
+    ]);
   });
 
-  it('같은 사람의 컷이 여럿이면 마지막 것이다', () => {
-    const twice = parseFilm({
-      ...TOGETHER,
-      firstScene: { ...TOGETHER.firstScene, beats: [...TOGETHER.firstScene.beats, { kind: 'cut', image: POSTER }, { kind: 'say', cast: 'c1', text: '이번 주 어땠어요.' }] },
-    });
-    expect(cutFor(twice, 'c1')).toBe(POSTER);
+  it('유저의 인물이 말하는 줄은 받지 않는다', () => {
+    const r = read('한서가 고개를 든다.\n수아: "저 왔어요."\n한서: "어, 왔어요?"');
+    expect(r.personaSpoke).toBe(true);
+    expect(r.pieces).toEqual([
+      { speaker: 'tell', text: '한서가 고개를 든다.' },
+      { speaker: 'c1', text: '어, 왔어요?' },
+    ]);
+  });
+
+  it('캐스트가 한 명뿐이면, 이름 없이 따옴표로만 감싼 줄도 그 사람의 말이다', () => {
+    const solo = parseFilm({ ...FILM, casts: [FILM.casts[0]], ties: [] });
+    expect(parseScene('고개를 든다.\n"왔어요?"', solo).pieces).toEqual([
+      { speaker: 'tell', text: '고개를 든다.' },
+      { speaker: 'c1', text: '왔어요?' },
+    ]);
+    // 여럿이면 누구의 말인지 알 수 없다. 지문으로 둔다
+    expect(read('고개를 든다.\n"왔어요?"').pieces).toEqual([{ speaker: 'tell', text: '고개를 든다.\n"왔어요?"' }]);
   });
 });
 
-describe('한자리: 한 사람에게 한 말을 모두가 듣는다', () => {
-  it('지후는 내가 한서에게 한 말과 한서의 답을 들었다', async () => {
-    const { send, calls } = await setup(TOGETHER, { reply: (c) => (c.layers.cast.includes('이름: 한서') ? '책을 내려놓는다.\n"그건 제가 할게요."' : '"아 그래요?"') });
-    await send('한서 씨, 이 책은 어디에 꽂아요?');
-    await send('지후 씨는 뭐 읽어요?', 'c2');
-
-    const toJihu = calls('reply').at(-1)!;
-    expect(toJihu.layers.cast).toContain('이름: 지후');
-    expect(toJihu.layers.scene).toContain('[지금 이 자리]\n너, 수아, 한서. 모두 한자리에 있다.');
-    expect(toJihu.layers.scene).toContain('수아: 한서 씨, 이 책은 어디에 꽂아요?');
-    expect(toJihu.layers.scene).toContain('책을 내려놓는다.');
-    expect(toJihu.layers.scene).toContain('한서: "그건 제가 할게요."');
-    expect(toJihu.user).toBe('지후 씨는 뭐 읽어요?');
+describe('본편: 채팅은 하나다', () => {
+  it('작가는 나오는 사람 모두의 카드를 받는다. 유저의 인물은 따로 적힌다', async () => {
+    const { send, calls } = await setup();
+    await send('안녕하세요.');
+    const { cast, system } = calls('reply')[0]!.layers;
+    expect(cast).toContain('[나오는 사람들]\n이름: 한서');
+    expect(cast).toContain('\n\n이름: 지후');
+    expect(cast).toContain('- 지후를 「형」이라고 부른다');
+    expect(cast).toContain('- 자는 시간: 01:00 ~ 08:30');
+    expect(cast).toContain('[유저의 인물]\n수아 — 이번 주에 새로 온 서점 알바');
+    expect(system).toContain('[유저의 인물]은 네가 쓰지 않는다');
   });
 
-  it('답은 불린 사람의 방에 적힌다. 흐름에서는 작중 시각 순으로 한데 놓인다', async () => {
-    const { send } = await setup();
-    await send('안녕하세요.');
-    const v = await send('지후 씨도 안녕하세요.', 'c2');
-    expect(v.messages.map((m) => [m.room, m.speaker])).toEqual([
-      ['c1', 'persona'],
-      ['c1', 'tell'],
-      ['c1', 'c1'],
-      ['c2', 'persona'],
-      ['c2', 'tell'],
-      ['c2', 'c2'],
+  it('누가 말하든 한 흐름에 놓인다. 누가 나올지는 작가가 정한다', async () => {
+    const SCENE = '한서가 책을 내려놓는다.\n한서: "그건 제가 할게요."\n창가에서 지후가 고개를 든다.\n지후: "오늘도 그 자리 비었어요?"';
+    const { send } = await setup(FILM, { reply: SCENE });
+    const v = await send('이 책은 어디에 꽂아요?');
+    expect(v.messages.map((m) => [m.speaker, m.kind, m.text])).toEqual([
+      ['persona', 'chat', '이 책은 어디에 꽂아요?'],
+      ['tell', 'chat', '한서가 책을 내려놓는다.'],
+      ['c1', 'chat', '그건 제가 할게요.'],
+      ['tell', 'chat', '창가에서 지후가 고개를 든다.'],
+      ['c2', 'chat', '오늘도 그 자리 비었어요?'],
     ]);
-    expect(v.messages.map((m) => m.at)).toEqual([3, 3, 3, 6, 6, 6]);
+    expect(new Set(v.messages.map((m) => m.room))).toEqual(new Set(['scene']));
+    expect(new Set(v.messages.map((m) => m.at))).toEqual(new Set([3]));
   });
 
-  it('따로 있는 캐스트는 듣지 못한다', async () => {
-    const { send, calls } = await setup(APART);
-    await send('한서 씨, 이 책은 어디에 꽂아요?');
-    await send('지후 씨는 뭐 읽어요?', 'c2');
-    const toJihu = calls('reply').at(-1)!;
-    expect(toJihu.layers.scene).not.toContain('[지금 이 자리]');
-    expect(toJihu.layers.scene).not.toContain('이 책은 어디에 꽂아요');
-    expect(calls('join')).toHaveLength(0);
-  });
-});
-
-describe('한자리: 다른 사람도 낀다', () => {
-  const JOIN = '책등을 훑다가 고개를 든다.\n"그건 저도 궁금했는데."';
-
-  it('내 말이 잇달아 이어지는 동안 한마디도 못 했으면 차례가 온다', async () => {
-    const { send, calls } = await setup(TOGETHER, { join: JOIN });
-    await send('안녕하세요.');
-    expect(calls('join')).toHaveLength(0);
-
-    const v = await send('오늘 손님이 없네요.');
-    expect(calls('join')).toHaveLength(1);
-    expect(calls('join')[0]!.layers.cast).toContain('이름: 지후');
-    // 방금 한서가 한 답까지 듣고 낀다
-    expect(calls('join')[0]!.layers.scene).toContain('수아: 오늘 손님이 없네요.');
-    expect(calls('join')[0]!.layers.scene).toContain('한서: "응, 듣고 있어."');
-    // 같은 턴에, 한서의 답 뒤에 놓인다
-    expect(v.messages.slice(-5).map((m) => [m.room, m.speaker, m.at])).toEqual([
-      ['c1', 'persona', 6],
-      ['c1', 'tell', 6],
-      ['c1', 'c1', 6],
-      ['c2', 'tell', 6],
-      ['c2', 'c2', 6],
-    ]);
-    expect(v.messages.at(-1)!.text).toBe('그건 저도 궁금했는데.');
-    expect(new Set(v.messages.slice(-5).map((m) => m.turnId)).size).toBe(1);
-
-    // 방금 끼었으니 다음 말에는 차례가 오지 않는다
-    await send('그렇죠?');
-    expect(calls('join')).toHaveLength(1);
+  it('지나간 장면은 누가 한 말인지 이름과 함께 건네진다', async () => {
+    const { send, calls } = await setup(FILM, { reply: '한서: "그건 제가 할게요."\n지후: "오늘도 그 자리 비었어요?"' });
+    await send('이 책은 어디에 꽂아요?');
+    await send('두 분은 원래 아는 사이예요?');
+    const { scene } = calls('reply').at(-1)!.layers;
+    expect(scene).toContain('[이야기가 시작된 자리]\n서점 계산대\n손님이 끊긴 오후.\n한서: "수아 씨, 그건 이쪽 칸이에요."');
+    expect(scene).toContain('[지금까지의 장면]\n수아: 이 책은 어디에 꽂아요?\n한서: "그건 제가 할게요."\n지후: "오늘도 그 자리 비었어요?"');
+    expect(calls('reply').at(-1)!.user).toBe('수아: 두 분은 원래 아는 사이예요?');
   });
 
-  it('방금 오간 말에 불렸으면 바로 낀다', async () => {
-    const { send, calls } = await setup(TOGETHER, { join: JOIN });
-    await send('한서 씨, 지후 씨는 원래 저래요?');
-    expect(calls('join')).toHaveLength(1);
-  });
-
-  it('낄 까닭이 없다고 넘기면 아무 말도 남지 않는다', async () => {
-    const { ctx, send, calls } = await setup(TOGETHER);
-    await send('안녕하세요.');
-    const v = await send('오늘 손님이 없네요.');
-    expect(calls('join')).toHaveLength(1);
-    expect(v.messages.filter((m) => m.room === 'c2')).toHaveLength(0);
+  it('작가가 유저의 인물 대사를 쓰면 그 줄은 받지 않는다. 그 줄뿐이면 못 받은 것이다', async () => {
+    const some = await setup(FILM, { reply: '수아: "저 먼저 갈게요."\n한서: "벌써요?"' });
+    const v = await some.send('오늘 손님이 없네요.');
+    expect(v.messages.map((m) => m.speaker)).toEqual(['persona', 'c1']);
     expect(v.stuck).toBeNull();
-    const notes = (await ctx.db.all<{ note: string | null }>("SELECT note FROM gen_log WHERE purpose = 'join'")).map((r) => r.note);
-    expect(notes).toEqual(['끼지 않고 넘김']);
+
+    const none = await setup(FILM, { reply: '수아: "저 먼저 갈게요."' });
+    const w = await none.send('오늘 손님이 없네요.');
+    expect(w.stuck).toMatchObject({ status: 'failed', failReason: 'empty' });
+    expect(w.messages.map((m) => m.speaker)).toEqual(['persona']);
   });
 
-  it('끼는 말을 못 받아도 턴은 끝난 것이다', async () => {
-    const { send, calls } = await setup(TOGETHER, {
-      join: () => {
-        throw new Error('모델이 죽었다');
-      },
-    });
-    await send('안녕하세요.');
-    const v = await send('오늘 손님이 없네요.');
-    expect(calls('join')).toHaveLength(1);
-    expect(v.stuck).toBeNull();
-    expect(v.messages.at(-1)!.speaker).toBe('c1');
-    // 다음 말도 그대로 보낼 수 있다
-    expect((await send('그렇죠?')).elapsed).toBe(9);
-  });
-
-  it('차례를 정하는 것은 코드다: 불렸는가, 오래 잠잠했는가', () => {
-    const film = parseFilm(TOGETHER);
-    const [hanseo, jihu] = film.casts as [(typeof film.casts)[0], (typeof film.casts)[0]];
-    const line = (room: string, speaker: string) => ({ id: uid(), room, speaker, text: '', at: 0, kind: 'chat' as const, turnId: 't' });
-    // 이름, 불리는 이름, 다른 캐스트가 부르는 말
-    expect(takesTurn(film, jihu, [], ['지후 씨는요?'])).toBe(true);
-    expect(takesTurn(film, jihu, [], ['단골 손님 오셨네.'])).toBe(true);
-    expect(takesTurn(film, hanseo, [], ['한서는 원래 저래.'])).toBe(true);
-    // 한 글자짜리 부르는 말(「형」)은 치지 않는다
-    expect(takesTurn(film, jihu, [], ['형편이 좀 그래요.'])).toBe(false);
-    // 잠잠했던 만큼
-    const quiet = [line('c1', 'persona'), line('c1', 'c1'), line('c1', 'persona'), line('c1', 'c1')];
-    expect(takesTurn(film, jihu, quiet.slice(0, 2), [])).toBe(false);
-    expect(takesTurn(film, jihu, quiet, [])).toBe(RULES.scene.quietTurns <= 2);
-    // 그 사람의 차례에 쓰인 지문도 그 사람이 움직인 것이다
-    expect(takesTurn(film, jihu, [...quiet.slice(0, 2), line('c2', 'tell'), line('c1', 'persona'), line('c1', 'c1')], [])).toBe(false);
+  it('캐스트마다 방이 따로이던 때의 말도 한 흐름으로 읽힌다', async () => {
+    const { ctx, playId, send, calls } = await setup();
+    // 예전 모양: 지후의 방에 적힌 말
+    const turn = (await ctx.db.first<{ id: string }>('SELECT id FROM turns WHERE play_id = ? ORDER BY turn_no DESC LIMIT 1', playId))!;
+    await ctx.db.run(
+      "INSERT INTO messages (id, play_id, turn_id, room, speaker, text, at, kind, created_at) VALUES (?, ?, ?, 'c2', 'c2', '아 그거 나도 읽으려고 했는데.', 0, 'chat', 1)",
+      uid(),
+      playId,
+      turn.id,
+    );
+    const v = await send('뭐 읽으세요?');
+    expect(v.messages.map((m) => m.room)).toEqual(['c2', 'scene', 'scene', 'scene']);
+    expect(calls('reply').at(-1)!.layers.scene).toContain('[지금까지의 장면]\n지후: "아 그거 나도 읽으려고 했는데."');
   });
 });
 
-describe('한자리: 시간을 넘긴 뒤', () => {
+describe('본편: 내 지문', () => {
+  it('지문과 대사를 함께 보낸다. 지문이 먼저 놓인다', async () => {
+    const { send, calls } = await setup();
+    const v = await send('이건 어디에 꽂아요?', '책 몇 권을 들고 서가 앞에 선다.');
+    expect(v.messages.slice(0, 2).map((m) => [m.speaker, m.kind, m.text])).toEqual([
+      ['persona', 'act', '책 몇 권을 들고 서가 앞에 선다.'],
+      ['persona', 'chat', '이건 어디에 꽂아요?'],
+    ]);
+    expect(calls('reply')[0]!.user).toBe('(수아의 지문) 책 몇 권을 들고 서가 앞에 선다.\n수아: 이건 어디에 꽂아요?');
+    // 한 번 보낸 것은 한 턴이다. 시계도 한 번만 간다
+    expect(v.elapsed).toBe(3);
+    expect(new Set(v.messages.map((m) => m.turnId)).size).toBe(1);
+  });
+
+  it('지문만 보내도 된다. 다음에는 지나간 장면에 지문으로 적힌다', async () => {
+    const { send, calls } = await setup();
+    const v = await send('', '말없이 문을 열고 나간다.');
+    expect(v.messages[0]).toMatchObject({ speaker: 'persona', kind: 'act', text: '말없이 문을 열고 나간다.' });
+    expect(calls('reply')[0]!.user).toBe('(수아의 지문) 말없이 문을 열고 나간다.');
+    await send('다녀왔어요.');
+    expect(calls('reply')[1]!.layers.scene).toContain('[지금까지의 장면]\n(수아의 지문) 말없이 문을 열고 나간다.');
+  });
+
+  it('둘 다 비었거나 너무 길면 받지 않는다', async () => {
+    const { ctx, playId, send } = await setup();
+    expect((await failOf(send('  ', ' ')))?.code).toBe('empty_say');
+    expect((await failOf(send('가'.repeat(401))))?.code).toBe('long_say');
+    expect((await failOf(send('', '가'.repeat(401))))?.message).toContain('지문');
+    expect((await viewOf(ctx, playId)).elapsed).toBe(0);
+  });
+});
+
+describe('본편: 누가 무엇을 아는가', () => {
+  const OPEN = { ...FILM, opens: { feed: true, ping: true, aside: true } };
+  const DAY = (call: ModelCall) =>
+    call.layers.cast.includes('이름: 한서') ? '18:30 | 일상 | 퇴근길에 약국에 들렀다.\n22:40 | 피드 | 오늘은 일찍 잔다' : '19:00 | 일상 | 연구실에서 늦게까지 실험을 했다.';
+  const ASIDE = '장소 | 서점 앞\n둘이 셔터를 내린다.\n한서: "형, 새 알바 봤어요?"\n지후: "봤지. 조용하더라."\n한서: "첫 주니까요."';
+
+  it('모두 아는 일과 몇 사람만 아는 일을 갈라서 건넨다', async () => {
+    const { ctx, playId, send, calls } = await setup(OPEN, { gap: DAY, aside: ASIDE });
+    await send('먼저 가 볼게요.');
+    await skip(ctx, playId, { kind: 'sleep', requestId: uid() });
+    await send('좋은 아침이에요.');
+    const { scene } = calls('reply').at(-1)!.layers;
+    // 피드에 올린 글은 모두가 본다
+    expect(scene).toContain('[모두 아는 일]\n- (금요일 밤) 한서의 피드에 올라온 글: 「오늘은 일찍 잔다」');
+    // 혼자 한 일은 그 사람만 안다
+    expect(scene).toContain('[한서만 아는 일 — 다른 사람은 듣기 전에는 모른다]\n- (금요일 저녁) 퇴근길에 약국에 들렀다.');
+    expect(scene).toContain('[지후만 아는 일 — 다른 사람은 듣기 전에는 모른다]\n- (금요일 저녁) 연구실에서 늦게까지 실험을 했다.');
+    // 둘이 나눈 이야기는 둘만 안다
+    expect(scene).toContain('[한서, 지후만 아는 일 — 다른 사람은 듣기 전에는 모른다]');
+    expect(scene).toContain('둘이 나눈 이야기(수아는 그 자리에 없었다)');
+  });
+
+  it('캐스트가 한 명이어도 혼자 한 일은 그 사람만 안다', async () => {
+    const solo = { ...OPEN, casts: [OPEN.casts[0]], ties: [], opens: { feed: true, ping: true, aside: false } };
+    const { ctx, playId, send, calls } = await setup(solo, { gap: '18:30 | 일상 | 퇴근길에 약국에 들렀다.' });
+    await send('먼저 가 볼게요.');
+    await skip(ctx, playId, { kind: 'sleep', requestId: uid() });
+    await send('좋은 아침이에요.');
+    expect(calls('reply').at(-1)!.layers.scene).toContain('[한서만 아는 일 — 다른 사람은 듣기 전에는 모른다]\n- (금요일 저녁) 퇴근길에 약국에 들렀다.');
+  });
+});
+
+describe('본편: 시간을 넘긴 뒤', () => {
   it('앞 장면과 지금 사이에 시간이 흘렀다고 적힌다', async () => {
     const { ctx, playId, send, calls } = await setup();
     await send('먼저 가 볼게요.');
@@ -249,7 +256,6 @@ describe('한자리: 시간을 넘긴 뒤', () => {
     const at = lines.indexOf('(시간이 흘렀다. 지금은 토요일 아침.)');
     expect(lines[at - 1]).toBe('한서: "응, 듣고 있어."');
     expect(lines[at + 1]).toBe('수아: 좋은 아침이에요.');
-    // 방금 한 말 뒤로는 시간이 흐르지 않았다
     expect(lines.filter((l) => l.startsWith('(시간이 흘렀다'))).toHaveLength(1);
   });
 
@@ -271,40 +277,32 @@ describe('한자리: 시간을 넘긴 뒤', () => {
   });
 });
 
-describe('한자리: 자리를 비운 사이', () => {
-  const OPEN = { ...TOGETHER, opens: { feed: true, ping: true, aside: true } };
+describe('본편: 자리를 비운 사이', () => {
+  const OPEN = { ...FILM, opens: { feed: true, ping: true, aside: true } };
 
-  it('혼자 보낸 시간을 적을 때도 그 자리에서 오간 말을 안다', async () => {
+  it('혼자 보낸 시간을 적을 때도 본편에서 오간 말을 안다', async () => {
     const { ctx, playId, send, calls } = await setup(OPEN);
-    await send('한서 씨, 저 먼저 가 볼게요.');
+    await send('한서 씨, 저 먼저 가 볼게요.', '가방을 멘다.');
     await skip(ctx, playId, { kind: 'sleep', requestId: uid() });
     const ofJihu = calls('gap').find((c) => c.layers.cast.includes('이름: 지후'))!;
     expect(ofJihu.layers.scene).toContain('[구간 직전의 대화]');
     expect(ofJihu.layers.scene).toContain('수아: 한서 씨, 저 먼저 가 볼게요.');
     expect(ofJihu.layers.scene).toContain('한서: 응, 듣고 있어.');
+    // 지문은 대화가 아니다
+    expect(ofJihu.layers.scene).not.toContain('가방을 멘다');
   });
 
-  it('한편의 작가에게는 셋이 있던 자리의 말이 둘 다 아는 일로 건네진다', async () => {
+  it('한편의 작가에게는 유저의 인물이 있던 자리에서 오간 말이 건네진다', async () => {
     const { ctx, playId, send, calls } = await setup(OPEN);
     await send('한서 씨, 저 먼저 가 볼게요.');
     await skip(ctx, playId, { kind: 'sleep', requestId: uid() });
     const { scene } = calls('aside')[0]!.layers;
-    const [shared, rest] = scene.split('[둘 다 아는 일]')[1]!.split('만 아는 일') as [string, string | undefined];
-    expect(shared).toContain('수아까지 셋이 함께 있던 자리에서 오간 말:');
-    expect(shared).toContain('수아: 한서 씨, 저 먼저 가 볼게요.');
-    expect(scene).not.toContain('말을 나눈 적이 없다');
-    expect(scene).not.toContain('나눈 말:');
-    expect(rest ?? '').not.toContain('먼저 가 볼게요');
+    expect(scene).toContain('[수아가 있던 자리에서 최근에 오간 말 — 그 자리에 있던 사람만 들었다]\n수아: 한서 씨, 저 먼저 가 볼게요.\n한서: 응, 듣고 있어.');
   });
 
-  it('따로 있는 캐스트끼리의 한편은 전과 같다', async () => {
-    const { ctx, playId, send, calls } = await setup({ ...APART, opens: { feed: true, ping: true, aside: true } });
-    await send('한서 씨, 저 먼저 가 볼게요.');
+  it('아무 말도 나누지 않았으면 그렇다고 적는다', async () => {
+    const { ctx, playId, calls } = await setup(OPEN);
     await skip(ctx, playId, { kind: 'sleep', requestId: uid() });
-    const { scene } = calls('aside')[0]!.layers;
-    expect(scene).toContain('[한서만 아는 일 — 지후는 한서에게 듣기 전에는 모른다]');
-    expect(scene).toContain('- 수아와 나눈 말:');
-    expect(scene).toContain('[지후만 아는 일 — 한서는 지후에게 듣기 전에는 모른다]\n- 수아와 말을 나눈 적이 없다.');
-    expect(scene).not.toContain('셋이 함께 있던 자리');
+    expect(calls('aside')[0]!.layers.scene).toContain('[수아와는 아직 아무 말도 나누지 않았다]');
   });
 });

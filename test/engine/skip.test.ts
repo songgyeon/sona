@@ -129,13 +129,19 @@ describe('그 사이의 하루', () => {
     const v = await away('sleep');
     expect(v.posts.map((p) => [p.cast, p.text, at(p.at)])).toEqual([['c1', '오늘은 일찍 잔다', '금요일 오후 10:40']]);
 
-    await send('좋은 아침.', 'c1');
-    const mina = calls('reply').at(-1)!.layers.scene;
+    // 장면을 쓰는 작가에게는 누가 아는 일인지 갈라서 건넨다
+    await send('좋은 아침.');
+    const scene = calls('reply').at(-1)!.layers.scene;
+    expect(scene).toContain('[모두 아는 일]\n- (금요일 밤) 민아의 피드에 올라온 글: 「오늘은 일찍 잔다」');
+    expect(scene).toContain('[민아만 아는 일 — 다른 사람은 듣기 전에는 모른다]\n- (금요일 저녁) 퇴근길에 서점에 들렀다.');
+
+    // 그 사람이 되어 쓰는 자리(혼자 보낸 시간)에서는 제가 아는 일만 받는다
+    await away('evening');
+    const gaps = calls('gap').slice(-2);
+    const mina = gaps.find((c) => c.layers.cast.includes('이름: 민아'))!.layers.scene;
+    const dohyun = gaps.find((c) => c.layers.cast.includes('이름: 이도현'))!.layers.scene;
     expect(mina).toContain('퇴근길에 서점에 들렀다.');
     expect(mina).toContain('피드에 올렸다: 「오늘은 일찍 잔다」');
-
-    await send('안녕하세요.', 'c2');
-    const dohyun = calls('reply').at(-1)!.layers.scene;
     expect(dohyun).not.toContain('서점에 들렀다'); // 민아가 혼자 한 일은 모른다
     expect(dohyun).toContain('민아의 피드에서 봤다: 「오늘은 일찍 잔다」');
   });

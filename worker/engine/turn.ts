@@ -9,7 +9,7 @@ import { isUuid } from '../guard';
 import { type Ctx, Fail } from './ctx';
 import { loadFilm } from './films';
 import { applyMine, savedMine } from './persona';
-import { lastTurn, loadPlay, viewOf } from './store';
+import { lastTurn, loadPlay, SCENE, viewOf } from './store';
 import { settle } from './skip';
 import { answer } from './talk';
 
@@ -53,7 +53,7 @@ export async function enter(ctx: Ctx, filmId: string, playId: unknown): Promise<
       playId,
       playId,
       'enter',
-      cast.key,
+      SCENE,
       needsModel ? 'pending' : 'done',
       now,
     ),
@@ -82,7 +82,7 @@ export async function enter(ctx: Ctx, filmId: string, playId: unknown): Promise<
         newId(),
         playId,
         turnId,
-        cast.key,
+        SCENE,
         cast.key,
         fs.firstLine,
         'first',
@@ -107,12 +107,16 @@ export async function enter(ctx: Ctx, filmId: string, playId: unknown): Promise<
 }
 
 export interface SayInput {
-  room: unknown;
-  text: unknown;
+  /** 내 대사 */
+  text?: unknown;
+  /** 내 지문 — 내 인물이 하는 행동. 대사와 지문 가운데 하나는 있어야 한다 */
+  tell?: unknown;
   requestId: unknown;
+  /** 캐스트마다 방이 따로이던 때의 화면이 보내던 것. 쓰지 않는다 */
+  room?: unknown;
 }
 
-/** 유저의 한 마디. 전송 1건 = 턴 1개 = 정해진 작중 시간 */
+/** 유저의 한 번. 지문과 대사를 함께 보낼 수 있다. 전송 1건 = 턴 1개 = 정해진 작중 시간 */
 export async function say(ctx: Ctx, playId: string, input: SayInput): Promise<PlayView> {
   if (!isUuid(input.requestId)) throw new Fail(400, 'bad_request_id', '요청이 올바르지 않아요.');
   const play = await loadPlay(ctx, playId);
@@ -132,12 +136,11 @@ export async function say(ctx: Ctx, playId: string, input: SayInput): Promise<Pl
     throw new Fail(409, 'stuck', '앞의 대사를 아직 받지 못했어요. 다시 받기를 눌러 주세요.');
   }
 
-  const cast = play.film.casts.find((c) => c.key === input.room);
-  if (!cast) throw new Fail(400, 'bad_room', '인물을 찾을 수 없어요.');
-
   const text = typeof input.text === 'string' ? input.text.trim() : '';
-  if (text.length === 0) throw new Fail(400, 'empty_say', '보낼 말을 입력해 주세요.');
-  if (text.length > RULES.limits.say) throw new Fail(400, 'long_say', `한 번에 ${RULES.limits.say}자까지 보낼 수 있어요.`);
+  const tell = typeof input.tell === 'string' ? input.tell.trim() : '';
+  if (text.length === 0 && tell.length === 0) throw new Fail(400, 'empty_say', '보낼 말이나 지문을 입력해 주세요.');
+  if (text.length > RULES.limits.say) throw new Fail(400, 'long_say', `대사는 한 번에 ${RULES.limits.say}자까지 보낼 수 있어요.`);
+  if (tell.length > RULES.limits.say) throw new Fail(400, 'long_say', `지문은 한 번에 ${RULES.limits.say}자까지 보낼 수 있어요.`);
 
   const before = play.elapsed;
   const after = before + RULES.minutesPerSend;
@@ -154,24 +157,32 @@ export async function say(ctx: Ctx, playId: string, input: SayInput): Promise<Pl
         turnNo,
         input.requestId,
         'say',
-        cast.key,
+        SCENE,
         'pending',
         before,
         after,
         now,
       ),
-      q(
-        'INSERT INTO messages (id, play_id, turn_id, room, speaker, text, at, kind, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        newId(),
-        playId,
-        turnId,
-        cast.key,
-        'persona',
-        text,
-        after,
-        'chat',
-        now,
-      ),
+      // 지문이 먼저, 대사가 그다음이다. 화면에 놓이는 순서도 같다
+      ...[
+        { kind: 'act', text: tell },
+        { kind: 'chat', text },
+      ]
+        .filter((line) => line.text.length > 0)
+        .map((line) =>
+          q(
+            'INSERT INTO messages (id, play_id, turn_id, room, speaker, text, at, kind, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            newId(),
+            playId,
+            turnId,
+            SCENE,
+            'persona',
+            line.text,
+            after,
+            line.kind,
+            now,
+          ),
+        ),
       q('UPDATE plays SET elapsed = ? WHERE id = ?', after, playId),
     ]);
   } catch (e) {
@@ -191,7 +202,7 @@ export async function say(ctx: Ctx, playId: string, input: SayInput): Promise<Pl
   await answer(
     ctx,
     { ...play, elapsed: after },
-    { id: turnId, no: turnNo, kind: 'say', room: cast.key, status: 'pending', failReason: null },
+    { id: turnId, no: turnNo, kind: 'say', room: SCENE, status: 'pending', failReason: null },
   );
   return viewOf(ctx, playId);
 }

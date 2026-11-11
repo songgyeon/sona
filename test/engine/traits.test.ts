@@ -78,20 +78,18 @@ describe('캐스트의 성격·습관·트라우마·결핍·비밀', () => {
     expect(parseFilm({ ...FILM, casts: [{ ...FILM.casts[0], secret: '가'.repeat(RULES.limits.trait) }, FILM.casts[1]] }).casts[0]!.secret).toHaveLength(RULES.limits.trait);
   });
 
-  it('적은 칸은 그 캐스트에게 건네진다. 다른 캐스트는 모른다', async () => {
+  it('적은 칸은 장면을 쓰는 작가에게 그 캐스트의 카드로 건네진다', async () => {
     const { send, last } = await setup();
     await send('안녕하세요.');
-    const hanseo = last('reply').layers.cast;
-    expect(hanseo).toContain(`성격: ${NOTES.nature}`);
-    expect(hanseo).toContain(`습관: ${NOTES.habit}`);
-    expect(hanseo).toContain(`트라우마: ${NOTES.trauma}`);
-    expect(hanseo).toContain(`결핍: ${NOTES.lack}`);
-    expect(hanseo).toContain(`비밀: ${NOTES.secret}`);
-
-    await send('안녕하세요.', 'c2');
-    const jihu = last('reply').layers.cast;
-    expect(jihu).toContain('이름: 지후');
+    const [hanseo, jihu] = last('reply').layers.cast.split('\n\n이름: 지후') as [string, string];
+    expect(hanseo).toContain(`- 성격: ${NOTES.nature}`);
+    expect(hanseo).toContain(`- 습관: ${NOTES.habit}`);
+    expect(hanseo).toContain(`- 트라우마: ${NOTES.trauma}`);
+    expect(hanseo).toContain(`- 결핍: ${NOTES.lack}`);
+    expect(hanseo).toContain(`- 비밀: ${NOTES.secret}`);
+    // 지후의 카드에는 그런 줄이 없다
     for (const text of Object.values(NOTES)) expect(jihu).not.toContain(text);
+    expect(jihu).not.toMatch(/- (성격|습관|트라우마|결핍|비밀):/);
   });
 
   it('채운 칸만 건네진다', async () => {

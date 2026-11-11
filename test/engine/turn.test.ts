@@ -184,7 +184,7 @@ describe('입장', () => {
     const { ctx, view } = await setup();
     expect(view.elapsed).toBe(0);
     expect(view.messages).toHaveLength(1);
-    expect(view.messages[0]).toMatchObject({ room: 'c1', speaker: 'c1', kind: 'first', at: 0 });
+    expect(view.messages[0]).toMatchObject({ room: 'scene', speaker: 'c1', kind: 'first', at: 0 });
     expect(view.messages[0]!.text).toBe(DEV_FILM.firstScene.firstLine);
     expect(ctx.model.calls).toHaveLength(0);
   });
@@ -227,7 +227,7 @@ describe('한 마디', () => {
   });
 
   it('모델이 쓴 대목을 지문과 대사로 갈라 남긴다', async () => {
-    const { ctx, playId } = await setup(() => '한서가 책을 내려놓는다.\n\n  "네."  \n"그건 제가 할게요."\n계산대 뒤로 돌아간다.\n');
+    const { ctx, playId } = await setup(() => '한서가 책을 내려놓는다.\n\n  한서: "네."  \n한서: "그건 제가 할게요."\n계산대 뒤로 돌아간다.\n');
     const v = await send(ctx, playId, '이거 어디 둬요?');
     const got = v.messages.filter((m) => m.kind === 'chat' && m.speaker !== 'persona').map((m) => [m.speaker, m.text]);
     expect(got).toEqual([
@@ -239,7 +239,7 @@ describe('한 마디', () => {
   });
 
   it('지나간 지문과 대사가 다음 턴의 프롬프트에 장면으로 실린다', async () => {
-    const { ctx, playId } = await setup(() => '한서가 고개를 든다.\n"왔어요?"');
+    const { ctx, playId } = await setup(() => '한서가 고개를 든다.\n한서: "왔어요?"');
     await send(ctx, playId, '응, 방금.');
     await send(ctx, playId, '오늘 바빴어?');
     const scene = ctx.model.calls.filter((c) => c.purpose === 'reply').at(-1)!.layers.scene;
@@ -259,17 +259,13 @@ describe('한 마디', () => {
     expect(ctx.model.calls.filter((c) => c.purpose === 'reply')).toHaveLength(1);
   });
 
-  it('한 방에서 한 얘기는 다른 인물의 프롬프트에 안 실린다', async () => {
+  it('채팅은 하나다. 캐스트마다 방이 따로이던 때의 화면이 방을 보내도 한 흐름에 적힌다', async () => {
     const { ctx, playId } = await setup();
-    await send(ctx, playId, '이건 한서 씨한테만 하는 얘긴데, 나 다음 달에 그만둬요.', 'c1');
-    await send(ctx, playId, '안녕하세요.', 'c2');
-    const toJihu = ctx.model.calls.at(-1)!;
-    expect(toJihu.layers.cast).toContain('이름: 지후');
-    const everything = [toJihu.layers.system, toJihu.layers.cast, toJihu.layers.scene, toJihu.user].join('\n');
-    expect(everything).not.toContain('그만둬요');
-    // 반대로 그 방의 인물에게는 실린다
-    await send(ctx, playId, '아까 한 말 기억하죠?', 'c1');
-    expect(ctx.model.calls.at(-1)!.layers.scene).toContain('그만둬요');
+    await send(ctx, playId, '한서 씨, 나 다음 달에 그만둬요.', 'c1');
+    const v = await send(ctx, playId, '안녕하세요.', 'c2');
+    expect(v.messages.filter((m) => m.speaker === 'persona').map((m) => m.room)).toEqual(['scene', 'scene']);
+    // 앞에서 한 말은 지나간 장면에 그대로 있다
+    expect(ctx.model.calls.at(-1)!.layers.scene).toContain('수아: 한서 씨, 나 다음 달에 그만둬요.');
   });
 
   it('보낸 프롬프트를 층별로 남긴다', async () => {
@@ -284,7 +280,7 @@ describe('한 마디', () => {
     expect(layers.system).toContain('소나');
     expect(layers.cast).toContain('이름: 한서');
     expect(layers.scene).toContain('[지금]');
-    expect(layers.user).toBe('안녕');
+    expect(layers.user).toBe('수아: 안녕');
   });
 });
 
@@ -292,7 +288,7 @@ describe('답을 못 받았을 때', () => {
   it('빈 답이면 턴이 멈추고, 다시 받아도 시계는 또 안 간다', async () => {
     let n = 0;
     const { ctx, playId } = await setup((call) =>
-      call.purpose !== 'reply' ? FAKE_DEFAULTS[call.purpose] : n++ === 0 ? '   \n ' : '"네."',
+      call.purpose !== 'reply' ? FAKE_DEFAULTS[call.purpose] : n++ === 0 ? '   \n ' : '한서: "네."',
     );
     const stuck = await send(ctx, playId, '안녕');
     expect(stuck.stuck).toMatchObject({ status: 'failed', failReason: 'empty' });

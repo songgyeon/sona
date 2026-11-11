@@ -53,3 +53,48 @@ export function castLayer(film: Film, cast: Cast): string {
 
   return out.join('\n');
 }
+
+const hhmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+
+/** 장면을 쓰는 작가에게 건네는 인물 카드들. 나오는 사람 모두의 카드와 세계, 유저의 인물.
+    디렉터가 쓴 그대로 옮긴다. 「너」가 아니라 이름으로 적는다 */
+export function castsLayer(film: Film): string {
+  const me = film.persona.name;
+  const out: string[] = ['[나오는 사람들]'];
+  film.casts.forEach((cast, i) => {
+    if (i > 0) out.push('');
+    out.push(`이름: ${cast.name}`);
+    if (cast.role) out.push(`- ${me}에게는: ${cast.role}`);
+    if (cast.callsUser) out.push(`- ${josa(me, '을', '를')} 부르는 말: ${cast.callsUser}`);
+    if (cast.aliases.length > 0) {
+      const last = cast.aliases[cast.aliases.length - 1]!;
+      out.push(`- ${josa(me, '은', '는')} 이 사람을 「${cast.aliases.join('」, 「')}」${pick(last, '이라고도', '라고도')} 부른다`);
+    }
+    if (cast.speech) out.push(`- 말투: ${cast.speech}`);
+    if (cast.nature) out.push(`- 성격: ${cast.nature}`);
+    if (cast.habit) out.push(`- 습관: ${cast.habit}`);
+    if (cast.trauma) out.push(`- 트라우마: ${cast.trauma}`);
+    if (cast.lack) out.push(`- 결핍: ${cast.lack}`);
+    if (cast.secret) out.push(`- 비밀: ${cast.secret}`);
+    if (cast.dayPlace) out.push(`- 낮에 주로 있는 곳: ${cast.dayPlace}`);
+    out.push(`- 자는 시간: ${hhmm(cast.sleepFrom)} ~ ${hhmm(cast.sleepTo)}`);
+    for (const o of film.casts) {
+      if (o.key === cast.key) continue;
+      const tie = film.ties.find((t) => t.from === cast.key && t.to === o.key);
+      if (tie?.relation) out.push(`- ${o.name}에게는: ${tie.relation}`);
+      if (tie?.calls) out.push(`- ${josa(o.name, '을', '를')} 「${tie.calls}」${pick(tie.calls, '이라고', '라고')} 부른다`);
+    }
+    if (cast.samples.length > 0) out.push(`- 예시 대사(이 결로 쓴다. 그대로 베끼지 않는다): ${cast.samples.join(' / ')}`);
+  });
+
+  if (film.setting) {
+    out.push('');
+    out.push('[이 세계]');
+    out.push(film.setting);
+  }
+
+  out.push('');
+  out.push('[유저의 인물]');
+  out.push(film.persona.line ? `${me} — ${film.persona.line}` : me);
+  return out.join('\n');
+}

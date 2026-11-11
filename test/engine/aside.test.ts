@@ -144,13 +144,8 @@ describe('한편: 자리를 비운 사이', () => {
     expect(layers.cast).toContain('민아를 「민아」라고 부른다');
     expect(layers.scene).toContain('[그 자리에 없는 사람]\n수아');
     expect(layers.scene).toContain('금요일 밤');
-    // 아는 것의 주인을 갈라서 건넨다. 수아가 민아에게 한 말은 민아만 안다
-    const [ofMina, ofDohyun] = layers.scene.split('[이도현만 아는 일');
-    expect(ofMina).toContain('[민아만 아는 일 — 이도현은 민아에게 듣기 전에는 모른다]');
-    expect(ofMina).toContain('수아: 민아 씨, 팀장님이랑은 원래 알던 사이예요?');
-    expect(ofDohyun).toContain('— 민아는 이도현에게 듣기 전에는 모른다]');
-    expect(ofDohyun).toContain('수아와 말을 나눈 적이 없다.');
-    expect(ofDohyun).not.toContain('팀장님이랑은');
+    // 수아가 있던 자리에서 오간 말. 채팅은 하나라서, 그 자리에 누가 있었는지는 누가 말했는지로 안다
+    expect(layers.scene).toContain('[수아가 있던 자리에서 최근에 오간 말 — 그 자리에 있던 사람만 들었다]\n수아: 민아 씨, 팀장님이랑은 원래 알던 사이예요?\n민아: 응, 듣고 있어.');
   });
 
   it('둘 다 아는 일은 한 번만 건넨다. 한 사람만 아는 일은 그 사람 아래에 적힌다', async () => {
@@ -167,9 +162,10 @@ describe('한편: 자리를 비운 사이', () => {
     expect(both).toContain('오늘은 일찍 잔다');
     // 혼자 한 일은 그 사람만 안다
     expect(both).not.toContain('퇴근길에 서점에 들렀다.');
-    const [ofMina, ofDohyun] = rest!.split('[이도현만 아는 일');
-    expect(ofMina).toContain('퇴근길에 서점에 들렀다.');
-    expect(ofDohyun).not.toContain('퇴근길에 서점에 들렀다.');
+    expect(rest).toContain('— 이도현은 민아에게 듣기 전에는 모른다]');
+    expect(rest).toContain('- (금요일 저녁) 퇴근길에 서점에 들렀다.');
+    // 혼자만 아는 일이 없는 사람의 묶음은 적지 않는다
+    expect(scene).not.toContain('[이도현만 아는 일');
   });
 
   it('그 일은 두 사람만 안다. 다른 캐스트의 프롬프트에는 실리지 않는다', async () => {
@@ -177,7 +173,7 @@ describe('한편: 자리를 비운 사이', () => {
       ...OPEN_FILM,
       casts: [...OPEN_FILM.casts, { ...OPEN_FILM.casts[0], name: '서준', role: '옆 팀 동기' }],
     };
-    const { ctx, send, away } = await setup({ aside: SCENE }, three);
+    const { ctx, send, away, calls } = await setup({ aside: SCENE }, { ...three, opens: { feed: true, ping: false, aside: true } });
     await away('sleep');
 
     const known = await ctx.db.all<{ known_by: string; text: string }>("SELECT known_by, text FROM events WHERE kind = 'aside'");
@@ -185,12 +181,17 @@ describe('한편: 자리를 비운 사이', () => {
     expect(JSON.parse(known[0]!.known_by)).toEqual(['c1', 'c2']);
     expect(known[0]!.text).toContain('이도현: "민아, 저녁은."');
 
-    await send('어제 팀장님이랑 무슨 얘기 했어요?', 'c1');
-    expect(ctx.model.calls.at(-1)!.layers.scene).toContain('민아와 이도현이 사무실에서 둘이 나눈 이야기');
-    await send('안녕하세요.', 'c3');
-    const toSeojun = ctx.model.calls.at(-1)!;
-    expect(toSeojun.layers.cast).toContain('이름: 서준');
-    expect(toSeojun.layers.scene).not.toContain('둘이 나눈 이야기');
+    // 장면을 쓰는 작가에게는 두 사람만 아는 일로 건네진다
+    await send('어제 팀장님이랑 무슨 얘기 했어요?');
+    const scene = ctx.model.calls.at(-1)!.layers.scene;
+    expect(scene).toContain('[민아, 이도현만 아는 일 — 다른 사람은 듣기 전에는 모른다]');
+    expect(scene).toContain('민아와 이도현이 사무실에서 둘이 나눈 이야기');
+
+    // 그 사람이 되어 쓰는 자리(혼자 보낸 시간)에서, 그 자리에 없던 캐스트는 그 일을 받지 않는다
+    await away('evening');
+    const gaps = calls('gap').slice(-3);
+    expect(gaps.find((c) => c.layers.cast.includes('이름: 민아'))!.layers.scene).toContain('둘이 나눈 이야기');
+    expect(gaps.find((c) => c.layers.cast.includes('이름: 서준'))!.layers.scene).not.toContain('둘이 나눈 이야기');
   });
 
   it('유저의 인물이 말하는 장면은 통째로 버린다', async () => {

@@ -1,7 +1,7 @@
 import { type FormEvent, Fragment, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { dayEnd, dayName, formatWorld, worldAt } from '../../shared/clock';
 import { josa } from '../../shared/ko';
-import { cutFor, cutsOf, hasLines, sceneOf } from '../../shared/opening';
+import { cutsOf, hasLines } from '../../shared/opening';
 import { RULES } from '../../shared/rules';
 import type { AsideView, Film, MessageView, PlayView } from '../../shared/types';
 import { ApiFail, api, imgUrl, newId } from '../api';
@@ -10,8 +10,9 @@ import { Face, titleClass } from '../poster';
 
 type SkipKind = 'evening' | 'sleep';
 
+/** 한 번에 보내는 것. 지문과 대사 가운데 하나는 있다 */
 interface Outgoing {
-  room: string;
+  tell: string;
   text: string;
   requestId: string;
 }
@@ -82,8 +83,10 @@ function Opening({ film }: { film: Film }) {
 /** 재생. 위에 지금 장면이 걸리고, 아래로 장면이 흐른다 */
 export function Play({ playId, go }: { playId: string; go: (to: string) => void }) {
   const [view, setView] = useState<PlayView | null>(null);
-  const [room, setRoom] = useState('');
+  /** 쓰고 있는 내 대사와 내 지문 */
   const [draft, setDraft] = useState('');
+  const [act, setAct] = useState('');
+  const actBox = useRef<HTMLTextAreaElement>(null);
   /** 보냈는데 아직 답이 안 온 말. 끊기면 같은 전송 표로 다시 보낸다 — 서버는 한 번만 처리한다 */
   const [out, setOut] = useState<Outgoing | null>(null);
   /** 시간을 넘기는 중. 끊기면 같은 표로 다시 부른다 */
@@ -111,13 +114,8 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
       .play(playId)
       .then((v) => {
         setView(v);
-        // 프로필에서 「메시지」로 왔으면 그 사람과의 자리로 연다
-        const asked = new URLSearchParams(window.location.search).get('with');
-        const first = v.film.firstScene.room;
-        const to = asked && v.film.casts.some((c) => c.key === asked) ? asked : first;
-        setRoom(to);
         // 아직 한마디도 안 했으면 오프닝을 처음부터 읽는다
-        setReading(to === first && hasLines(v.film) && v.elapsed === 0 && !v.messages.some((m) => m.speaker === 'persona'));
+        setReading(hasLines(v.film) && v.elapsed === 0 && !v.messages.some((m) => m.speaker === 'persona'));
       })
       .catch((e) => setErr(e instanceof ApiFail ? e.message : '필름을 불러오지 못했어요.'));
   }, [playId]);
@@ -220,7 +218,15 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
     const el = flow.current;
     if (!reading && el) el.scrollTop = el.scrollHeight;
     look();
-  }, [view, out, room, waiting, reading]);
+  }, [view, out, waiting, reading]);
+
+  // 지문 칸은 쓴 만큼 자란다. 너무 길어지면 그 안에서 굴린다
+  useLayoutEffect(() => {
+    const el = actBox.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 132)}px`;
+  }, [act, view]);
 
   useEffect(() => {
     window.addEventListener('resize', onScroll);
@@ -237,13 +243,14 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
     setErr('');
     setNotice('');
     try {
-      setView(await api.say(playId, o.room, o.text, o.requestId));
+      setView(await api.say(playId, o.text, o.tell, o.requestId));
       setOut(null);
     } catch (e) {
       if (e instanceof ApiFail && e.status !== 0 && e.status < 500) {
         // 서버가 받지 않았다(끝났거나, 앞 턴이 멈춰 있거나). 쓴 말은 돌려준다
         setOut(null);
         setDraft(o.text);
+        setAct(o.tell);
         setView(await api.play(playId).catch(() => view));
       }
       setErr(e instanceof ApiFail ? e.message : '보내지 못했어요.');
@@ -254,9 +261,11 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const text = draft.trim();
-    if (!text || waiting || !view || view.ended || view.stuck || out || away) return;
+    const tell = act.trim();
+    if ((!text && !tell) || waiting || !view || view.ended || view.stuck || out || away) return;
     setDraft('');
-    void deliver({ room, text, requestId: newId() });
+    setAct('');
+    void deliver({ tell, text, requestId: newId() });
   };
 
   const retry = async () => {
@@ -284,12 +293,11 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
       setAway(null);
       // 돌아와서 보니 와 있는 것들
       // 한편의 줄은 누가 나에게 보낸 것이 아니다
-      const from = [...new Set(next.messages.filter((m) => !seenMessages.has(m.id) && m.kind !== 'aside').map((m) => m.room))];
+      const from = [...new Set(next.messages.filter((m) => !seenMessages.has(m.id) && m.kind === 'ping').map((m) => m.speaker))];
       const names = from.map((key) => next.film.casts.find((c) => c.key === key)?.name ?? key);
       const posts = next.posts.length - seenPosts;
       const bits = [names.length > 0 ? `${names.join(', ')}의 메시지` : '', posts > 0 ? `새 피드 ${posts}개` : ''].filter(Boolean);
       setNotice(bits.length > 0 ? bits.join(' · ') : '그 사이 온 연락이 없어요.');
-      if (from.length > 0 && !from.includes(room)) setRoom(from[0]!);
     } catch (e) {
       if (e instanceof ApiFail && e.status !== 0 && e.status < 500) {
         setAway(null);
@@ -305,14 +313,12 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
 
   const film = view.film;
   const clock = { startDow: film.startDow, startMin: film.startMin, elapsed: view.elapsed };
-  const cast = film.casts.find((c) => c.key === room) ?? film.casts[0]!;
-  /** 이 사람과 한자리에 있는 캐스트들. 여럿이면 그 자리에서 오간 말이 한 흐름으로 보이고,
-      고른 사람은 내가 말을 거는 사람이다. 따로 있는 캐스트는 그 사람과 둘만의 흐름이다 */
-  const here = sceneOf(film, cast.key);
-  const inScene = (r: string | null | undefined) => !!r && here.includes(r);
-  const messages = view.messages.filter((m) => inScene(m.room));
-  const pendingHere = out && inScene(out.room) ? out : null;
-  const stuckHere = view.stuck && inScene(view.stuck.room);
+  /** 채팅은 하나다. 유저의 말과 지문, 캐스트의 말, 지문, 폰으로 온 메시지가 한 흐름에 놓인다.
+      한편(내가 없는 자리의 장면)의 줄만 따로다 — 그건 눌러서 읽는다 */
+  const messages = view.messages.filter((m) => m.kind !== 'aside');
+  const pendingHere = out;
+  /** 대사를 못 받고 멈춘 턴. 시간을 넘기다 멈춘 것은 따로 알린다 */
+  const stuckHere = view.stuck && view.stuck.kind !== 'skip';
   const locked = waiting || view.ended || !!view.stuck || !!out || !!away;
   /** 흐름에 놓이는 것들: 이 사람과 오간 말, 그리고 그 사이사이에 있었던 한편. 작중 시각 순 */
   const items: ({ at: number; m: MessageView; a?: undefined } | { at: number; a: AsideView; m?: undefined })[] = [
@@ -321,11 +327,6 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
   ].sort((x, y) => x.at - y.at);
   const cuts = (i: number) => i > 0 && items[i]!.at - items[i - 1]!.at >= CUT_AFTER;
   const castOf = (key: string) => film.casts.find((c) => c.key === key);
-  /** 여럿이 나오는 필름에서는 말하는 사람의 컷이 위 화면에 걸린다. 그 줄에 표시(data-cut)를 달아 둔다 */
-  const cutOf = (key: string) => {
-    const image = film.casts.length > 1 ? cutFor(film, key) : '';
-    return image ? { 'data-cut': image } : {};
-  };
   const fs = film.firstScene;
   /** 화면에 거는 그림. 읽는 자리의 컷이 먼저고, 없으면 첫 컷, 그것도 없으면 포스터 */
   const onScreen = shot || cutsOf(film)[0] || (film.stills ?? [])[0] || film.poster || '';
@@ -369,23 +370,8 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
         <span style={{ width: `${Math.min(100, ((view.elapsed - dayEnd(view.day - 1)) / RULES.trialMinutes) * 100)}%` }} />
       </div>
 
-      {film.casts.length > 1 && (
-        <nav className="with" aria-label="함께 있는 캐스트">
-          {film.casts.map((c) => (
-            <button
-              key={c.key}
-              className={[c.key === cast.key ? 'on' : '', here.length > 1 && here.includes(c.key) ? 'here' : ''].join(' ').trim()}
-              onClick={() => setRoom(c.key)}
-            >
-              <Face id={c.face ?? ''} name={c.name} />
-              {c.name}
-            </button>
-          ))}
-        </nav>
-      )}
-
       <section className="flow" aria-live="polite" ref={flow} onScroll={onScroll}>
-        {inScene(fs.room) && fs.beats.length > 0 && <Opening film={film} />}
+        {fs.beats.length > 0 && <Opening film={film} />}
 
         {items.map(({ m, a }, i) =>
           a ? (
@@ -414,9 +400,16 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
           <Fragment key={m.id}>
             {cuts(i) && <p className="cut">{formatWorld(clock, m.at)}</p>}
             {m.speaker === 'tell' ? (
-              // 지문. 말한 사람이 없다. 누구의 차례에 쓰인 지문인지는 방이 안다
+              // 지문. 말한 사람이 없다
               m.text.split('\n').map((line, j) => (
-                <p className="tell" key={j} {...(j === 0 ? cutOf(m.room) : {})}>
+                <p className="tell" key={j}>
+                  {line}
+                </p>
+              ))
+            ) : m.speaker === 'persona' && m.kind === 'act' ? (
+              // 내가 쓴 지문. 지문과 같은 모양으로 놓인다
+              m.text.split('\n').map((line, j) => (
+                <p className="tell byme" key={j}>
                   {line}
                 </p>
               ))
@@ -429,11 +422,11 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
                 {me.face && <Face id={me.face} name={me.name} />}
               </div>
             ) : (
-              // 캐스트의 말. 한자리에 여럿이 있으면 저마다 제 얼굴과 이름으로 나온다
+              // 캐스트의 말. 저마다 제 얼굴과 이름으로 나온다
               ((who) =>
                 m.kind === 'ping' ? (
                   // 작품 속 폰으로 먼저 온 연락. 말풍선은 여기만 쓴다
-                  <button className="msg" onClick={() => profile(who.key)} aria-label={`${who.name}의 프로필 보기`} {...cutOf(who.key)}>
+                  <button className="msg" onClick={() => profile(who.key)} aria-label={`${who.name}의 프로필 보기`}>
                     <Face id={who.face ?? ''} name={who.name} />
                     <span>
                       <small>{who.name} · 메시지</small>
@@ -441,20 +434,26 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
                     </span>
                   </button>
                 ) : (
-                  <button className="say" onClick={() => profile(who.key)} aria-label={`${who.name}의 프로필 보기`} {...cutOf(who.key)}>
+                  <button className="say" onClick={() => profile(who.key)} aria-label={`${who.name}의 프로필 보기`}>
                     <Face id={who.face ?? ''} name={who.name} />
                     <span>
                       <small>{who.name}</small>
                       <p>{m.text}</p>
                     </span>
                   </button>
-                ))(castOf(m.speaker) ?? cast)
+                ))(castOf(m.speaker) ?? film.casts[0]!)
             )}
           </Fragment>
           ),
         )}
 
-        {pendingHere && (
+        {pendingHere?.tell &&
+          pendingHere.tell.split('\n').map((line, j) => (
+            <p className="tell byme sending" key={j}>
+              {line}
+            </p>
+          ))}
+        {pendingHere?.text && (
           <div className={me.face ? 'say me faced sending' : 'say me sending'}>
             <div>
               <small>{me.name}</small>
@@ -463,15 +462,8 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
             {me.face && <Face id={me.face} name={me.name} />}
           </div>
         )}
-        {waiting && !away && (
-          <div className="say">
-            <Face id={cast.face ?? ''} name={cast.name} />
-            <span>
-              <small>{cast.name}</small>
-              <p>…</p>
-            </span>
-          </div>
-        )}
+        {/* 다음 대목을 쓰는 중. 누가 나올지는 아직 모른다 */}
+        {waiting && !away && <p className="tell wait">…</p>}
         {away && waiting && <p className="cut">시간이 흐르는 중</p>}
 
         {stuckHere && !waiting && (
@@ -548,21 +540,36 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
           </div>
         )}
         <form className="box" onSubmit={submit}>
-          <label htmlFor="say" className="sr">
-            {cast.name}에게 할 말
+          <label htmlFor="act" className="sr">
+            내 지문
           </label>
-          <input
-            id="say"
-            value={draft}
+          <textarea
+            id="act"
+            ref={actBox}
+            rows={1}
+            value={act}
             maxLength={RULES.limits.say}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder={view.ended ? '첫 하루가 끝났어요' : '말하기'}
+            onChange={(e) => setAct(e.target.value)}
+            placeholder="지문 쓰기"
             disabled={view.ended || !!view.stuck || !!away}
-            autoComplete="off"
           />
-          <button type="submit" className="send" disabled={locked || !draft.trim()} aria-label="보내기">
-            <Arrow />
-          </button>
+          <div className="line">
+            <label htmlFor="say" className="sr">
+              내 대사
+            </label>
+            <input
+              id="say"
+              value={draft}
+              maxLength={RULES.limits.say}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="말하기"
+              disabled={view.ended || !!view.stuck || !!away}
+              autoComplete="off"
+            />
+            <button type="submit" className="send" disabled={locked || (!draft.trim() && !act.trim())} aria-label="보내기">
+              <Arrow />
+            </button>
+          </div>
         </form>
         <div className="safe" />
       </footer>

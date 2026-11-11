@@ -57,7 +57,7 @@ const ROUTES: [string, RegExp, Handler][] = [
   [
     'POST',
     /^\/api\/plays\/([^/]+)\/say$/,
-    (ctx, p, body) => say(ctx, p[0]!, { room: body.room, text: body.text, requestId: body.requestId }),
+    (ctx, p, body) => say(ctx, p[0]!, { text: body.text, tell: body.tell, requestId: body.requestId }),
   ],
   [
     'POST',

@@ -134,8 +134,9 @@ export const api = {
   enter: (filmId: string, playId: string) => call<PlayView>('POST', `/api/films/${filmId}/enter`, { playId }),
   plays: () => call<PlayCard[]>('GET', '/api/plays'),
   play: (id: string) => call<PlayView>('GET', `/api/plays/${id}`),
-  say: (id: string, room: string, text: string, requestId: string) =>
-    call<PlayView>('POST', `/api/plays/${id}/say`, { room, text, requestId }),
+  /** 내 대사와 내 지문을 보낸다. 하나만 있어도 된다 */
+  say: (id: string, text: string, tell: string, requestId: string) =>
+    call<PlayView>('POST', `/api/plays/${id}/say`, { text, tell, requestId }),
   skip: (id: string, kind: 'evening' | 'sleep', requestId: string) =>
     call<PlayView>('POST', `/api/plays/${id}/skip`, { kind, requestId }),
   retry: (id: string) => call<PlayView>('POST', `/api/plays/${id}/retry`, {}),

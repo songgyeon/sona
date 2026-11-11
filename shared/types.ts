@@ -110,8 +110,8 @@ export interface MessageView {
   text: string;
   /** 작중 시각. 시작에서 흐른 분 */
   at: number;
-  /** aside는 한편의 줄이다. 그때 room은 그 장면의 이름표다 */
-  kind: 'chat' | 'first' | 'ping' | 'aside';
+  /** act는 유저가 쓴 지문(speaker는 persona다). aside는 한편의 줄이다 — 그때 room은 그 장면의 이름표다 */
+  kind: 'chat' | 'first' | 'ping' | 'aside' | 'act';
   turnId: string;
 }
 
