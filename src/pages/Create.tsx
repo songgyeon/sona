@@ -4,6 +4,7 @@ import { openingLength } from '../../shared/opening';
 import { josa } from '../../shared/ko';
 import { DOW_NAMES, RULES } from '../../shared/rules';
 import { ApiFail, api, imgUrl, newId, uploadImage } from '../api';
+import { FacePick } from '../crop';
 import { Arrow, Close, Down, Plus, Up, Upload } from '../icons';
 import { Face } from '../poster';
 
@@ -293,17 +294,7 @@ export function Create({ go, editId }: { go: (to: string) => void; editId?: stri
 
             <Card title="내 배역" sub="필름 안에서 내가 맡는 인물이에요.">
               <div className="casthead">
-                <label className={d.personaFace ? 'drop facepick has' : 'drop facepick'}>
-                  {d.personaFace ? (
-                    <img src={imgUrl(d.personaFace)} alt="" />
-                  ) : (
-                    <>
-                      <Upload />
-                      <b>사진</b>
-                    </>
-                  )}
-                  <input type="file" accept={PICTURES} disabled={busy} aria-label="내 배역의 사진 고르기" onChange={(e) => pick(e, 640, (id) => set('personaFace', id))} />
-                </label>
+                <FacePick face={d.personaFace} label="내 배역의 사진 고르기" disabled={busy} onPick={(id) => set('personaFace', id)} />
                 <Field label="이름" must count={[d.personaName.length, 20]}>
                   <input value={d.personaName} maxLength={20} placeholder="예) 다온" onChange={(e) => set('personaName', e.target.value)} />
                 </Field>
@@ -324,17 +315,7 @@ export function Create({ go, editId }: { go: (to: string) => void; editId?: stri
               <Card key={i} title={`캐스트 ${i + 1}`} count={`${i + 1} / ${RULES.limits.casts}`} sub={i === 0 ? '필름에서 만나는 인물이에요.' : undefined}>
                 <div className="castcard">
                   <div className="casthead">
-                    <label className={c.face ? 'drop facepick has' : 'drop facepick'}>
-                      {c.face ? (
-                        <img src={imgUrl(c.face)} alt="" />
-                      ) : (
-                        <>
-                          <Upload />
-                          <b>사진</b>
-                        </>
-                      )}
-                      <input type="file" accept={PICTURES} disabled={busy} aria-label={`${names[i]}의 사진 고르기`} onChange={(e) => pick(e, 640, (id) => setCast(i, 'face', id))} />
-                    </label>
+                    <FacePick face={c.face} label={`${names[i]}의 사진 고르기`} disabled={busy} onPick={(id) => setCast(i, 'face', id)} />
                     <Field label="이름" must count={[c.name.length, 20]}>
                       <input value={c.name} maxLength={20} placeholder="예) 서하" onChange={(e) => setCast(i, 'name', e.target.value)} />
                     </Field>

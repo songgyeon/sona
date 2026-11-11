@@ -1,10 +1,9 @@
-import { type ChangeEvent, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { RULES } from '../../shared/rules';
-import { ApiFail, api, imgUrl, uploadImage } from '../api';
-import { Back, Upload } from '../icons';
+import { ApiFail, api } from '../api';
+import { FacePick } from '../crop';
+import { Back } from '../icons';
 import { Card, Field } from './Create';
-
-const PICTURES = 'image/jpeg,image/png,image/webp';
 
 /** 내 배역. 플레이하는 사람이 자기 삶에서 맡은 인물의 사진과 정보를 고친다.
     고친 것은 내 삶에만 적히고, 같은 필름에 다시 들어가도 이어진다. 디렉터의 필름은 그대로다 */
@@ -29,20 +28,6 @@ export function Me({ playId, go }: { playId: string; go: (to: string) => void })
   }, [playId]);
 
   const back = () => go(`/play/${playId}`);
-
-  const pick = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    setBusy(true);
-    setErr('');
-    try {
-      setFace(await uploadImage(file, 640));
-    } catch (x) {
-      setErr(x instanceof ApiFail ? x.message : '사진을 올리지 못했어요.');
-    }
-    setBusy(false);
-  };
 
   const save = async () => {
     setBusy(true);
@@ -78,17 +63,7 @@ export function Me({ playId, go }: { playId: string; go: (to: string) => void })
 
         <Card title="프로필">
           <div className="casthead">
-            <label className={face ? 'drop facepick has' : 'drop facepick'}>
-              {face ? (
-                <img src={imgUrl(face)} alt="" />
-              ) : (
-                <>
-                  <Upload />
-                  <b>사진</b>
-                </>
-              )}
-              <input type="file" accept={PICTURES} disabled={busy} aria-label="내 사진 고르기" onChange={pick} />
-            </label>
+            <FacePick face={face} label="내 사진 고르기" disabled={busy} onPick={setFace} />
             <Field label="이름" must count={[name.length, 20]}>
               <input value={name} maxLength={20} onChange={(e) => setName(e.target.value)} />
             </Field>

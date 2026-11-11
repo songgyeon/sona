@@ -516,6 +516,28 @@ button:disabled { opacity: 0.4; cursor: default; }
 .next .btn { width: 100%; height: 50px; font-size: 15px; }
 .next .btn svg { width: 16px; height: 16px; }
 .next .textbtn { justify-self: center; padding: 8px; }
+/* ── 사진 자르기 ── 사진을 고르면 화면을 덮고 뜬다. 원 안에 보이는 대로 잘린다 */
+.crop { position: fixed; inset: 0; z-index: 40; background: var(--black); touch-action: none; overscroll-behavior: contain; outline: none; }
+.crop .in { max-width: 520px; height: 100dvh; margin: 0 auto; display: flex; flex-direction: column; }
+.crop .head { flex: none; height: 56px; padding: 4px 16px 0 8px; display: flex; align-items: center; gap: 4px; }
+.crop .head b { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.crop .stage { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #050505; cursor: grab; outline-offset: -4px; user-select: none; -webkit-user-select: none; }
+.crop .stage:active { cursor: grabbing; }
+.crop .stage img { position: absolute; left: 50%; top: 50%; max-width: none; pointer-events: none; -webkit-user-drag: none; }
+/* 원 밖은 어둡게 덮는다. 밖에 무엇이 남는지는 보인다 */
+.crop .ring { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.9), 0 0 0 100vmax rgba(0, 0, 0, 0.66); pointer-events: none; }
+.crop .wait { position: absolute; inset: 0; display: grid; place-items: center; font-size: 14px; color: var(--ink-3); }
+.crop .dock { flex: none; padding: 18px var(--pad) calc(22px + env(safe-area-inset-bottom)); }
+.crop .zoom { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 16px; font-size: 13px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink-2); }
+.crop .zoom input { width: 100%; height: 32px; appearance: none; -webkit-appearance: none; cursor: pointer; }
+.crop .zoom input::-webkit-slider-runnable-track { height: 1px; background: rgba(255, 255, 255, 0.42); }
+.crop .zoom input::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -8.5px; border-radius: 50%; background: var(--ink); }
+.crop .zoom input::-moz-range-track { height: 1px; background: rgba(255, 255, 255, 0.42); }
+.crop .zoom input::-moz-range-thumb { width: 18px; height: 18px; border: 0; border-radius: 50%; background: var(--ink); }
+.crop .zoom input:disabled { opacity: 0.4; cursor: default; }
+.crop .warn { margin-top: 10px; }
+.crop .next { margin-top: 18px; }
+
 .toast { position: fixed; z-index: 9; left: 50%; bottom: 28px; transform: translateX(-50%); padding: 10px 16px; background: var(--ink); color: #000; font-size: 13px; font-weight: 600; white-space: nowrap; }
 
 @media (prefers-reduced-motion: no-preference) {

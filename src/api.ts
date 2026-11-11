@@ -1,5 +1,6 @@
 /* 서버와 말하는 곳. 화면은 세계를 들고 다니지 않는다 — 열쇠와 방문자 표만 들고 다닌다. */
 
+import { type Box, outSide } from '../shared/crop';
 import { RULES } from '../shared/rules';
 import type { ApiError, Film, FilmCard, PlayCard, PlayView } from '../shared/types';
 
@@ -85,7 +86,23 @@ export async function uploadImage(file: File, max = 1280): Promise<string> {
   canvas.width = Math.max(1, Math.round(bitmap.width * scale));
   canvas.height = Math.max(1, Math.round(bitmap.height * scale));
   canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  return send(canvas);
+}
 
+/** 사진에서 네모 하나를 잘라 올린다. 자르는 화면의 틀 안에 보이던 그대로다. 한 변이 max를 넘지 않게 줄인다 */
+export async function uploadCrop(picture: CanvasImageSource, box: Box, max: number): Promise<string> {
+  const side = outSide(box, max);
+  const canvas = document.createElement('canvas');
+  canvas.width = side;
+  canvas.height = side;
+  const ctx = canvas.getContext('2d')!;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(picture, box.x, box.y, box.side, box.side, 0, 0, side, side);
+  return send(canvas);
+}
+
+/** 그려 둔 그림을 올린다. 정해진 크기에 들 때까지 질을 낮춘다 */
+async function send(canvas: HTMLCanvasElement): Promise<string> {
   let blob: Blob | null = null;
   for (const quality of [0.86, 0.76, 0.66, 0.56]) {
     blob = await new Promise<Blob | null>((done) => canvas.toBlob(done, 'image/jpeg', quality));
