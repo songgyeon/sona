@@ -49,7 +49,7 @@ function demoAside(call: ModelCall): string {
 /** 대역이 적는 장면의 다음 대목. 캐스트가 둘이면 둘째도 한마디 거든다 */
 function demoScene(call: ModelCall): string {
   const [a = '가', b] = namesIn(call);
-  const out = [`${a}가 고개를 든다.`, `${a}: "응, 듣고 있어."`];
+  const out = ['장소 | 늘 보던 자리', `${a}가 고개를 든다.`, `${a}: "응, 듣고 있어."`];
   if (b) out.push(`옆에서 ${b}가 책을 덮는다.`, `${b}: "나도 들었어."`);
   return out.join('\n');
 }

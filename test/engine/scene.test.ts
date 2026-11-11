@@ -233,6 +233,47 @@ describe('본편: 누가 무엇을 아는가', () => {
   });
 });
 
+describe('본편: 지금 있는 곳', () => {
+  const film = parseFilm(FILM);
+
+  it('「장소 | 곳」 줄은 흐름에 놓지 않고 곳으로 읽는다', () => {
+    const r = parseScene('장소 | 안쪽 서가\n한서가 책을 꽂는다.\n한서: "여기예요."', film);
+    expect(r.place).toBe('안쪽 서가');
+    expect(r.pieces).toEqual([
+      { speaker: 'tell', text: '한서가 책을 꽂는다.' },
+      { speaker: 'c1', text: '여기예요.' },
+    ]);
+    // 적지 않았으면 모른다. 너무 길면 받지 않는다
+    expect(parseScene('한서: "여기예요."', film).place).toBeNull();
+    expect(parseScene(`장소 | ${'가'.repeat(41)}\n한서: "여기예요."`, film)).toMatchObject({ place: null, pieces: [{ speaker: 'c1', text: '여기예요.' }] });
+  });
+
+  it('이야기는 디렉터가 적은 곳에서 시작한다. 작가가 곳을 알려 주면 그리로 바뀐다', async () => {
+    const { ctx, playId, send, calls } = await setup(FILM, {
+      reply: (call) => (call.user.includes('안쪽') ? '장소 | 안쪽 서가\n한서가 따라 들어온다.\n한서: "여기예요."' : '한서: "네."'),
+    });
+    expect((await viewOf(ctx, playId)).place).toBe('서점 계산대');
+    expect((await send('안녕하세요.')).place).toBe('서점 계산대');
+    expect(calls('reply')[0]!.layers.scene).toContain('[지금]\n금요일 낮.\n지금 있는 곳: 서점 계산대');
+
+    const v = await send('', '책을 안고 안쪽 서가로 들어간다.');
+    expect(v.place).toBe('안쪽 서가');
+    expect(v.messages.some((m) => m.text.includes('장소'))).toBe(false);
+    // 다음 대목을 쓸 때는 옮겨 간 곳을 안다
+    await send('여기 맞아요?');
+    expect(calls('reply').at(-1)!.layers.scene).toContain('지금 있는 곳: 안쪽 서가');
+  });
+
+  it('오래 비우고 돌아오면 어디인지 모른다. 잠깐 비운 것은 그대로다', async () => {
+    const { ctx, playId, send, calls } = await setup();
+    await send('잠깐만요.');
+    expect((await skip(ctx, playId, { kind: 'short', requestId: uid() })).place).toBe('서점 계산대');
+    expect((await skip(ctx, playId, { kind: 'sleep', requestId: uid() })).place).toBe('');
+    await send('좋은 아침이에요.');
+    expect(calls('reply').at(-1)!.layers.scene).not.toContain('지금 있는 곳');
+  });
+});
+
 describe('본편: 시간을 넘긴 뒤', () => {
   it('앞 장면과 지금 사이에 시간이 흘렀다고 적힌다', async () => {
     const { ctx, playId, send, calls } = await setup();

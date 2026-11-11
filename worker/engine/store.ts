@@ -15,6 +15,8 @@ export interface Play extends Clock {
   ended: boolean;
   /** 지금까지 열어 둔 날 수 */
   days: number;
+  /** 지금 장면이 벌어지는 곳. 모르면 빈 글자 */
+  place: string;
 }
 
 interface PlayRow {
@@ -27,6 +29,7 @@ interface PlayRow {
   elapsed: number;
   ended: number;
   days: number | null;
+  place: string | null;
 }
 
 function toPlay(r: PlayRow): Play {
@@ -40,6 +43,7 @@ function toPlay(r: PlayRow): Play {
     elapsed: r.elapsed,
     ended: r.ended === 1,
     days: r.days ?? 1,
+    place: r.place ?? '',
   };
 }
 
@@ -154,6 +158,7 @@ export async function viewOf(ctx: Ctx, playId: string): Promise<PlayView> {
     elapsed: play.elapsed,
     ended: play.ended,
     day: play.days,
+    place: play.place,
     mine: maker?.owner === ctx.visitor,
     messages,
     posts,

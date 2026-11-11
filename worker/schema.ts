@@ -27,7 +27,8 @@ export const SCHEMA: string[] = [
     elapsed INTEGER NOT NULL DEFAULT 0,
     ended INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
-    days INTEGER NOT NULL DEFAULT 1
+    days INTEGER NOT NULL DEFAULT 1,
+    place TEXT NOT NULL DEFAULT ''
   )`,
   `CREATE INDEX IF NOT EXISTS plays_owner ON plays(owner, created_at)`,
 
@@ -152,6 +153,8 @@ export const SCHEMA: string[] = [
 const ADDED: { table: string; column: string; sql: string }[] = [
   // 삶이 지금까지 열어 둔 날 수. 하루가 끝난 뒤 다음 날로 이으면 는다
   { table: 'plays', column: 'days', sql: 'ALTER TABLE plays ADD COLUMN days INTEGER NOT NULL DEFAULT 1' },
+  // 지금 장면이 벌어지는 곳. 장면을 쓰는 작가가 대목마다 알려 준다. 모르면 빈 글자
+  { table: 'plays', column: 'place', sql: "ALTER TABLE plays ADD COLUMN place TEXT NOT NULL DEFAULT ''" },
 ];
 
 export async function addColumns(db: Db): Promise<void> {

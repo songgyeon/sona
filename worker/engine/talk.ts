@@ -38,14 +38,23 @@ const unquote = (t: string) => (t.length > 2 && OPEN.includes(t[0]!) && CLOSE.in
 
 /** 모델이 쓴 대목을 읽는다. 「이름: "대사"」 줄은 그 캐스트의 대사고, 나머지는 지문이다.
     글자를 지우거나 고치지 않는다 — 대사를 감싼 따옴표만 벗긴다. 이어지는 지문 줄은 한 덩이로 둔다.
+    「장소 | 곳」 줄은 장면이 벌어지는 곳을 알리는 줄이다. 흐름에 놓지 않고 곳으로 읽는다(없으면 null).
     유저의 인물 이름으로 시작하는 대사 줄은 받지 않는다 — 그 사람의 말은 유저가 쓴다 */
-export function parseScene(raw: string, film: Film): { pieces: Piece[]; personaSpoke: boolean } {
+export function parseScene(raw: string, film: Film): { pieces: Piece[]; personaSpoke: boolean; place: string | null } {
   const keyOf = new Map(film.casts.map((c) => [c.name, c.key]));
   /** 캐스트가 한 명뿐이면, 이름 없이 따옴표로만 감싼 줄도 그 사람의 말이다 */
   const only = film.casts.length === 1 ? film.casts[0]!.key : null;
   const pieces: Piece[] = [];
   let personaSpoke = false;
+  let place: string | null = null;
   for (const line of bubbles(raw)) {
+    const where = /^장소\s*[|:：]\s*(.+)$/.exec(line);
+    if (where) {
+      // 곳 이름으로 보기에 너무 길면 받지 않는다. 잘라 쓰지 않는다
+      const name = where[1]!.trim();
+      if (name.length <= RULES.limits.place) place = name;
+      continue;
+    }
     const m = /^([^:：]{1,24}?)\s*[:：]\s*(.+)$/.exec(line);
     // 이름표를 꾸민 기호(**이름**, [이름])는 떼고 견준다
     const who = m ? m[1]!.replace(/^[\s*\[(「『]+|[\s*\])」』]+$/g, '') : '';
@@ -68,7 +77,7 @@ export function parseScene(raw: string, film: Film): { pieces: Piece[]; personaS
     if (last?.speaker === 'tell') last.text += `\n${line}`;
     else pieces.push({ speaker: 'tell', text: line });
   }
-  return { pieces, personaSpoke };
+  return { pieces, personaSpoke, place };
 }
 
 /** 지나간 장면을 프롬프트에 적을 모양으로 바꾼다. 누가 한 말인지 이름으로 적힌다 */
@@ -206,6 +215,7 @@ export async function answer(ctx: Ctx, play: Play, turn: TurnView): Promise<void
       clock: play,
       ...(await knownTo(ctx, play)),
       history: toLines(play, before.slice(-RULES.historyLines)),
+      place: play.place,
     }),
   };
   const call: ModelCall = { purpose, layers, user, temperature: 0.8, maxTokens: 700 };
@@ -251,6 +261,8 @@ export async function answer(ctx: Ctx, play: Play, turn: TurnView): Promise<void
       ctx.now(),
     ),
   );
+  // 장면이 벌어지는 곳. 작가가 적어 주었을 때만 바꾼다
+  if (read.place !== null) stmts.push(q('UPDATE plays SET place = ? WHERE id = ?', read.place, play.id));
   stmts.push(q("UPDATE turns SET status = 'done', fail_reason = NULL WHERE id = ?", turn.id));
   stmts.push(logStmt(ctx, play.id, turn.id, call, out, true, read.personaSpoke ? '유저의 인물이 말한 줄은 받지 않음' : null));
   if (trialOver(play.elapsed, play.days)) stmts.push(q('UPDATE plays SET ended = 1 WHERE id = ?', play.id));

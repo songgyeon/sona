@@ -38,7 +38,7 @@ export async function enter(ctx: Ctx, filmId: string, playId: unknown): Promise<
 
   const stmts: Stmt[] = [
     q(
-      'INSERT INTO plays (id, film_id, owner, film, start_dow, start_min, elapsed, ended, created_at) VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?)',
+      'INSERT INTO plays (id, film_id, owner, film, start_dow, start_min, elapsed, ended, created_at, place) VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?)',
       playId,
       filmId,
       ctx.visitor,
@@ -46,6 +46,8 @@ export async function enter(ctx: Ctx, filmId: string, playId: unknown): Promise<
       film.startDow,
       film.startMin,
       now,
+      // 이야기는 디렉터가 적은 곳에서 시작한다. 그 뒤로는 장면을 쓰는 작가가 알려 준다
+      fs.place,
     ),
     q(
       'INSERT INTO turns (id, play_id, turn_no, request_id, kind, room, status, elapsed_before, elapsed_after, created_at) VALUES (?, ?, 1, ?, ?, ?, ?, 0, 0, ?)',

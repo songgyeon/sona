@@ -330,8 +330,8 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
   const fs = film.firstScene;
   /** 화면에 거는 그림. 읽는 자리의 컷이 먼저고, 없으면 첫 컷, 그것도 없으면 포스터 */
   const onScreen = shot || cutsOf(film)[0] || (film.stills ?? [])[0] || film.poster || '';
-  /** 첫 장면 안에 있는 동안만 장소를 적는다. 그 뒤로는 어디인지 서버가 모른다 */
-  const place = view.elapsed < CUT_AFTER ? fs.place : '';
+  /** 지금 장면이 벌어지는 곳. 장면을 쓰는 작가가 대목마다 알려 준 것이다. 모르면 적지 않는다 */
+  const place = view.place;
   const profile = (key: string) => go(`/play/${playId}/cast/${key}`);
   /** 내 배역 */
   const me = film.persona;

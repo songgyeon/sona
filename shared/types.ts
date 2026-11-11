@@ -153,6 +153,8 @@ export interface PlayView {
   ended: boolean;
   /** 지금 몇째 날인가. 첫 하루가 1 */
   day: number;
+  /** 지금 장면이 벌어지는 곳. 서버가 모르면 빈 글자 */
+  place: string;
   /** 내가 만든 필름인가 */
   mine: boolean;
   messages: MessageView[];
