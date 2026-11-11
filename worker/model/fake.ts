@@ -51,6 +51,7 @@ function demoScene(call: ModelCall): string {
   const [a = '가', b] = namesIn(call);
   const out = ['장소 | 늘 보던 자리', `${a}가 고개를 든다.`, `${a}: "응, 듣고 있어."`];
   if (b) out.push(`옆에서 ${b}가 책을 덮는다.`, `${b}: "나도 들었어."`);
+  out.push(`모습 | ${a}는 늘 보던 자리에 앉아 있다.`);
   return out.join('\n');
 }
 

@@ -69,8 +69,10 @@ export async function skip(ctx: Ctx, playId: string, input: { kind: unknown; req
         to,
         ctx.now(),
       ),
-      // 오래 비웠으면 앞 장면은 끝났다. 돌아와서 어디에 있는지는 다음 대목이 정한다
-      to - from >= RULES.scene.breakMin ? q("UPDATE plays SET elapsed = ?, place = '' WHERE id = ?", to, playId) : q('UPDATE plays SET elapsed = ? WHERE id = ?', to, playId),
+      // 오래 비웠으면 앞 장면은 끝났다. 돌아와서 어디에 어떤 모습으로 있는지는 다음 대목이 정한다
+      to - from >= RULES.scene.breakMin
+        ? q("UPDATE plays SET elapsed = ?, place = '', pose = '' WHERE id = ?", to, playId)
+        : q('UPDATE plays SET elapsed = ? WHERE id = ?', to, playId),
     ]);
   } catch (e) {
     if (isUniqueError(e)) return viewOf(ctx, playId);

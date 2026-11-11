@@ -17,6 +17,9 @@ export interface Play extends Clock {
   days: number;
   /** 지금 장면이 벌어지는 곳. 모르면 빈 글자 */
   place: string;
+  /** 바로 앞 대목이 끝났을 때 사람들의 모습 — 누가 어디에 어떤 자세로 있고 무엇을 들었나. 모르면 빈 글자.
+      다음 대목을 쓰는 작가에게만 건넨다. 화면에는 보내지 않는다 */
+  pose: string;
 }
 
 interface PlayRow {
@@ -30,6 +33,7 @@ interface PlayRow {
   ended: number;
   days: number | null;
   place: string | null;
+  pose: string | null;
 }
 
 function toPlay(r: PlayRow): Play {
@@ -44,6 +48,7 @@ function toPlay(r: PlayRow): Play {
     ended: r.ended === 1,
     days: r.days ?? 1,
     place: r.place ?? '',
+    pose: r.pose ?? '',
   };
 }
 

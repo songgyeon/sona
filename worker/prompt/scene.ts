@@ -41,13 +41,14 @@ export function lineOf(h: SceneLine): string {
 /** 앞뒤 말 사이가 크게 벌어졌으면 그 자리에 적어 둔다. 앞 장면은 거기서 끝난 것이다 */
 const passed = (clock: Clock, at: number) => `(시간이 흘렀다. 지금은 ${when(clock, at)}.)`;
 
-/** [지금] — 때, 그리고 알고 있으면 바로 앞 대목까지 장면이 벌어지던 곳 */
-function nowBlock(clock: Clock, out: string[], place = ''): void {
+/** [지금] — 때, 그리고 알고 있으면 바로 앞 대목까지 장면이 벌어지던 곳과 그 대목이 끝났을 때의 모습 */
+function nowBlock(clock: Clock, out: string[], place = '', pose = ''): void {
   const now = worldAt(clock);
   out.push('[지금]');
   out.push(`${DOW_NAMES[now.dow]} ${partOfDay(now.min)}.`);
   // 「지금 있는 곳」이라고 적으면 자리를 옮긴 뒤에도 작가가 그 이름을 그대로 베껴 적는다
   if (place) out.push(`바로 앞 대목까지 있던 곳: ${place}`);
+  if (pose) out.push(`바로 앞 대목이 끝났을 때의 모습: ${pose}`);
 }
 
 /** [이야기가 시작된 자리] — 디렉터가 쓴 오프닝. 지문은 그대로, 대사는 누가 한 말인지 붙여서. 적었으면 참 */
@@ -95,12 +96,14 @@ export interface WriterInput {
   history: SceneLine[];
   /** 바로 앞 대목까지 장면이 벌어지던 곳. 모르면 빈 글자(오래 비우고 돌아온 뒤가 그렇다) */
   place: string;
+  /** 바로 앞 대목이 끝났을 때 사람들의 모습. 모르면 빈 글자 */
+  pose: string;
 }
 
 /** 본편: 장면을 쓰는 작가에게 건네는 시나리오 */
 export function writerLayer(s: WriterInput): string {
   const out: string[] = [];
-  nowBlock(s.clock, out, s.place);
+  nowBlock(s.clock, out, s.place, s.pose);
   const opened = openingBlock(s.film, out);
 
   if (s.shared.length > 0) {

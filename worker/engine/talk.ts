@@ -41,20 +41,29 @@ const unquote = (t: string) => (t.length > 2 && OPEN.includes(t[0]!) && CLOSE.in
 /** 모델이 쓴 대목을 읽는다. 「이름: "대사"」 줄은 그 캐스트의 대사고, 나머지는 지문이다.
     글자를 지우거나 고치지 않는다 — 대사를 감싼 따옴표만 벗긴다. 이어지는 지문 줄은 한 덩이로 둔다.
     「장소 | 곳」 줄은 장면이 벌어지는 곳을 알리는 줄이다. 흐름에 놓지 않고 곳으로 읽는다(없으면 null).
+    「모습 | …」 줄은 대목이 끝났을 때 사람들이 어디에 어떻게 있는지 적은 줄이다. 이것도 흐름에 놓지 않는다(없으면 null).
     유저의 인물 이름으로 시작하는 대사 줄은 받지 않는다 — 그 사람의 말은 유저가 쓴다 */
-export function parseScene(raw: string, film: Film): { pieces: Piece[]; personaSpoke: boolean; place: string | null } {
+export function parseScene(raw: string, film: Film): { pieces: Piece[]; personaSpoke: boolean; place: string | null; pose: string | null } {
   const keyOf = new Map(film.casts.map((c) => [c.name, c.key]));
   /** 캐스트가 한 명뿐이면, 이름 없이 따옴표로만 감싼 줄도 그 사람의 말이다 */
   const only = film.casts.length === 1 ? film.casts[0]!.key : null;
   const pieces: Piece[] = [];
   let personaSpoke = false;
   let place: string | null = null;
+  let pose: string | null = null;
   for (const line of bubbles(raw)) {
     const where = /^장소\s*[|:：]\s*(.+)$/.exec(line);
     if (where) {
       // 곳 이름으로 보기에 너무 길면 받지 않는다. 잘라 쓰지 않는다
       const name = where[1]!.trim();
       if (name.length <= RULES.limits.place) place = name;
+      continue;
+    }
+    const how = /^[\s*\[(]*모습[\s*\])]*\s*[|:：]\s*(.+)$/.exec(line);
+    if (how) {
+      // 너무 길면 받지 않는다. 잘라 쓰지 않는다
+      const text = how[1]!.trim();
+      if (text.length <= RULES.limits.pose) pose = text;
       continue;
     }
     const m = /^([^:：]{1,24}?)\s*[:：]\s*(.+)$/.exec(line);
@@ -79,7 +88,7 @@ export function parseScene(raw: string, film: Film): { pieces: Piece[]; personaS
     if (last?.speaker === 'tell') last.text += `\n${line}`;
     else pieces.push({ speaker: 'tell', text: line });
   }
-  return { pieces, personaSpoke, place };
+  return { pieces, personaSpoke, place, pose };
 }
 
 /** 프롬프트에 실을 지나간 장면을 고른다. 뒤에서부터 정해진 글자 수가 찰 때까지 */
@@ -307,6 +316,7 @@ export async function answer(ctx: Ctx, play: Play, turn: TurnView): Promise<void
       ...(await knownTo(ctx, play)),
       history: toLines(play, recent(before)),
       place: play.place,
+      pose: play.pose,
     }),
   };
   const call: ModelCall = { purpose, layers, user, temperature: 0.8, maxTokens: 700 };
@@ -354,6 +364,8 @@ export async function answer(ctx: Ctx, play: Play, turn: TurnView): Promise<void
   );
   // 장면이 벌어지는 곳. 작가가 적어 주었을 때만 바꾼다
   if (read.place !== null) stmts.push(q('UPDATE plays SET place = ? WHERE id = ?', read.place, play.id));
+  // 대목이 끝났을 때의 모습. 작가가 적지 않았으면 비운다 — 묵은 모습을 다음 대목에 건네면 틀린 자세를 잇게 된다
+  stmts.push(q('UPDATE plays SET pose = ? WHERE id = ?', read.pose ?? '', play.id));
   stmts.push(q("UPDATE turns SET status = 'done', fail_reason = NULL WHERE id = ?", turn.id));
   stmts.push(logStmt(ctx, play.id, turn.id, call, out, true, read.personaSpoke ? '유저의 인물이 말한 줄은 받지 않음' : null));
   if (trialOver(play.elapsed, play.days)) stmts.push(q('UPDATE plays SET ended = 1 WHERE id = ?', play.id));

@@ -416,6 +416,53 @@ describe('본편: 지금 있는 곳', () => {
   });
 });
 
+describe('본편: 대목이 끝났을 때의 모습', () => {
+  const film = parseFilm(FILM);
+  const POSE = '한서는 계산대 뒤에 서 있다. 펜은 계산대 위에 놓여 있다.';
+  const WITH_POSE = `장소 | 계산대\n한서가 펜을 내려놓는다.\n한서: "네."\n모습 | ${POSE}`;
+
+  it('「모습 | …」 줄은 흐름에 놓지 않고 따로 읽는다', () => {
+    const r = parseScene(WITH_POSE, film);
+    expect(r.pose).toBe(POSE);
+    expect(r.pieces).toEqual([
+      { speaker: 'tell', text: '한서가 펜을 내려놓는다.' },
+      { speaker: 'c1', text: '네.' },
+    ]);
+    // 이름표를 꾸며도 읽는다. 적지 않았으면 모른다. 너무 길면 받지 않는다
+    expect(parseScene(`한서: "네."\n**모습** : ${POSE}`, film)).toMatchObject({ pose: POSE, pieces: [{ speaker: 'c1', text: '네.' }] });
+    expect(parseScene('한서: "네."', film).pose).toBeNull();
+    expect(parseScene(`한서: "네."\n모습 | ${'가'.repeat(301)}`, film)).toMatchObject({ pose: null, pieces: [{ speaker: 'c1', text: '네.' }] });
+  });
+
+  it('다음 대목을 쓸 때 [지금]에 적혀 돌아간다. 화면에는 나오지 않는다', async () => {
+    let n = 0;
+    const { send, calls } = await setup(FILM, { reply: () => (n++ === 0 ? WITH_POSE : '한서: "네."') });
+    const v = await send('안녕하세요.');
+    expect(v.messages.some((m) => m.text.includes('모습'))).toBe(false);
+    expect(JSON.stringify(v)).not.toContain(POSE);
+    // 아직 적어 준 적이 없으니 첫 대목에는 건네지 않는다
+    expect(calls('reply')[0]!.layers.scene).not.toContain('끝났을 때의 모습');
+
+    await send('뭐 하세요?');
+    expect(calls('reply')[1]!.layers.scene).toContain(`[지금]\n금요일 낮.\n바로 앞 대목까지 있던 곳: 계산대\n바로 앞 대목이 끝났을 때의 모습: ${POSE}`);
+
+    // 작가가 적지 않았으면 모른다. 묵은 모습을 건네지 않는다
+    await send('그렇군요.');
+    expect(calls('reply')[2]!.layers.scene).not.toContain('끝났을 때의 모습');
+  });
+
+  it('오래 비우고 돌아오면 모른다. 잠깐 비운 것은 그대로다', async () => {
+    const { ctx, playId, send, calls } = await setup(FILM, { reply: WITH_POSE });
+    await send('잠깐만요.');
+    await skip(ctx, playId, { kind: 'short', requestId: uid() });
+    await send('다녀왔어요.');
+    expect(calls('reply').at(-1)!.layers.scene).toContain(`끝났을 때의 모습: ${POSE}`);
+    await skip(ctx, playId, { kind: 'sleep', requestId: uid() });
+    await send('좋은 아침이에요.');
+    expect(calls('reply').at(-1)!.layers.scene).not.toContain('끝났을 때의 모습');
+  });
+});
+
 describe('본편: 시간을 넘긴 뒤', () => {
   it('앞 장면과 지금 사이에 시간이 흘렀다고 적힌다', async () => {
     const { ctx, playId, send, calls } = await setup();
