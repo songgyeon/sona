@@ -21,8 +21,12 @@ const COMMON = new Set(
 /** 한 글자짜리 말은 흉내말만 센다. 「툭」 같은 말은 지문에 버릇처럼 붙는다 */
 const MIMETIC = new Set('툭 픽 쓱 슥 휙 탁 턱 쿡 꾹 톡 콱 확 홱 척 뚝 딱 쭉 푹 꽉 쾅 쿵'.split(' '));
 
-/** 낱말의 뿌리. 세 글자 넘는 말은 앞 두 글자로 본다 — 「무심한」과 「무심하게」가 같은 말로 세어진다 */
-const root = (word: string): string => (word.length >= 3 ? word.slice(0, 2) : word);
+/** 낱말의 뿌리. 세 글자 넘는 말은 앞 두 글자로 본다 — 「무심한」과 「무심하게」가 같은 말로 세어진다.
+    겹쳐 쓴 흉내말은 한 글자로 본다 — 「툭툭」은 「툭」이다 */
+function root(word: string): string {
+  if (word.length === 2 && word[0] === word[1] && MIMETIC.has(word[0]!)) return word[0]!;
+  return word.length >= 3 ? word.slice(0, 2) : word;
+}
 
 /** 두 낱말이 함께 가진 앞머리 */
 function head(a: string, b: string): string {

@@ -3,7 +3,7 @@ import { RULES } from '../../shared/rules';
 import { createFilm, parseFilm } from '../../worker/engine/films';
 import { skip } from '../../worker/engine/skip';
 import { viewOf } from '../../worker/engine/store';
-import { lastShapes, parseScene, rhythmFor } from '../../worker/engine/talk';
+import { lastShapes, lengthFor, parseScene, rhythmFor } from '../../worker/engine/talk';
 import { enter, retry, say } from '../../worker/engine/turn';
 import { Fail } from '../../worker/engine/ctx';
 import { FAKE_DEFAULTS } from '../../worker/model/fake';
@@ -257,12 +257,18 @@ describe('본편: 대목의 모양', () => {
     expect(rhythmFor(tellSay, 'turn-7')).toBe(rhythmFor(tellSay, 'turn-7'));
   });
 
+  it('길이도 그때그때 하나를 짚어 준다. 네 줄에서 여섯 줄 사이다', () => {
+    const picked = new Set(Array.from({ length: 40 }, (_, i) => lengthFor(`turn-${i}`)));
+    expect([...picked].sort()).toEqual(['네 줄쯤', '다섯 줄쯤', '여섯 줄쯤'].sort());
+    expect(lengthFor('turn-7')).toBe(lengthFor('turn-7'));
+  });
+
   it('유저가 쓴 것 바로 뒤에 붙여 건넨다. 다시 받아도 같은 말이다', async () => {
     let n = 0;
     const { ctx, playId, send, calls } = await setup(FILM, { reply: () => (n++ === 0 ? '' : '한서가 고개를 든다.\n한서: "응, 듣고 있어."') });
     await send('첫째 말.');
     const first = calls('reply')[0]!.user;
-    expect(first).toMatch(/^수아: 첫째 말\.\n\(이번 대목의 모양: (지문으로|대사로) 시작해서 (지문으로|대사로) 끝낸다.*\. 길이는 세 줄에서 여섯 줄 사이에서 그때그때 다르게 쓴다\.\)$/);
+    expect(first).toMatch(/^수아: 첫째 말\.\n\(이번 대목의 모양: (지문으로|대사로) 시작해서 (지문으로|대사로) 끝낸다.*\. 지문과 대사를 합쳐 (네|다섯|여섯) 줄쯤으로 쓴다\.\)$/);
     await retry(ctx, playId);
     expect(calls('reply')[1]!.user).toBe(first);
 

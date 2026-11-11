@@ -229,9 +229,18 @@ export function rhythmFor(messages: MessageView[], seed: string): string {
   return pool[n % pool.length]!.text;
 }
 
+/** 이번 대목의 길이. 「네 줄에서 여섯 줄」이라고만 이르면 모델은 늘 가장 짧게 쓴다. 그래서 그때그때 하나를 짚어 준다.
+    같은 턴이면 늘 같은 것을 고른다 */
+const LENGTHS = ['네 줄쯤', '다섯 줄쯤', '여섯 줄쯤'] as const;
+export function lengthFor(seed: string): string {
+  let n = 7;
+  for (const ch of seed) n = (n * 33 + ch.charCodeAt(0)) >>> 0;
+  return LENGTHS[n % LENGTHS.length]!;
+}
+
 /** 이번 대목의 모양을 이르는 말. 유저가 쓴 것 바로 뒤에 붙인다 */
 export const shapeCue = (messages: MessageView[], seed: string): string =>
-  `(이번 대목의 모양: ${rhythmFor(messages, seed)}. 길이는 세 줄에서 여섯 줄 사이에서 그때그때 다르게 쓴다.)`;
+  `(이번 대목의 모양: ${rhythmFor(messages, seed)}. 지문과 대사를 합쳐 ${lengthFor(seed)}으로 쓴다.)`;
 
 /** 요즘 대목들에 자주 나온 말을 알려 준다. 지문과 대사를 따로 센다.
     같은 말이 돌기 시작하면 모델은 스스로 못 빠져나온다 — 앞에 쓴 것을 보고 또 쓴다.
