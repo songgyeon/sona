@@ -122,6 +122,8 @@ export const api = {
   skip: (id: string, kind: 'evening' | 'sleep', requestId: string) =>
     call<PlayView>('POST', `/api/plays/${id}/skip`, { kind, requestId }),
   retry: (id: string) => call<PlayView>('POST', `/api/plays/${id}/retry`, {}),
+  /** 내 삶에서 내 배역의 사진과 정보를 고친다 */
+  setPersona: (id: string, mine: { name: string; line: string; face: string }) => call<PlayView>('POST', `/api/plays/${id}/persona`, mine),
   /** 하루가 끝난 삶을 다음 날로 잇는다 */
   next: (id: string) => call<PlayView>('POST', `/api/plays/${id}/next`, {}),
 };

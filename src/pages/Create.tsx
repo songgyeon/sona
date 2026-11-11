@@ -292,17 +292,32 @@ export function Create({ go, editId }: { go: (to: string) => void; editId?: stri
             <p className="lead">필름에 나오는 인물을 적어 주세요.</p>
 
             <Card title="내 배역" sub="필름 안에서 내가 맡는 인물이에요.">
-              <Field label="이름" must count={[d.personaName.length, 20]}>
-                <input value={d.personaName} maxLength={20} placeholder="예) 다온" onChange={(e) => set('personaName', e.target.value)} />
-              </Field>
-              <Field label="어떤 사람">
-                <input
+              <div className="casthead">
+                <label className={d.personaFace ? 'drop facepick has' : 'drop facepick'}>
+                  {d.personaFace ? (
+                    <img src={imgUrl(d.personaFace)} alt="" />
+                  ) : (
+                    <>
+                      <Upload />
+                      <b>사진</b>
+                    </>
+                  )}
+                  <input type="file" accept={PICTURES} disabled={busy} aria-label="내 배역의 사진 고르기" onChange={(e) => pick(e, 640, (id) => set('personaFace', id))} />
+                </label>
+                <Field label="이름" must count={[d.personaName.length, 20]}>
+                  <input value={d.personaName} maxLength={20} placeholder="예) 다온" onChange={(e) => set('personaName', e.target.value)} />
+                </Field>
+              </div>
+              <Field label="어떤 사람" count={[d.personaLine.length, RULES.limits.persona]}>
+                <textarea
+                  rows={2}
                   value={d.personaLine}
-                  maxLength={RULES.limits.short}
+                  maxLength={RULES.limits.persona}
                   placeholder="예) 한 학기 만에 방송부로 돌아온 사람"
                   onChange={(e) => set('personaLine', e.target.value)}
                 />
               </Field>
+              <p className="hint">플레이하는 사람은 사진과 정보를 자기 것으로 고칠 수 있어요.</p>
             </Card>
 
             {d.casts.map((c, i) => (
@@ -701,7 +716,7 @@ function Grow({ label, value, maxLength, placeholder, onChange }: { label: strin
 }
 
 /** 관련된 칸을 묶은 한 장 */
-function Card({ title, count, sub, children }: { title: string; count?: string; sub?: string; children: ReactNode }) {
+export function Card({ title, count, sub, children }: { title: string; count?: string; sub?: string; children: ReactNode }) {
   return (
     <section className="card">
       <h3>
@@ -715,7 +730,7 @@ function Card({ title, count, sub, children }: { title: string; count?: string; 
 }
 
 /** 칸 하나. 이름표는 짧게 두고, 도움말은 따로 달아 읽어 주는 순서를 지킨다 */
-function Field({
+export function Field({
   label,
   hint,
   must,

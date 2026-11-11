@@ -7,6 +7,7 @@
 - **링크로 보여 주기** — 필름의 주소를 받은 사람은 그 필름 정보로 바로 와서 들어간다. 목록에는 만든 사람의 것만 나온다.
 - **필름에 들어가기** — 제목이 뜨고 오프닝이 흐른다. 내려 읽으면 컷을 넣은 자리에서 화면의 그림이 바뀌고, 끝에 닿으면 그 인물로 말한다. 말을 보낼 때마다 작중 시간이 흐른다.
 - **자리 비우기** — 떠났다가 돌아오면 그 사이 캐스트가 보낸 하루가 피드와 먼저 온 연락에 남아 있다.
+- **내 배역** — 플레이하는 사람이 자기 배역의 프로필 사진·이름·소개를 고칠 수 있다. 그 사람의 삶에만 적힌다.
 - **한편** — 서로 아는 캐스트가 여럿인 필름에서는, 내가 없는 사이에 두 사람이 나눈 장면을 읽기만 할 수 있다. 그 일은 두 사람만 안다. 보여 줄지는 디렉터가 정한다.
 - 작중 24시간이 하루다. 하루가 차면 엔드 크레딧이 오르고, 다음 날로 이어 살 수 있다.
 
@@ -44,11 +45,11 @@ shared/    types.ts · rules.ts(시간과 연락의 값) · clock.ts(작중 시�
            opening.ts(오프닝 읽기, 예전 필름을 지금 모양으로) · draft.ts(만들기 화면의 칸 ↔ 필름)
 worker/    index.ts(길) · guard.ts(열쇠, 하루 호출 수) · db.ts · schema.ts(표)
            engine/  films(필름 읽고 쓰기) · images(그림) · turn(입장·한 마디·다시 받기) · talk(답 받기)
-                    skip(시간 넘기기) · gap(그 사이의 하루) · ping(먼저 오는 연락) · aside(한편) · store
+                    skip(시간 넘기기) · gap(그 사이의 하루) · ping(먼저 오는 연락) · aside(한편) · persona(내 배역) · store
            prompt/  system · cast · scene
            model/   index · openrouter · fake
 src/       styles.css(생김새) · poster(포스터, 얼굴, 필름 한 줄) · tabs · icons
-           pages/   Home(홈) · Film(필름 정보) · Cast(캐스트 프로필과 피드) · Play(재생) · Aside(한편)
+           pages/   Home(홈) · Film(필름 정보) · Cast(캐스트 프로필과 피드) · Play(재생) · Aside(한편) · Me(내 배역)
                     Create(필름 만들기) · Lists(찾기, 이어 살기, 내 필름)
 test/      engine/*.test.ts
 ```

@@ -265,6 +265,11 @@ button:disabled { opacity: 0.4; cursor: default; }
 .say.me { grid-template-columns: 1fr; text-align: right; }
 .say.me p { color: var(--ink-2); font-weight: 500; }
 .say.sending p { opacity: 0.5; }
+/* 내 사진을 올렸으면 내 대사 오른쪽에 선다 */
+.say.me.faced { grid-template-columns: 1fr 38px; }
+/* 위 띠 오른쪽: 내 배역으로 가는 내 얼굴 */
+.mine { width: 40px; height: 40px; display: grid; place-items: center; }
+.mine .face { width: 28px; height: 28px; font-size: 11px; }
 /* 작품 속 폰으로 온 메시지. 말풍선은 여기만 쓴다 */
 .msg { margin: 22px 0; display: grid; grid-template-columns: 30px 1fr; column-gap: 12px; align-items: end; text-align: left; width: 100%; }
 .msg .face { width: 30px; height: 30px; font-size: 12px; }

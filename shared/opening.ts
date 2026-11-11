@@ -10,7 +10,12 @@ type OldScene = Omit<FirstScene, 'beats'> & { beats?: Beat[]; situation?: string
     그 필름으로 살던 삶에는 그 말이 이미 대사로 들어가 있다 */
 export function readFilm(saved: Film): Film {
   // 한편이 생기기 전의 필름에는 그 스위치가 없다. 꺼진 것으로 읽는다
-  const stored: Film = { ...saved, opens: { ...saved.opens, aside: saved.opens?.aside === true } };
+  // 배역의 사진이 생기기 전의 필름에는 그 칸도 없다. 비어 있는 것으로 읽는다
+  const stored: Film = {
+    ...saved,
+    opens: { ...saved.opens, aside: saved.opens?.aside === true },
+    persona: { ...saved.persona, face: saved.persona?.face ?? '' },
+  };
   const fs = stored.firstScene as OldScene;
   if (Array.isArray(fs.beats)) return stored;
   const beats: Beat[] = [];

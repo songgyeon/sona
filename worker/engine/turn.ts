@@ -8,6 +8,7 @@ import { isUniqueError, newId, q, type Stmt } from '../db';
 import { isUuid } from '../guard';
 import { type Ctx, Fail } from './ctx';
 import { getFilm } from './films';
+import { applyMine, savedMine } from './persona';
 import { lastTurn, loadPlay, viewOf } from './store';
 import { settle } from './skip';
 import { answer } from './talk';
@@ -22,7 +23,10 @@ export async function enter(ctx: Ctx, filmId: string, playId: unknown): Promise<
     return viewOf(ctx, playId);
   }
 
-  const { film } = await getFilm(ctx, filmId);
+  const made = (await getFilm(ctx, filmId)).film;
+  // 이 사람이 이 필름에서 쓰던 내 배역이 있으면 그것으로 들어간다
+  const mine = await savedMine(ctx.db, ctx.visitor, filmId);
+  const film = mine ? applyMine(made, mine) : made;
   const fs = film.firstScene;
   const cast = film.casts.find((c) => c.key === fs.room)!;
   const turnId = newId();

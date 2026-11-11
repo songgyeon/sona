@@ -42,6 +42,8 @@ export interface Draft {
   aside: boolean;
   personaName: string;
   personaLine: string;
+  /** 내 배역의 프로필 사진 */
+  personaFace: string;
   casts: DraftCast[];
   /** 「0>1」 = 첫째 캐스트가 둘째 캐스트를 */
   ties: Record<string, { relation: string; calls: string }>;
@@ -77,6 +79,7 @@ export const blankDraft = (): Draft => ({
   aside: true,
   personaName: '',
   personaLine: '',
+  personaFace: '',
   casts: [blankCast()],
   ties: {},
   place: '',
@@ -114,7 +117,7 @@ export function toFilm(d: Draft): unknown {
     startDow: d.startDow,
     startMin: toMin(d.startTime),
     opens: { feed: d.feed, ping: d.ping, aside: d.aside },
-    persona: { name: d.personaName, line: d.personaLine },
+    persona: { name: d.personaName, line: d.personaLine, face: d.personaFace },
     casts: d.casts.map((c) => ({
       name: c.name,
       face: c.face,
@@ -189,6 +192,7 @@ export function fromFilm(f: Film): Draft {
     aside: f.casts.length > 1 ? f.opens.aside === true : true,
     personaName: f.persona.name,
     personaLine: f.persona.line,
+    personaFace: f.persona.face ?? '',
     casts: f.casts.map((c) => ({
       name: c.name,
       face: c.face ?? '',

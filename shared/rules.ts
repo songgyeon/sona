@@ -61,6 +61,8 @@ export const RULES = {
     logline: 80,
     setting: 600,
     short: 80,
+    /** 내 배역이 어떤 사람인지 */
+    persona: 200,
     sample: 80,
     /** 오프닝에 쓰는 글(지문과 대사)을 모두 합친 길이 */
     opening: 2000,

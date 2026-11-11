@@ -5,6 +5,7 @@ import { Cast } from './pages/Cast';
 import { Create } from './pages/Create';
 import { Film } from './pages/Film';
 import { Home } from './pages/Home';
+import { Me } from './pages/Me';
 import { Find, Living, Mine } from './pages/Lists';
 import { Play } from './pages/Play';
 import { useRoute } from './router';
@@ -72,6 +73,7 @@ export function App() {
   let m: RegExpExecArray | null;
   if ((m = new RegExp(`^/play/${ID}/cast/(c[1-9])$`).exec(path))) return <Cast playId={m[1]!} castKey={m[2]!} go={go} />;
   if ((m = new RegExp(`^/play/${ID}/aside/${ID}$`).exec(path))) return <Aside key={m[2]} playId={m[1]!} asideId={m[2]!} go={go} />;
+  if ((m = new RegExp(`^/play/${ID}/me$`).exec(path))) return <Me key={m[1]} playId={m[1]!} go={go} />;
   if ((m = new RegExp(`^/play/${ID}$`).exec(path))) return <Play key={m[1]} playId={m[1]!} go={go} />;
   if ((m = new RegExp(`^/film/${ID}/cast/(c[1-9])$`).exec(path))) return <Cast filmId={m[1]!} castKey={m[2]!} go={go} />;
   if ((m = new RegExp(`^/film/${ID}/edit$`).exec(path))) return <Create key={m[1]} editId={m[1]!} go={go} />;

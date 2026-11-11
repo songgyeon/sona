@@ -9,7 +9,7 @@ import { type Ctx, Fail } from './ctx';
 
 const L = RULES.limits;
 
-function text(v: unknown, max: number, name: string, required = false): string {
+export function text(v: unknown, max: number, name: string, required = false): string {
   const s = typeof v === 'string' ? v.trim() : '';
   if (required && s.length === 0) throw new Fail(400, 'film_invalid', `${name} 칸을 채워 주세요.`);
   if (s.length > max) throw new Fail(400, 'film_invalid', `${name} 칸은 ${max}자까지 쓸 수 있어요.`);
@@ -33,7 +33,7 @@ function list(v: unknown, maxItems: number, maxLen: number, name: string): strin
 }
 
 /** 올려 둔 그림을 가리키는 값. 비어 있어도 된다 */
-function image(v: unknown, name: string): string {
+export function image(v: unknown, name: string): string {
   if (v == null || v === '') return '';
   if (!isUuid(v)) throw new Fail(400, 'film_invalid', `${name} 그림이 올바르지 않아요.`);
   return v;
@@ -142,7 +142,8 @@ export function parseFilm(input: unknown): Film {
     opens: { feed: opens.feed !== false, ping: opens.ping !== false, aside: opens.aside === true && casts.length > 1 },
     persona: {
       name: text(persona.name, 20, '내 배역의 이름', true),
-      line: text(persona.line, L.short, '내 배역 설명'),
+      line: text(persona.line, L.persona, '내 배역 설명'),
+      face: image(persona.face, '내 배역'),
     },
     casts,
     ties,

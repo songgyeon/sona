@@ -85,6 +85,17 @@ export const SCHEMA: string[] = [
   )`,
   `CREATE INDEX IF NOT EXISTS asides_play ON asides(play_id, at)`,
 
+  // 내 배역: 플레이하는 사람이 고친 사진과 정보. 같은 필름에 다시 들어가도 이어지게 사람과 필름마다 기억해 둔다
+  `CREATE TABLE IF NOT EXISTS personas (
+    visitor TEXT NOT NULL,
+    film_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    line TEXT NOT NULL,
+    face TEXT NOT NULL,
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY (visitor, film_id)
+  )`,
+
   // 일어난 일. 추가만 한다. known_by는 아는 사람 목록(JSON 배열)
   `CREATE TABLE IF NOT EXISTS events (
     id TEXT PRIMARY KEY,

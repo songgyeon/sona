@@ -323,6 +323,8 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
   /** 첫 장면 안에 있는 동안만 장소를 적는다. 그 뒤로는 어디인지 서버가 모른다 */
   const place = view.elapsed < CUT_AFTER ? fs.place : '';
   const profile = () => go(`/play/${playId}/cast/${cast.key}`);
+  /** 내 배역 */
+  const me = film.persona;
   /** 「첫 하루」, 「둘째 날」 … */
   const today = dayName(view.day);
 
@@ -331,6 +333,10 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
       <div className="band">
         <button className="ico" onClick={() => go('/')} aria-label="필름에서 나가기">
           <Back />
+        </button>
+        {/* 내 배역. 사진과 정보를 고치러 간다 */}
+        <button className="mine" onClick={() => go(`/play/${playId}/me`)} aria-label="내 배역">
+          <Face id={me.face ?? ''} name={me.name} />
         </button>
       </div>
 
@@ -401,11 +407,12 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
                 </p>
               ))
             ) : m.speaker === 'persona' ? (
-              <div className="say me">
+              <div className={me.face ? 'say me faced' : 'say me'}>
                 <div>
-                  <small>{film.persona.name}</small>
+                  <small>{me.name}</small>
                   <p>{m.text}</p>
                 </div>
+                {me.face && <Face id={me.face} name={me.name} />}
               </div>
             ) : m.kind === 'ping' ? (
               // 작품 속 폰으로 먼저 온 연락. 말풍선은 여기만 쓴다
@@ -430,11 +437,12 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
         )}
 
         {pendingHere && (
-          <div className="say me sending">
+          <div className={me.face ? 'say me faced sending' : 'say me sending'}>
             <div>
-              <small>{film.persona.name}</small>
+              <small>{me.name}</small>
               <p>{pendingHere.text}</p>
             </div>
+            {me.face && <Face id={me.face} name={me.name} />}
           </div>
         )}
         {waiting && !away && (
