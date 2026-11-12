@@ -1,13 +1,15 @@
 /* 피드 한 칸. 종류마다 영화의 물건으로 놓는다 — 흑백 틀, 색은 사진에서만.
    본 영화·드라마: 영화표 반쪽 / 들은 노래: 필름 가장자리의 소리 띠 / 일기: 무성영화의 자막 카드 /
-   사진: 35mm 필름 한 칸 / 검색어: 화면을 크게 잡은 한 컷 / 본 영상: 상영 시간표. 한 줄 글은 예전 그대로 */
+   사진: 35mm 필름 한 칸 / 검색어: 화면을 크게 잡은 한 컷 / 본 영상: 상영 시간표 / 읽은 책: 크레딧의 원작 표기. 한 줄 글은 예전 그대로.
+   고칠 수 있는 사람에게는 글마다 연필이 선다. 누르면 「수정」「삭제」(PostTools) */
 
 import { type Clock, formatWorld, worldAt } from '../shared/clock';
 import { postLabel } from '../shared/feed';
-import { DOW_NAMES } from '../shared/rules';
+import { DOW_NAMES, RULES } from '../shared/rules';
 import type { PostData, PostView } from '../shared/types';
 import { useState } from 'react';
 import { imgUrl } from './api';
+import { Pen } from './icons';
 
 /** 같은 글이면 늘 같은 수(상영관, 좌석, 소리 띠의 모양) */
 function hash(s: string): number {
@@ -126,6 +128,16 @@ export function FeedItem({ post, clock, no = 1 }: { post: PostView; clock: Clock
           {d.note && <p className="fnote">{d.note}</p>}
         </>
       )}
+      {d.kind === 'book' && (
+        <>
+          <div className="orig">
+            <small>원작</small>
+            <h3>{d.title}</h3>
+            {d.author && <p>{d.author}</p>}
+          </div>
+          {d.note && <p className="fnote">{d.note}</p>}
+        </>
+      )}
       {d.kind === 'diary' && (
         <div className="intertitle">
           <div className="in">
@@ -204,35 +216,121 @@ function Program({ post, d, clock }: { post: PostView; d: Extract<PostData, { ki
   );
 }
 
-/** 피드 글 밑의 「지우기」. 되돌릴 수 없어서 한 번 묻는다. onDrop은 못 지웠으면 까닭을 돌려준다 */
-export function PostDrop({ onDrop }: { onDrop: () => Promise<string | null> }) {
-  const [asking, setAsking] = useState(false);
+/** 고친 글을 서버에 보내는 모양. 내 글은 { text }, 그 밖에는 그 종류의 칸들 */
+export type PostEdit = Record<string, unknown>;
+
+type Mode = 'idle' | 'menu' | 'edit' | 'ask';
+
+/** 피드 글의 연필. 누르면 「수정」「삭제」가 뜬다. 수정은 그 자리에서 고치고, 삭제는 한 번 묻는다(되돌릴 수 없다).
+    onSave, onDrop은 못 했으면 까닭을 돌려준다 */
+export function PostTools({ post, onSave, onDrop }: { post: PostView; onSave: (input: PostEdit) => Promise<string | null>; onDrop: () => Promise<string | null> }) {
+  const [mode, setMode] = useState<Mode>('idle');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
-  const drop = async () => {
+  const run = async (f: () => Promise<string | null>, after: Mode) => {
     setBusy(true);
-    const why = await onDrop();
+    setErr('');
+    const why = await f();
     setBusy(false);
     if (why) setErr(why);
+    else setMode(after);
   };
   return (
-    <div className="pdrop">
-      {asking ? (
-        <p className="ask">
-          이 글을 지울까요?
-          <button className="textbtn" disabled={busy} onClick={() => void drop()}>
-            지우기
-          </button>
-          <button className="textbtn" disabled={busy} onClick={() => setAsking(false)}>
-            취소
-          </button>
-        </p>
+    <div className="ptools">
+      {mode === 'edit' ? (
+        <PostEditor post={post} busy={busy} onSave={(input) => void run(() => onSave(input), 'idle')} onCancel={() => setMode('idle')} />
       ) : (
-        <button className="textbtn" onClick={() => setAsking(true)}>
-          지우기
-        </button>
+        <div className="prow">
+          {mode === 'ask' && (
+            <p className="ask">
+              이 글을 지울까요?
+              <button className="textbtn" disabled={busy} onClick={() => void run(onDrop, 'idle')}>
+                지우기
+              </button>
+              <button className="textbtn" disabled={busy} onClick={() => setMode('idle')}>
+                취소
+              </button>
+            </p>
+          )}
+          {mode === 'menu' && (
+            <div className="pmenu" role="menu">
+              <button role="menuitem" onClick={() => setMode('edit')}>
+                수정
+              </button>
+              <button role="menuitem" onClick={() => setMode('ask')}>
+                삭제
+              </button>
+            </div>
+          )}
+          {mode !== 'ask' && (
+            <button className="ico pen" aria-label="글 고치기" aria-expanded={mode === 'menu'} onClick={() => setMode(mode === 'menu' ? 'idle' : 'menu')}>
+              <Pen />
+            </button>
+          )}
+        </div>
       )}
       {err && <p className="warn">{err}</p>}
+    </div>
+  );
+}
+
+/** 고치는 칸: [보내는 이름, 이름표, 최대 길이, 여러 줄] */
+type Slot = [string, string, number, boolean];
+
+/** 글의 종류마다 고칠 칸과 지금 값. 종류는 바꾸지 않는다 */
+function slotsOf(post: PostView): { slots: Slot[]; values: Record<string, string> } {
+  const d = post.data;
+  const F = RULES.feed;
+  switch (d.kind) {
+    case 'watch':
+      return {
+        slots: [['title', '제목', F.title, false], ...(d.form === 'drama' ? ([['ep', '회차', F.ep, false]] as Slot[]) : []), ['note', '한마디', F.note, false]],
+        values: { title: d.title, ep: d.ep, note: d.note },
+      };
+    case 'song':
+      return { slots: [['title', '곡명', F.title, false], ['artist', '부른 사람', F.artist, false], ['note', '한마디', F.note, false]], values: { title: d.title, artist: d.artist, note: d.note } };
+    case 'book':
+      return { slots: [['title', '제목', F.title, false], ['author', '지은이', F.artist, false], ['note', '한마디', F.note, false]], values: { title: d.title, author: d.author, note: d.note } };
+    case 'diary':
+      return { slots: [['text', '일기', F.diary, true]], values: { text: d.text } };
+    case 'photo':
+      return { slots: [['note', '한마디', F.note, false]], values: { note: d.note } };
+    case 'search':
+      return { slots: [['queries', '검색어', (F.query + 1) * F.items, true]], values: { queries: d.queries.join('\n') } };
+    case 'tube':
+      return { slots: [['items', '본 영상', (F.title + 12) * F.items, true]], values: { items: d.items.map((x) => (x.length ? `${x.title} (${x.length})` : x.title)).join('\n') } };
+    default:
+      return { slots: [['text', '글', RULES.feed.length, true]], values: { text: post.text } };
+  }
+}
+
+/** 그 자리에서 고치는 칸들. 저장하면 서버가 다시 읽는다 */
+function PostEditor({ post, busy, onSave, onCancel }: { post: PostView; busy: boolean; onSave: (input: PostEdit) => void; onCancel: () => void }) {
+  const { slots, values } = slotsOf(post);
+  const [v, setV] = useState(values);
+  const lines = (k: string) => (v[k] ?? '').split('\n').map((x) => x.trim()).filter((x) => x.length > 0);
+  const save = () => onSave(Object.fromEntries(slots.map(([k]) => [k, k === 'queries' || k === 'items' ? lines(k) : (v[k] ?? '')])));
+  return (
+    <div className="pedit2">
+      {slots.map(([k, label, max, area]) => (
+        <label key={k} className="pf">
+          <span>{label}</span>
+          {area ? (
+            <textarea rows={k === 'queries' || k === 'items' ? 3 : 4} value={v[k] ?? ''} maxLength={max} onChange={(e) => setV((x) => ({ ...x, [k]: e.target.value }))} />
+          ) : (
+            <input value={v[k] ?? ''} maxLength={max} onChange={(e) => setV((x) => ({ ...x, [k]: e.target.value }))} />
+          )}
+          {(k === 'queries' || k === 'items') && <small>한 줄에 하나씩 적어 주세요.</small>}
+        </label>
+      ))}
+      <div className="acts">
+        <button className="btn play" disabled={busy} onClick={save}>
+          저장
+        </button>
+        <button className="textbtn" disabled={busy} onClick={onCancel}>
+          취소
+        </button>
+      </div>
     </div>
   );
 }

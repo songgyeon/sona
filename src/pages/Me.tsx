@@ -5,7 +5,7 @@ import type { MyPersona, PlayView } from '../../shared/types';
 import { ApiFail, api } from '../api';
 import { FacePick } from '../crop';
 import { Back } from '../icons';
-import { PostDrop } from '../feed';
+import { PostTools } from '../feed';
 import { Card, Field } from './Create';
 import { Tabs } from '../tabs';
 import { goBack } from '../router';
@@ -142,19 +142,26 @@ export function Me({ playId, go }: { playId: string; go: (to: string) => void })
                   <time>{formatWorld(clock, p.at)}</time>
                   <p>{p.text}</p>
                 </article>
-                {/* 피드 글은 이 필름을 만든 사람만 지운다 */}
-                {view.mine && (
-                  <PostDrop
-                    onDrop={async () => {
-                      try {
-                        setView(await api.dropPost(playId, p.id));
-                        return null;
-                      } catch (e) {
-                        return e instanceof ApiFail ? e.message : '지우지 못했어요.';
-                      }
-                    }}
-                  />
-                )}
+                {/* 내 글은 내가 고치고 지운다 */}
+                <PostTools
+                  post={p}
+                  onSave={async (input) => {
+                    try {
+                      setView(await api.editPost(playId, p.id, input));
+                      return null;
+                    } catch (e) {
+                      return e instanceof ApiFail ? e.message : '고치지 못했어요.';
+                    }
+                  }}
+                  onDrop={async () => {
+                    try {
+                      setView(await api.dropPost(playId, p.id));
+                      return null;
+                    } catch (e) {
+                      return e instanceof ApiFail ? e.message : '지우지 못했어요.';
+                    }
+                  }}
+                />
               </div>
             ))}
           </Card>

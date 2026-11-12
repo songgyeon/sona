@@ -984,12 +984,33 @@ button:disabled { opacity: 0.4; cursor: default; }
 .life .ask { display: flex; justify-content: flex-end; align-items: center; gap: 18px; padding: 0 0 14px; font-size: 12.5px; color: var(--ink-2); }
 .life .ask .textbtn:first-of-type { color: var(--ink); }
 
-/* 피드 글 밑의 지우기. 글보다 작게, 오른쪽에 */
+/* 피드 글 밑의 연필. 누르면 「수정」「삭제」가 옆에 선다. 고치는 칸은 그 자리에 */
 .postwrap { position: relative; }
-.pdrop { display: flex; flex-direction: column; align-items: flex-end; margin: -4px 0 14px; }
-.pdrop .ask { display: flex; align-items: center; gap: 18px; font-size: 12.5px; color: var(--ink-2); }
-.pdrop .ask .textbtn:first-of-type { color: var(--ink); }
-.pdrop .warn { margin-top: 6px; }
+.ptools { margin: -6px 0 14px; }
+.prow { display: flex; justify-content: flex-end; align-items: center; gap: 6px; min-height: 36px; }
+.ptools .pen svg { width: 17px; height: 17px; color: var(--ink-3); }
+.ptools .pen[aria-expanded='true'] svg { color: var(--ink); }
+.pmenu { display: flex; border: 1px solid var(--ink-4); background: #0e0e0e; }
+.pmenu button { padding: 7px 14px; font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.pmenu button + button { border-left: 1px solid var(--ink-4); }
+.ptools .ask { display: flex; align-items: center; gap: 18px; font-size: 12.5px; color: var(--ink-2); }
+.ptools .ask .textbtn:first-of-type { color: var(--ink); }
+.ptools .warn { margin-top: 6px; text-align: right; }
+.pedit2 { margin-top: 4px; padding: 14px; display: grid; gap: 12px; border: 1px solid var(--hair); background: #0e0e0e; }
+.pedit2 .pf { display: grid; gap: 6px; }
+.pedit2 .pf span { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.pedit2 .pf small { font-size: 11.5px; color: var(--ink-3); }
+.pedit2 input, .pedit2 textarea { width: 100%; padding: 11px 12px; font-size: 16px; line-height: 1.6; color: var(--ink); background: #000; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2); outline: none; resize: none; }
+.pedit2 input:focus, .pedit2 textarea:focus { box-shadow: inset 0 0 0 1px var(--ink); }
+.pedit2 .acts { display: flex; align-items: center; gap: 16px; }
+.pedit2 .acts .btn { margin: 0; height: 40px; padding: 0 20px; }
+/* 읽은 책 — 크레딧의 원작 표기 */
+.orig { padding: 24px 16px 20px; border-top: 1px solid var(--ink-4); border-bottom: 1px solid var(--ink-4); text-align: center; text-align-last: center; }
+.orig small { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.5em; padding-left: 0.5em; color: var(--ink-3); }
+.orig h3 { margin-top: 12px; font-family: var(--serif); font-size: 21px; font-weight: 700; line-height: 1.45; letter-spacing: 0.04em; }
+.orig h3::before { content: '『'; }
+.orig h3::after { content: '』'; }
+.orig p { margin-top: 8px; font-size: 13px; letter-spacing: 0.12em; color: var(--ink-2); }
 
 /* 필름 지우기 — 내 필름의 줄에서는 세 가지를 한 줄에, 넘치면 다음 줄로. 필름 정보에서는 단추로 */
 .draft .ask.wide { flex-wrap: wrap; row-gap: 8px; column-gap: 16px; }

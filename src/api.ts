@@ -144,6 +144,8 @@ export const api = {
   openFeed: (playId: string) => call<PlayView>('POST', `/api/plays/${playId}/feed`, {}),
   /** 내 피드에 글을 올린다 */
   postMine: (playId: string, text: string) => call<PlayView>('POST', `/api/plays/${playId}/posts`, { text }),
+  /** 피드 글을 고친다. 내 글은 { text }, 그 밖에는 그 종류의 칸들 */
+  editPost: (playId: string, postId: string, input: Record<string, unknown>) => call<PlayView>('POST', `/api/plays/${playId}/posts/${postId}/edit`, input),
   /** 피드 글을 지운다. 되돌릴 수 없다 */
   dropPost: (playId: string, postId: string) => call<PlayView>('POST', `/api/plays/${playId}/posts/${postId}/drop`, {}),
   /** 필름을 지운다. 만든 사람만. 되돌릴 수 없다 */

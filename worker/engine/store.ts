@@ -136,7 +136,7 @@ export async function sceneMessages(db: Db, play: Play): Promise<MessageView[]> 
 }
 
 /** 피드 글의 속. 한 줄 글이거나 못 읽으면 한 줄 글로 둔다 */
-function dataOf(kind: string, data: string): PostData {
+export function dataOf(kind: string, data: string): PostData {
   if (kind === 'text' || !data) return { kind: 'text' };
   try {
     return JSON.parse(data) as PostData;

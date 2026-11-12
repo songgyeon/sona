@@ -1,4 +1,5 @@
-/* 피드에 남기는 것 — 본 영화·드라마, 들은 노래, 일기, 사진, 검색어, 본 영상.
+/* 피드에 남기는 것 — 본 영화·드라마, 들은 노래, 읽은 책, 일기, 사진, 검색어, 본 영상.
+   영화·드라마·노래·책은 실제로 있는 작품만이다(shared/works.ts).
    대사 모델이 쓴 한 줄을 읽어 종류마다의 모양으로 바꾼다(parseFeed). 한 줄 요약도 여기서 만든다(feedLine).
    화면과 서버가 같이 쓴다. 계산뿐이다. */
 
@@ -6,12 +7,13 @@ import { pick } from './ko';
 import { RULES } from './rules';
 import type { FeedKind, FeedPhoto, PostData } from './types';
 
-export const FEED_KINDS: readonly FeedKind[] = ['watch', 'song', 'diary', 'photo', 'search', 'tube'];
+export const FEED_KINDS: readonly FeedKind[] = ['watch', 'song', 'book', 'diary', 'photo', 'search', 'tube'];
 
 /** 화면에 쓰는 이름 */
 export const FEED_LABEL: Record<FeedKind, string> = {
   watch: '본 영화·드라마',
   song: '들은 노래',
+  book: '읽은 책',
   diary: '일기',
   photo: '사진',
   search: '검색어',
@@ -70,6 +72,13 @@ export function parseFeed(line: string, kinds: FeedKind[], photos: FeedPhoto[] =
     if (!fits(t, F.title) || artist.length > F.artist || note.length > F.note) return null;
     return { kind: 'song', title: t, artist, note };
   }
+  if (head === '책' && on('book')) {
+    const [title = '', author = '', ...more] = rest;
+    const note = more.join(' | ').trim();
+    const t = bare(title);
+    if (!fits(t, F.title) || author.length > F.artist || note.length > F.note) return null;
+    return { kind: 'book', title: t, author, note };
+  }
   if (head === '일기' && on('diary')) {
     const text = rest.join(' | ').trim();
     return fits(text, F.diary) ? { kind: 'diary', text } : null;
@@ -108,6 +117,8 @@ export function feedLine(d: PostData, who: string, about = ''): string {
         : `${who}${pick(who, '은', '는')} 영화 ${quote(d.title, '을', '를')} 봤다.${tail(d.note)}`;
     case 'song':
       return `${who}${pick(who, '은', '는')} ${d.artist ? `${d.artist}의 ` : ''}노래 ${quote(d.title, '을', '를')} 들었다.${tail(d.note)}`;
+    case 'book':
+      return `${who}${pick(who, '은', '는')} ${d.author ? `${d.author}의 ` : ''}책 ${quote(d.title, '을', '를')} 읽었다.${tail(d.note)}`;
     case 'diary':
       return `${who}의 일기: ${d.text}`;
     case 'photo':

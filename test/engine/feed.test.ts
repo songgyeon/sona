@@ -11,7 +11,7 @@ import { enter, say } from '../../worker/engine/turn';
 import { FAKE_DEFAULTS } from '../../worker/model/fake';
 import { DEV_FILM, OTHER_VISITOR, testCtx, uid } from '../helpers/film';
 
-const ALL = ['watch', 'song', 'diary', 'photo', 'search', 'tube'] as const;
+const ALL = ['watch', 'song', 'book', 'diary', 'photo', 'search', 'tube'] as const;
 const PHOTOS = [
   { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', about: '창밖의 비' },
   { id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', about: '식은 커피 두 잔' },

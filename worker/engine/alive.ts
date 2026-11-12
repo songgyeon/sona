@@ -8,7 +8,8 @@ import { inSpan, worldAt } from '../../shared/clock';
 import { josa } from '../../shared/ko';
 import { wasThere } from '../../shared/opening';
 import { RULES } from '../../shared/rules';
-import type { Cast, MessageView, PlayView } from '../../shared/types';
+import { feedLine } from '../../shared/feed';
+import type { Cast, MessageView, PlayView, PostData } from '../../shared/types';
 import { newId, q, type Stmt } from '../db';
 import type { ModelCall } from '../model/index';
 import { castLayer } from '../prompt/cast';
@@ -16,7 +17,7 @@ import { sceneLayer, when } from '../prompt/scene';
 import { PING_SYSTEM } from '../prompt/system';
 import { type Ctx, Fail } from './ctx';
 import { feedDue, type FeedGot, pastFeed } from './feed';
-import { lastTurn, loadPlay, type Play, viewOf } from './store';
+import { dataOf, lastTurn, loadPlay, type Play, viewOf } from './store';
 import { ask, bubbles, errText, eventsFor, logStmt, recent, toLines } from './talk';
 
 /** 이 사람이 그때 깨어 있나 */
@@ -168,19 +169,111 @@ export async function postMine(ctx: Ctx, playId: string, input: unknown): Promis
   return viewOf(ctx, playId);
 }
 
-/** 피드 글을 지운다. 그 필름을 만든 사람만, 자기 삶의 글만 — 캐스트가 올린 글도, 자기가 올린 글도(2026-11-12 사용자 지시: 「제작자만」).
-    필름을 지웠으면 만든 사람을 알 수 없어서 아무도 못 지운다.
-    그 글을 올린 일(아는 일)도 같이 지운다: 다음 대목부터 캐스트는 그 글을 모른다. 그날은 치른 날로 남는다 — 바로 다른 글이 올라오지 않는다 */
+/** 피드 글을 고치거나 지울 수 있는가. 내 글은 그 삶의 주인이, 캐스트의 글은 그 필름을 만든 사람만(2026-11-12 사용자 지시: 「캐스트 글만 제작자 전용」).
+    필름을 지웠으면 만든 사람을 알 수 없어서 캐스트의 글은 아무도 못 고친다 */
+async function mayTouch(ctx: Ctx, play: Play, castKey: string): Promise<void> {
+  if (castKey === 'persona') return;
+  const maker = await ctx.db.first<{ owner: string }>('SELECT owner FROM films WHERE id = ?', play.filmId);
+  if (maker?.owner !== ctx.visitor) throw new Fail(403, 'not_maker', '캐스트의 피드는 필름을 만든 사람만 고치거나 지울 수 있어요.');
+}
+
+interface PostRow {
+  cast_key: string;
+  text: string;
+  at: number;
+  kind: string;
+  data: string;
+}
+
+/** 내 삶의 피드 글 하나. 없으면 거절한다 */
+async function postOf(ctx: Ctx, playId: string, postId: string): Promise<PostRow> {
+  const post = await ctx.db.first<PostRow>('SELECT cast_key, text, at, kind, data FROM posts WHERE id = ? AND play_id = ?', postId, playId);
+  if (!post) throw new Fail(404, 'post_missing', '글을 찾을 수 없어요.');
+  return post;
+}
+
+/** 글과 그 글을 올린 일(아는 일)은 같은 때, 같은 사람, 같은 글로 적혀 있다 */
+const eventOf = "play_id = ? AND kind IN ('feed', 'post') AND actor = ? AND at = ? AND text = ?";
+
+/** 피드 글을 지운다. 그 글을 올린 일(아는 일)도 같이 지운다: 다음 대목부터 캐스트는 그 글을 모른다.
+    그날은 치른 날로 남는다 — 바로 다른 글이 올라오지 않는다 */
 export async function dropPost(ctx: Ctx, playId: string, postId: string): Promise<PlayView> {
   const play = await loadPlay(ctx, playId);
-  const maker = await ctx.db.first<{ owner: string }>('SELECT owner FROM films WHERE id = ?', play.filmId);
-  if (maker?.owner !== ctx.visitor) throw new Fail(403, 'not_maker', '피드는 필름을 만든 사람만 지울 수 있어요.');
-  const post = await ctx.db.first<{ cast_key: string; text: string; at: number }>('SELECT cast_key, text, at FROM posts WHERE id = ? AND play_id = ?', postId, playId);
-  if (!post) throw new Fail(404, 'post_missing', '글을 찾을 수 없어요.');
+  const post = await postOf(ctx, playId, postId);
+  await mayTouch(ctx, play, post.cast_key);
   await ctx.db.batch([
-    // 글과 그 글을 올린 일은 같은 때, 같은 사람, 같은 글로 적혀 있다
-    q("DELETE FROM events WHERE play_id = ? AND kind IN ('feed', 'post') AND actor = ? AND at = ? AND text = ?", playId, post.cast_key, post.at, post.text),
+    q(`DELETE FROM events WHERE ${eventOf}`, playId, post.cast_key, post.at, post.text),
     q('DELETE FROM posts WHERE id = ? AND play_id = ?', postId, playId),
+  ]);
+  return viewOf(ctx, playId);
+}
+
+/** 고친 글을 읽는다. 종류는 바꾸지 못한다 — 그 종류의 칸만 고친다. 길이는 대사 모델이 쓸 때와 같다. 맞지 않으면 어느 칸인지 말하고 거절한다 */
+function readEdit(old: PostData, input: unknown): PostData {
+  const o = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
+  const F = RULES.feed;
+  const str = (k: string, max: number, name: string, must = false): string => {
+    const v = typeof o[k] === 'string' ? (o[k] as string).trim() : '';
+    if (must && !v) throw new Fail(400, 'bad_post', `${josa(name, '을', '를')} 적어 주세요.`);
+    if (v.length > max) throw new Fail(400, 'bad_post', `${josa(name, '은', '는')} ${max}자까지예요.`);
+    return v;
+  };
+  const list = (k: string): string[] => (Array.isArray(o[k]) ? (o[k] as unknown[]).filter((x): x is string => typeof x === 'string').map((x) => x.trim()).filter((x) => x.length > 0) : []);
+  switch (old.kind) {
+    case 'watch':
+      return { ...old, title: str('title', F.title, '제목', true), ep: old.form === 'drama' ? str('ep', F.ep, '회차') : '', note: str('note', F.note, '한마디') };
+    case 'song':
+      return { ...old, title: str('title', F.title, '곡명', true), artist: str('artist', F.artist, '부른 사람'), note: str('note', F.note, '한마디') };
+    case 'book':
+      return { ...old, title: str('title', F.title, '제목', true), author: str('author', F.artist, '지은이'), note: str('note', F.note, '한마디') };
+    case 'diary':
+      return { kind: 'diary', text: str('text', F.diary, '일기', true) };
+    case 'photo':
+      return { ...old, note: str('note', F.note, '한마디') };
+    case 'search': {
+      const queries = list('queries');
+      if (queries.length === 0) throw new Fail(400, 'bad_post', '검색어를 적어 주세요.');
+      if (queries.length > F.items || queries.some((x) => x.length > F.query)) throw new Fail(400, 'bad_post', `검색어는 ${F.items}개까지, 하나에 ${F.query}자까지예요.`);
+      return { kind: 'search', queries };
+    }
+    case 'tube': {
+      const items = list('items').map((x) => {
+        const m = /^(.*?)\s*[(（]\s*(\d{1,2}:\d{2}(?::\d{2})?)\s*[)）]$/.exec(x);
+        return m ? { title: m[1]!.trim(), length: m[2]! } : { title: x, length: '' };
+      });
+      if (items.length === 0) throw new Fail(400, 'bad_post', '본 영상을 적어 주세요.');
+      if (items.length > F.items || items.some((x) => !x.title || x.title.length > F.title)) throw new Fail(400, 'bad_post', `본 영상은 ${F.items}개까지, 제목은 ${F.title}자까지예요.`);
+      return { kind: 'tube', items };
+    }
+    default:
+      return old;
+  }
+}
+
+/** 피드 글을 고친다. 내 글과 예전 한 줄 글은 글을, 그 밖에는 그 종류의 칸을.
+    그 글을 올린 일(아는 일)도 고친 글로 바꾼다 — 다음 대목부터 캐스트는 고친 글로 안다. 만든 사람이 고친 작품은 목록과 견주지 않는다 */
+export async function editPost(ctx: Ctx, playId: string, postId: string, input: unknown): Promise<PlayView> {
+  const play = await loadPlay(ctx, playId);
+  const post = await postOf(ctx, playId, postId);
+  await mayTouch(ctx, play, post.cast_key);
+  const old = dataOf(post.kind, post.data);
+  let text: string;
+  let data = '';
+  if (old.kind === 'text') {
+    const raw = input && typeof input === 'object' ? (input as { text?: unknown }).text : undefined;
+    text = typeof raw === 'string' ? raw.trim() : '';
+    if (!text) throw new Fail(400, 'empty_post', '글을 써 주세요.');
+    if (text.length > RULES.feed.length) throw new Fail(400, 'long_post', `피드 글은 ${RULES.feed.length}자까지 쓸 수 있어요.`);
+  } else {
+    const next = readEdit(old, input);
+    const cast = play.film.casts.find((c) => c.key === post.cast_key);
+    const about = next.kind === 'photo' ? (cast?.photos ?? []).find((p) => p.id === next.photo)?.about ?? '' : '';
+    text = feedLine(next, cast?.name ?? '', about);
+    data = JSON.stringify(next);
+  }
+  await ctx.db.batch([
+    q(`UPDATE events SET text = ? WHERE ${eventOf}`, text, playId, post.cast_key, post.at, post.text),
+    data ? q('UPDATE posts SET text = ?, data = ? WHERE id = ? AND play_id = ?', text, data, postId, playId) : q('UPDATE posts SET text = ? WHERE id = ? AND play_id = ?', text, postId, playId),
   ]);
   return viewOf(ctx, playId);
 }

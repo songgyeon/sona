@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dropPost, postMine } from '../../worker/engine/alive';
+import { dropPost, editPost, postMine } from '../../worker/engine/alive';
 import { Fail } from '../../worker/engine/ctx';
 import { chooseAs } from '../../worker/engine/entry';
 import { createFilm, dropFilm, getFilm, listFilms } from '../../worker/engine/films';
@@ -80,17 +80,51 @@ describe('피드 글 지우기', () => {
   });
 });
 
-describe('피드 글은 만든 사람만 지운다', () => {
-  it('남이 만든 필름에서는 자기 삶의 글이라도 못 지운다. 화면도 만든 사람이 아니라는 것을 안다', async () => {
+describe('누가 고치고 지우나: 캐스트의 글은 만든 사람만, 내 글은 그 삶의 주인이', () => {
+  it('남이 만든 필름에서는 캐스트의 글은 못 고치고 못 지운다. 내 글은 고치고 지운다', async () => {
     const { ctx, filmId } = await solo();
     const guest = { ...ctx, visitor: OTHER_VISITOR };
     const theirs = await enter(guest, filmId, uid());
+    await skip(guest, theirs.id, { kind: 'sleep', requestId: uid() });
     await postMine(guest, theirs.id, { text: '저도 왔어요.' });
     const v = await viewOf(guest, theirs.id);
-    const post = v.posts.find((p) => p.cast === 'persona')!;
     expect(v.mine).toBe(false);
-    expect(await failCode(dropPost(guest, theirs.id, post.id))).toBe('not_maker');
-    expect((await viewOf(guest, theirs.id)).posts.some((p) => p.id === post.id)).toBe(true);
+    const cast = v.posts.find((p) => p.cast !== 'persona')!;
+    const mine = v.posts.find((p) => p.cast === 'persona')!;
+    expect(await failCode(dropPost(guest, theirs.id, cast.id))).toBe('not_maker');
+    expect(await failCode(editPost(guest, theirs.id, cast.id, { note: '고침' }))).toBe('not_maker');
+    const edited = await editPost(guest, theirs.id, mine.id, { text: '저도 왔어요. 늦었지만.' });
+    expect(edited.posts.find((p) => p.id === mine.id)!.text).toBe('저도 왔어요. 늦었지만.');
+    expect((await dropPost(guest, theirs.id, mine.id)).posts.some((p) => p.id === mine.id)).toBe(false);
+    expect((await viewOf(guest, theirs.id)).posts.some((p) => p.id === cast.id)).toBe(true);
+  });
+});
+
+describe('피드 글 고치기', () => {
+  it('만든 사람이 캐스트의 글을 고치면 그 종류의 칸이 바뀌고, 캐스트가 아는 일도 고친 글이 된다', async () => {
+    const { ctx, playId } = await solo();
+    await skip(ctx, playId, { kind: 'sleep', requestId: uid() });
+    const post = (await viewOf(ctx, playId)).posts.find((p) => p.at >= 0 && p.data.kind === 'song')!;
+    expect(post).toBeTruthy();
+    const v = await editPost(ctx, playId, post.id, { title: '좋은 날', artist: '아이유', note: '아침부터 이거.' });
+    const now = v.posts.find((p) => p.id === post.id)!;
+    expect(now.data).toEqual({ kind: 'song', title: '좋은 날', artist: '아이유', note: '아침부터 이거.' });
+    expect(now.text).toContain('「좋은 날」');
+    const ev = await ctx.db.all<{ text: string }>("SELECT text FROM events WHERE play_id = ? AND kind = 'feed'", playId);
+    expect(ev.map((e) => e.text)).toEqual([now.text]);
+    await say(ctx, playId, { text: '좋은 아침.', requestId: uid() });
+    const reply = ctx.model.calls.filter((c) => c.purpose === 'reply').at(-1)!;
+    expect(JSON.stringify(reply.layers)).not.toContain('밤편지');
+  });
+
+  it('비운 칸이나 너무 긴 칸은 받지 않는다. 종류는 바뀌지 않는다', async () => {
+    const { ctx, playId } = await solo();
+    await skip(ctx, playId, { kind: 'sleep', requestId: uid() });
+    const post = (await viewOf(ctx, playId)).posts.find((p) => p.at >= 0)!;
+    expect(await failCode(editPost(ctx, playId, post.id, { title: '', artist: '아이유' }))).toBe('bad_post');
+    expect(await failCode(editPost(ctx, playId, post.id, { title: '가'.repeat(200) }))).toBe('bad_post');
+    const v = await editPost(ctx, playId, post.id, { kind: 'diary', text: '일기로 바꾸기', title: '밤편지', artist: '아이유' });
+    expect(v.posts.find((p) => p.id === post.id)!.data.kind).toBe('song');
   });
 });
 

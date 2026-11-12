@@ -2,7 +2,7 @@
 
 import { d1 } from './db';
 import { type Ctx, Fail } from './engine/ctx';
-import { dropPost, openFeed, postMine } from './engine/alive';
+import { dropPost, editPost, openFeed, postMine } from './engine/alive';
 import { chooseAs, filmView } from './engine/entry';
 import { createFilm, dropFilm, listFilms, updateFilm } from './engine/films';
 import { getMe, setMe } from './engine/me';
@@ -89,6 +89,7 @@ const ROUTES: [string, RegExp, Handler][] = [
   ['POST', /^\/api\/plays\/([^/]+)\/next$/, (ctx, p) => nextDay(ctx, p[0]!)],
   ['POST', /^\/api\/plays\/([^/]+)\/drop$/, (ctx, p) => dropPlay(ctx, p[0]!)],
   ['POST', /^\/api\/plays\/([^/]+)\/posts\/([^/]+)\/drop$/, (ctx, p) => dropPost(ctx, p[0]!, p[1]!)],
+  ['POST', /^\/api\/plays\/([^/]+)\/posts\/([^/]+)\/edit$/, (ctx, p, body) => editPost(ctx, p[0]!, p[1]!, body)],
   ['POST', /^\/api\/films\/([^/]+)\/drop$/, (ctx, p) => dropFilm(ctx, p[0]!)],
   ['POST', /^\/api\/plays\/([^/]+)\/persona$/, (ctx, p, body) => setMine(ctx, p[0]!, body)],
 ];

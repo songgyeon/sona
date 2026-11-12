@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Film, PostView } from '../../shared/types';
 import { ApiFail, api, imgUrl } from '../api';
-import { FeedItem, PostDrop } from '../feed';
+import { FeedItem, type PostEdit, PostTools } from '../feed';
 import { Back, Bubble } from '../icons';
 import { Face } from '../poster';
 import { Tabs } from '../tabs';
@@ -27,6 +27,18 @@ export function Cast({ filmId, playId, castKey, go }: { filmId?: string; playId?
       : api.film(filmId!).then((d): Loaded => ({ film: d.film, elapsed: null, posts: [], maker: d.card.mine }));
     load.then(setData).catch((e) => setErr(e instanceof ApiFail ? e.message : '프로필을 불러오지 못했어요.'));
   }, [filmId, playId, castKey]);
+
+  /** 피드 글을 고친다. 고친 뒤의 이 사람 글로 바꿔 놓는다 */
+  const edit = async (postId: string, input: PostEdit): Promise<string | null> => {
+    if (!playId) return null;
+    try {
+      const v = await api.editPost(playId, postId, input);
+      setData((d) => (d ? { ...d, posts: v.posts.filter((p) => p.cast === castKey) } : d));
+      return null;
+    } catch (e) {
+      return e instanceof ApiFail ? e.message : '고치지 못했어요.';
+    }
+  };
 
   /** 피드 글을 지운다. 지운 뒤의 이 사람 글로 바꿔 놓는다 */
   const drop = async (postId: string): Promise<string | null> => {
@@ -89,7 +101,8 @@ export function Cast({ filmId, playId, castKey, go }: { filmId?: string; playId?
           {posts.map((p) => (
             <div className="postwrap" key={p.id}>
               <FeedItem post={p} clock={clock} no={photoNo.get(p.id) ?? 1} />
-              {playId && data.maker && <PostDrop onDrop={() => drop(p.id)} />}
+              {/* 캐스트의 글은 필름을 만든 사람만 고치거나 지운다 */}
+              {playId && data.maker && <PostTools post={p} onSave={(input) => edit(p.id, input)} onDrop={() => drop(p.id)} />}
             </div>
           ))}
         </section>

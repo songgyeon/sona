@@ -17,6 +17,7 @@ import type { ModelCall } from '../model/index';
 import { castLayer } from '../prompt/cast';
 import { lineOf, when } from '../prompt/scene';
 import { feedSystem } from '../prompt/system';
+import { realize, someWorks, type WorkKind } from '../../shared/works';
 import type { Ctx } from './ctx';
 import type { Play } from './store';
 import { ask, bubbles, errText, eventsFor, logStmt, toLines } from './talk';
@@ -106,8 +107,24 @@ async function lately(ctx: Ctx, play: Play, cast: Cast): Promise<string[]> {
   return rows.map((r) => `- ${when(play, r.at)}: ${r.kind === 'text' ? '한 줄 글' : postLabel(JSON.parse(r.data) as PostData)}`);
 }
 
-/** 모델에게 건넬 시나리오: 그때, 그 사람이 아는 일, 그 사람이 있던 장면, 올릴 수 있는 사진, 요즘 남긴 것 */
-async function feedScene(ctx: Ctx, play: Play, cast: Cast, at: number, photos: FeedPhoto[], before: MessageView[]): Promise<string> {
+/** 고를 수 있는 실제 작품. 켜 둔 종류마다 몇 편씩, 부를 때마다 섞어서. 영화·드라마·노래·책은 이 가운데서만 고른다 */
+function worksBlock(kinds: FeedKind[]): string[] {
+  const rows: [string, WorkKind][] = [];
+  if (kinds.includes('watch')) rows.push(['영화', 'movie'], ['드라마', 'drama']);
+  if (kinds.includes('song')) rows.push(['노래', 'song']);
+  if (kinds.includes('book')) rows.push(['책', 'book']);
+  if (rows.length === 0) return [];
+  // 영화와 드라마는 둘이 한 종류라 반씩 보여 준다
+  const n = (kind: WorkKind) => (kind === 'movie' || kind === 'drama' ? Math.ceil(F.works / 2) : F.works);
+  return [
+    '',
+    '[고를 수 있는 작품 — 실제로 있는 작품이다. 이 가운데서만 고른다]',
+    ...rows.map(([label, kind]) => `${label}: ${someWorks(kind, n(kind)).map((w) => (w.by ? `${w.title} - ${w.by}` : w.title)).join(' / ')}`),
+  ];
+}
+
+/** 모델에게 건넬 시나리오: 그때, 그 사람이 아는 일, 그 사람이 있던 장면, 올릴 수 있는 사진, 고를 수 있는 작품, 요즘 남긴 것 */
+async function feedScene(ctx: Ctx, play: Play, cast: Cast, at: number, photos: FeedPhoto[], before: MessageView[], kinds: FeedKind[]): Promise<string> {
   const out: string[] = ['[지금]', `${when(play, at)}.`, `자는 시간: ${hhmm(cast.sleepFrom)} ~ ${hhmm(cast.sleepTo)}`];
   const events = await eventsFor(ctx, play, cast.key, at);
   if (events.length > 0) {
@@ -120,6 +137,7 @@ async function feedScene(ctx: Ctx, play: Play, cast: Cast, at: number, photos: F
     out.push('', '[올릴 수 있는 사진]');
     photos.forEach((p, i) => out.push(`${i + 1}. ${p.about || '무슨 사진인지 적혀 있지 않다'}`));
   }
+  out.push(...worksBlock(kinds));
   const last = await lately(ctx, play, cast);
   if (last.length > 0) out.push('', '[요즘 남긴 것]', ...last);
   return out.join('\n');
@@ -178,7 +196,7 @@ async function askDay(ctx: Ctx, play: Play, turnId: string, cast: Cast, day: num
   if (kinds.length === 0) return null;
   const call: ModelCall = {
     purpose: 'post',
-    layers: { system: feedSystem(kinds), cast: castLayer(play.film, cast), scene: await feedScene(ctx, play, cast, at, photos, before) },
+    layers: { system: feedSystem(kinds), cast: castLayer(play.film, cast), scene: await feedScene(ctx, play, cast, at, photos, before, kinds) },
     user: `(${when(play, at)}. 오늘 하루의 한 조각을 피드에 남길지 정한다.)`,
     temperature: 0.9,
     maxTokens: 300,
@@ -187,9 +205,12 @@ async function askDay(ctx: Ctx, play: Play, turnId: string, cast: Cast, day: num
     const out = await ask(ctx, call);
     const line = bubbles(out.text)[0] ?? '';
     const read = parseFeed(line, kinds, photos);
-    const data = read === 'none' || read === null ? null : read;
+    const picked = read === 'none' || read === null ? null : read;
+    // 영화·드라마·노래·책은 실제로 있는 작품이어야 한다. 목록에 없으면 그날은 남기지 않은 것으로 친다
+    const data = picked ? realize(picked) : null;
+    const why = read === null ? '모양이 틀림' : picked && !data ? '목록에 없는 작품' : data ? null : '없음';
     const stmts = feedStmts(ctx, play, turnId, cast, day, at, data, photos);
-    return { cast, stmts, log: (dropped) => logStmt(ctx, play.id, turnId, call, out, !!data && !dropped, dropped ?? (read === null ? '모양이 틀림' : data ? null : '없음')) };
+    return { cast, stmts, log: (dropped) => logStmt(ctx, play.id, turnId, call, out, !!data && !dropped, dropped ?? why) };
   } catch (e) {
     // 못 받았다. 그날은 아직 치르지 않은 것으로 둔다 — 다음에 다시 묻는다
     return { cast, stmts: [], log: () => logStmt(ctx, play.id, turnId, call, null, false, errText(e)) };
@@ -258,6 +279,7 @@ export async function pastFeed(ctx: Ctx, play: Play, turnId: string): Promise<St
       '[남길 날]',
       ...open.map((d) => `- ${d.n}일 전 (${when(play, d.at)})`),
       ...(photos.length > 0 ? ['', '[올릴 수 있는 사진]', ...photos.map((p, i) => `${i + 1}. ${p.about || '무슨 사진인지 적혀 있지 않다'}`)] : []),
+      ...worksBlock(kinds),
     ].join('\n');
     const call: ModelCall = {
       purpose: 'past',
@@ -276,8 +298,10 @@ export async function pastFeed(ctx: Ctx, play: Play, turnId: string): Promise<St
         const day = m ? open.find((d) => d.n === Number(m[1])) : undefined;
         if (!m || !day || seen.has(day.n)) continue;
         seen.add(day.n);
-        const read = parseFeed(m[2]!, kindsNow(cast.feed ?? [], left.length), left);
-        if (read === 'none' || read === null) continue;
+        const parsed = parseFeed(m[2]!, kindsNow(cast.feed ?? [], left.length), left);
+        // 영화·드라마·노래·책은 실제로 있는 작품만 남긴다
+        const read = parsed === 'none' || parsed === null ? null : realize(parsed);
+        if (read === null) continue;
         if (read.kind === 'photo') left.splice(left.findIndex((p) => p.id === read.photo), 1);
         stmts.push(...feedStmts(ctx, play, turnId, cast, -day.n, day.at, read, photos));
       }

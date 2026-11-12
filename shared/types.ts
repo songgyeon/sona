@@ -140,7 +140,7 @@ export interface Cast {
 }
 
 /** 피드에 남기는 것: 본 영화·드라마, 들은 노래, 일기, 사진, 검색어, 본 영상 */
-export type FeedKind = 'watch' | 'song' | 'diary' | 'photo' | 'search' | 'tube';
+export type FeedKind = 'watch' | 'song' | 'book' | 'diary' | 'photo' | 'search' | 'tube';
 
 /** 피드에 올릴 사진. about은 무슨 사진인지 — 대사 모델이 그날에 맞는 사진을 고를 때 읽는다 */
 export interface FeedPhoto {
@@ -222,6 +222,7 @@ export type PostData =
   | { kind: 'text' }
   | { kind: 'watch'; form: 'movie' | 'drama'; title: string; ep: string; note: string }
   | { kind: 'song'; title: string; artist: string; note: string }
+  | { kind: 'book'; title: string; author: string; note: string }
   | { kind: 'diary'; text: string }
   | { kind: 'photo'; photo: string; note: string }
   | { kind: 'search'; queries: string[] }
