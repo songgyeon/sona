@@ -1,5 +1,5 @@
 import { type ChangeEvent, cloneElement, type ReactElement, type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import { blankCast, blankDraft, type Draft, type DraftBeat, type DraftCast, editSlot, fromFilm, isBlank, toFilm } from '../../shared/draft';
+import { blankCast, blankDraft, type Draft, type DraftBeat, type DraftCast, type DraftExtra, editSlot, fromFilm, isBlank, toFilm } from '../../shared/draft';
 import { openingLength } from '../../shared/opening';
 import { josa } from '../../shared/ko';
 import { DOW_NAMES, RULES } from '../../shared/rules';
@@ -110,7 +110,8 @@ export function Create({ go, editId, draftId }: { go: (to: string) => void; edit
   };
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setD((x) => ({ ...x, [k]: v }));
-  const setCast = (i: number, k: keyof DraftCast, v: string) =>
+  const setCastExtras = (i: number, v: DraftExtra[]) => setD((x) => ({ ...x, casts: x.casts.map((c, j) => (j === i ? { ...c, extras: v } : c)) }));
+  const setCast = (i: number, k: Exclude<keyof DraftCast, 'extras'>, v: string) =>
     setD((x) => ({ ...x, casts: x.casts.map((c, j) => (j === i ? { ...c, [k]: v } : c)) }));
   const setTie = (pair: string, k: 'relation' | 'calls', v: string) =>
     setD((x) => ({ ...x, ties: { ...x.ties, [pair]: { relation: '', calls: '', ...x.ties[pair], [k]: v } } }));
@@ -345,6 +346,7 @@ export function Create({ go, editId, draftId }: { go: (to: string) => void; edit
                   onChange={(e) => set('personaLine', e.target.value)}
                 />
               </Field>
+              <Extras value={d.personaExtras} onChange={(v) => set('personaExtras', v)} examples={{ label: '예) 나이', text: '예) 스물셋. 휴학 중이다.' }} />
               <p className="hint">플레이하는 사람은 사진과 정보를 자기 것으로 고칠 수 있어요.</p>
             </Card>
 
@@ -401,6 +403,7 @@ export function Create({ go, editId, draftId }: { go: (to: string) => void; edit
                     <textarea rows={2} value={c.secret} maxLength={RULES.limits.trait} placeholder="예) 지난 학기에 방송부를 그만두려고 했다." onChange={(e) => setCast(i, 'secret', e.target.value)} />
                   </Field>
                   <p className="hint">선택 칸은 플레이하는 사람에게 보이지 않고, 캐스트의 말과 행동에 묻어나요.</p>
+                  <Extras value={c.extras} onChange={(v) => setCastExtras(i, v)} examples={{ label: '예) 좋아하는 것', text: '예) 비 오는 날의 헌책방 냄새.' }} />
 
                   <button className={more[i] ? 'fold open' : 'fold'} aria-expanded={!!more[i]} onClick={() => setMore((m) => ({ ...m, [i]: !m[i] }))}>
                     더 적기
@@ -485,6 +488,10 @@ export function Create({ go, editId, draftId }: { go: (to: string) => void; edit
                   onChange={(e) => set('setting', e.target.value)}
                 />
               </Field>
+            </Card>
+
+            <Card title="덧붙이는 칸" sub="세계에 대해 더 적을 것을 항목 이름부터 직접 정해요.">
+              <Extras bare value={d.extras} onChange={(v) => set('extras', v)} examples={{ label: '예) 이 세계의 화폐', text: '예) 조개껍데기를 돈처럼 쓴다.' }} />
             </Card>
 
             <Card title="시작하는 때" sub="이때부터 24시간이 첫 하루예요.">
@@ -828,6 +835,35 @@ export function Field({
           {hint}
         </p>
       )}
+    </div>
+  );
+}
+
+/** 덧붙이는 칸. 항목 이름과 내용을 디렉터가 직접 적는다. 처음에 빈 칸 셋, 「칸 추가」로 늘린다.
+    내용이 빈 칸은 저장하지 않는다. 플레이하는 사람에게는 보이지 않고, 대사 모델에게 그대로 건네진다 */
+function Extras({ value, onChange, examples, bare }: { value: DraftExtra[]; onChange: (v: DraftExtra[]) => void; examples: { label: string; text: string }; bare?: boolean }) {
+  const edit = (i: number, k: 'label' | 'text', v: string) => onChange(value.map((e, j) => (j === i ? { ...e, [k]: v } : e)));
+  return (
+    <div className="extras">
+      {!bare && <p className="exhead">덧붙이는 칸</p>}
+      {value.map((e, i) => (
+        <div className="extra" key={i}>
+          <Field label="항목" count={[e.label.length, RULES.extras.label]}>
+            <input value={e.label} maxLength={RULES.extras.label} placeholder={examples.label} onChange={(ev) => edit(i, 'label', ev.target.value)} />
+          </Field>
+          <Field label="내용" count={[e.text.length, RULES.extras.text]}>
+            <textarea rows={2} value={e.text} maxLength={RULES.extras.text} placeholder={examples.text} onChange={(ev) => edit(i, 'text', ev.target.value)} />
+          </Field>
+          <button className="textbtn exdel" onClick={() => onChange(value.filter((_, j) => j !== i))}>
+            이 칸 지우기
+          </button>
+        </div>
+      ))}
+      <button className="btn more wide" disabled={value.length >= RULES.extras.max} onClick={() => onChange([...value, { label: '', text: '' }])}>
+        <Plus />칸 추가
+      </button>
+      <p className="hint">플레이하는 사람에게는 보이지 않고, 이야기에 묻어나요.</p>
+      <p className="hint">칸이 많으면 대화가 무거워져서 {RULES.extras.recommend}개까지 권장해요.</p>
     </div>
   );
 }

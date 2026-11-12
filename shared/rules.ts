@@ -79,6 +79,9 @@ export const RULES = {
     minSays: 2,
   },
 
+  /** 덧붙이는 칸(항목과 내용). 처음에 빈 칸 show개를 보이고, recommend개까지 권한다. 많아야 max개 */
+  extras: { show: 3, recommend: 5, max: 10, label: 20, text: 300 },
+
   /** 내 페르소나는 이만큼까지 만든다 */
   personas: { max: 10 },
 

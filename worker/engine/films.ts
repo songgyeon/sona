@@ -2,7 +2,7 @@
 
 import { RULES } from '../../shared/rules';
 import { readFilm } from '../../shared/opening';
-import type { Beat, Cast, Film, FilmCard, Tie } from '../../shared/types';
+import type { Extra, Beat, Cast, Film, FilmCard, Tie } from '../../shared/types';
 import { newId } from '../db';
 import { isUuid } from '../guard';
 import { type Ctx, Fail } from './ctx';
@@ -42,6 +42,21 @@ export function image(v: unknown, name: string): string {
 const obj = (v: unknown): Record<string, unknown> =>
   v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
 
+/** 덧붙이는 칸들. 내용이 빈 칸은 버린다. 항목 이름을 비우면 「메모」로 둔다 */
+function extras(v: unknown, where: string): Extra[] {
+  if (!Array.isArray(v)) return [];
+  const out: Extra[] = [];
+  for (const e of v) {
+    const o = obj(e);
+    const label = text(o.label, RULES.extras.label, `${where}의 덧붙인 항목`);
+    const body = text(o.text, RULES.extras.text, `${where}의 덧붙인 내용`);
+    if (!body) continue;
+    out.push({ label: label || '메모', text: body });
+  }
+  if (out.length > RULES.extras.max) throw new Fail(400, 'film_invalid', `${where}에 덧붙이는 칸은 ${RULES.extras.max}개까지예요.`);
+  return out;
+}
+
 /** 화면에서 온 것을 필름으로 읽는다. 맞지 않으면 어느 칸인지 말하고 거절한다 */
 export function parseFilm(input: unknown): Film {
   const f = obj(input);
@@ -73,6 +88,7 @@ export function parseFilm(input: unknown): Film {
       sleepFrom: int(c.sleepFrom ?? 0, 0, 1439, '자는 시간'),
       sleepTo: int(c.sleepTo ?? 420, 0, 1439, '일어나는 시간'),
       dayPlace: text(c.dayPlace, 40, '낮에 있는 곳'),
+      extras: extras(c.extras, '캐스트'),
     };
   });
   const names = new Set(casts.map((c) => c.name));
@@ -142,6 +158,7 @@ export function parseFilm(input: unknown): Film {
     poster: image(f.poster, '포스터'),
     stills,
     setting: text(f.setting, L.setting, '배경'),
+    extras: extras(f.extras, '세계관'),
     startDow: int(f.startDow ?? 5, 0, 6, '시작 요일'),
     startMin: int(f.startMin ?? 16 * 60, 0, 1439, '시작 시각'),
     // 한편은 서로 볼 캐스트가 둘은 있어야 한다
@@ -150,6 +167,7 @@ export function parseFilm(input: unknown): Film {
       name: text(persona.name, 20, '내 배역의 이름', true),
       line: text(persona.line, L.persona, '내 배역 설명'),
       face: image(persona.face, '내 배역'),
+      extras: extras(persona.extras, '내 배역'),
     },
     casts,
     ties,
@@ -228,7 +246,12 @@ function card(row: FilmRow, visitor: string): FilmCard {
 /** 화면으로 보내는 필름. 성격부터 비밀까지는 디렉터만 보는 칸이라, 만든 사람이 고칠 때가 아니면 비워서 보낸다.
     대사 모델에게 건네는 필름은 서버에 있는 그대로다 */
 export function forScreen(film: Film): Film {
-  return { ...film, casts: film.casts.map((c) => ({ ...c, nature: '', habit: '', trauma: '', lack: '', secret: '' })) };
+  return {
+    ...film,
+    extras: [],
+    persona: { ...film.persona, extras: [] },
+    casts: film.casts.map((c) => ({ ...c, nature: '', habit: '', trauma: '', lack: '', secret: '', extras: [] })),
+  };
 }
 
 /** 개봉한 필름들. 누구에게나 보인다 — 어느 기기, 어느 길로 들어와도 같은 목록이다.

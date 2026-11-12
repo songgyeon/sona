@@ -1,7 +1,20 @@
 /* 필름 만들기 화면의 칸과 필름 사이를 오간다.
    계산뿐이라 화면 없이도 돌려 볼 수 있다 — 고치기는 필름을 칸으로 되돌려 놓는 데서 시작한다. */
 
-import type { Film } from './types';
+import { RULES } from './rules';
+import type { Extra, Film } from './types';
+
+/** 덧붙이는 칸 하나(항목과 내용) */
+export type DraftExtra = Extra;
+/** 처음에 보이는 빈 칸들 */
+export const blankExtras = (): DraftExtra[] => Array.from({ length: RULES.extras.show }, () => ({ label: '', text: '' }));
+/** 내용이 있는 칸만 */
+const filled = (list: DraftExtra[] | undefined): DraftExtra[] => (list ?? []).filter((e) => e.text.trim().length > 0).map((e) => ({ label: e.label.trim(), text: e.text.trim() }));
+/** 저장된 칸에 빈 칸을 붙여 처음 보이는 수를 채운다 */
+const padded = (list: DraftExtra[] | undefined): DraftExtra[] => {
+  const have = (list ?? []).map((e) => ({ label: e.label, text: e.text }));
+  return have.length >= RULES.extras.show ? have : [...have, ...blankExtras().slice(have.length)];
+};
 
 export interface DraftCast {
   name: string;
@@ -21,6 +34,8 @@ export interface DraftCast {
   sleepFrom: string;
   sleepTo: string;
   dayPlace: string;
+  /** 덧붙이는 칸 */
+  extras: DraftExtra[];
 }
 
 /** 오프닝의 한 칸 */
@@ -61,6 +76,10 @@ export interface Draft {
   speaker: 'persona' | 'cast';
   /** 비공개로 개봉한다. 만든 사람만 목록에서 보고 들어간다 */
   private: boolean;
+  /** 세계에 덧붙이는 칸 */
+  extras: DraftExtra[];
+  /** 내 배역에 덧붙이는 칸 */
+  personaExtras: DraftExtra[];
 }
 
 export const blankCast = (): DraftCast => ({
@@ -80,6 +99,7 @@ export const blankCast = (): DraftCast => ({
   sleepFrom: '00:00',
   sleepTo: '07:00',
   dayPlace: '',
+  extras: blankExtras(),
 });
 
 export const blankDraft = (): Draft => ({
@@ -102,6 +122,8 @@ export const blankDraft = (): Draft => ({
   room: 0,
   speaker: 'cast',
   private: false,
+  extras: blankExtras(),
+  personaExtras: blankExtras(),
 });
 
 const cut = (id: string, image: string): DraftBeat => ({ id, kind: 'cut', image, text: '', cast: 0 });
@@ -134,7 +156,8 @@ export function toFilm(d: Draft): unknown {
     startDow: d.startDow,
     startMin: toMin(d.startTime),
     opens: { feed: d.feed, ping: d.ping, aside: d.aside },
-    persona: { name: d.personaName, line: d.personaLine, face: d.personaFace },
+    extras: filled(d.extras),
+    persona: { name: d.personaName, line: d.personaLine, face: d.personaFace, extras: filled(d.personaExtras) },
     casts: d.casts.map((c) => ({
       name: c.name,
       face: c.face,
@@ -152,6 +175,7 @@ export function toFilm(d: Draft): unknown {
       sleepFrom: toMin(c.sleepFrom),
       sleepTo: toMin(c.sleepTo),
       dayPlace: c.dayPlace,
+      extras: filled(c.extras),
     })),
     ties: Object.entries(d.ties)
       .map(([pair, t]) => {
@@ -216,6 +240,8 @@ export function fromFilm(f: Film): Draft {
     personaName: f.persona.name,
     personaLine: f.persona.line,
     personaFace: f.persona.face ?? '',
+    extras: padded(f.extras),
+    personaExtras: padded(f.persona.extras),
     casts: f.casts.map((c) => ({
       name: c.name,
       face: c.face ?? '',
@@ -233,6 +259,7 @@ export function fromFilm(f: Film): Draft {
       sleepFrom: toClock(c.sleepFrom),
       sleepTo: toClock(c.sleepTo),
       dayPlace: c.dayPlace,
+      extras: padded(c.extras),
     })),
     ties,
     place: f.firstScene.place,
@@ -310,6 +337,7 @@ export function isBlank(d: Draft): boolean {
     d.place,
     ...d.casts.flatMap((c) => [c.name, c.face, c.aliases, c.role, c.intro, c.callsUser, c.speech, c.nature, c.habit, c.trauma, c.lack, c.secret, c.samples, c.dayPlace]),
     ...Object.values(d.ties).flatMap((t) => [t.relation, t.calls]),
+    ...[...(d.extras ?? []), ...(d.personaExtras ?? []), ...d.casts.flatMap((c) => c.extras ?? [])].flatMap((e) => [e.label, e.text]),
   ];
   return d.casts.length <= 1 && d.beats.length === 0 && written.every((v) => v.trim().length === 0);
 }

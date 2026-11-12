@@ -4,6 +4,16 @@
 import { josa, pick } from '../../shared/ko';
 import type { Cast, Film } from '../../shared/types';
 
+/** [이 세계] — 배경과, 디렉터가 세계에 덧붙인 칸 */
+function world(film: Film, out: string[]): void {
+  const more = film.extras ?? [];
+  if (!film.setting && more.length === 0) return;
+  out.push('');
+  out.push('[이 세계]');
+  if (film.setting) out.push(film.setting);
+  for (const e of more) out.push(`- ${e.label}: ${e.text}`);
+}
+
 export function castLayer(film: Film, cast: Cast): string {
   const me = film.persona.name;
   const out: string[] = [];
@@ -19,20 +29,18 @@ export function castLayer(film: Film, cast: Cast): string {
   if (cast.lack) out.push(`결핍: ${cast.lack}`);
   if (cast.secret) out.push(`비밀: ${cast.secret}`);
   if (cast.dayPlace) out.push(`낮에 주로 있는 곳: ${cast.dayPlace}`);
+  for (const e of cast.extras ?? []) out.push(`${e.label}: ${e.text}`);
   if (cast.samples.length > 0) {
     out.push('예시 대사(이 결로 쓴다. 그대로 베끼지 않는다):');
     for (const s of cast.samples) out.push(`- ${s}`);
   }
 
-  if (film.setting) {
-    out.push('');
-    out.push('[이 세계]');
-    out.push(film.setting);
-  }
+  world(film, out);
 
   out.push('');
   out.push('[상대]');
   out.push(film.persona.line ? `${me} — ${film.persona.line}` : me);
+  for (const e of film.persona.extras ?? []) out.push(`- ${e.label}: ${e.text}`);
 
   const others = film.casts.filter((c) => c.key !== cast.key);
   if (others.length > 0) {
@@ -77,6 +85,7 @@ export function castsLayer(film: Film): string {
     if (cast.lack) out.push(`- 결핍: ${cast.lack}`);
     if (cast.secret) out.push(`- 비밀: ${cast.secret}`);
     if (cast.dayPlace) out.push(`- 낮에 주로 있는 곳: ${cast.dayPlace}`);
+    for (const e of cast.extras ?? []) out.push(`- ${e.label}: ${e.text}`);
     out.push(`- 자는 시간: ${hhmm(cast.sleepFrom)} ~ ${hhmm(cast.sleepTo)}`);
     for (const o of film.casts) {
       if (o.key === cast.key) continue;
@@ -87,14 +96,11 @@ export function castsLayer(film: Film): string {
     if (cast.samples.length > 0) out.push(`- 예시 대사(이 결로 쓴다. 그대로 베끼지 않는다): ${cast.samples.join(' / ')}`);
   });
 
-  if (film.setting) {
-    out.push('');
-    out.push('[이 세계]');
-    out.push(film.setting);
-  }
+  world(film, out);
 
   out.push('');
   out.push('[유저의 인물]');
   out.push(film.persona.line ? `${me} — ${film.persona.line}` : me);
+  for (const e of film.persona.extras ?? []) out.push(`- ${e.label}: ${e.text}`);
   return out.join('\n');
 }

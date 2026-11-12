@@ -16,12 +16,20 @@ export interface Film {
   startMin: number;
   /** 이 필름이 여는 화면 */
   opens: { feed: boolean; ping: boolean; /** 한편 — 내가 없는 자리에서 캐스트끼리 나눈 장면을 보여 주는가 */ aside: boolean };
+  /** 디렉터가 세계에 덧붙인 칸 */
+  extras?: Extra[];
   /** 유저가 맡아 사는 인물. 디렉터가 정해 두고, 플레이하는 사람이 자기 삶에서 고칠 수 있다 */
   persona: Persona;
   casts: Cast[];
   /** 캐스트끼리의 사이. 방향이 있다(from이 to를 어떻게 부르는가) */
   ties: Tie[];
   firstScene: FirstScene;
+}
+
+/** 디렉터가 이름을 붙여 더 적은 칸 — 항목과 내용. 대사 모델에게 그대로 건넨다 */
+export interface Extra {
+  label: string;
+  text: string;
 }
 
 export interface Persona {
@@ -32,6 +40,8 @@ export interface Persona {
   face: string;
   /** 플레이하는 사람이 이름을 바꿨다면 그 전의 이름들. 캐스트가 같은 사람인 줄 알게 건넨다 */
   formerly?: string[];
+  /** 디렉터가 덧붙인 칸 */
+  extras?: Extra[];
 }
 
 export interface Cast {
@@ -68,6 +78,8 @@ export interface Cast {
   sleepTo: number;
   /** 낮에 주로 있는 곳 */
   dayPlace: string;
+  /** 디렉터가 덧붙인 칸 */
+  extras: Extra[];
 }
 
 export interface Tie {

@@ -37,10 +37,11 @@ export function applyMine(film: Film, mine: Mine, fresh = false): Film {
   const old = film.persona.name;
   if (film.casts.some((c) => c.name === mine.name)) throw new Fail(400, 'persona_taken', '캐스트와 같은 이름은 쓸 수 없어요.');
 
-  const persona: Persona = { name: mine.name, line: mine.line, face: mine.face };
+  const persona: Persona = { name: mine.name, line: mine.line, face: mine.face, extras: film.persona.extras ?? [] };
   const formerly = [...(film.persona.formerly ?? []), ...(old === mine.name ? [] : [old])].filter((n, i, all) => n !== mine.name && all.indexOf(n) === i);
   if (!fresh && formerly.length > 0) persona.formerly = formerly.slice(-3);
   if (old === mine.name) return { ...film, persona };
+  persona.extras = (persona.extras ?? []).map((e) => ({ ...e, text: renameIn(e.text, old, mine.name, film.casts.map((c) => c.name)) }));
 
   const names = film.casts.map((c) => c.name);
   const fix = (t: string) => renameIn(t, old, mine.name, names);
@@ -50,6 +51,7 @@ export function applyMine(film: Film, mine: Mine, fresh = false): Film {
     ...film,
     persona,
     setting: fix(film.setting),
+    extras: (film.extras ?? []).map((e) => ({ ...e, text: fix(e.text) })),
     casts: film.casts.map((c) => ({
       ...c,
       role: fix(c.role),
@@ -61,6 +63,7 @@ export function applyMine(film: Film, mine: Mine, fresh = false): Film {
       lack: fix(c.lack),
       secret: fix(c.secret),
       samples: c.samples.map(fix),
+      extras: (c.extras ?? []).map((e) => ({ ...e, text: fix(e.text) })),
     })),
     ties: film.ties.map((t) => ({ ...t, relation: fix(t.relation) })),
     firstScene: {
