@@ -148,7 +148,7 @@ export function Mine({ go }: { go: (to: string) => void }) {
       {/* 내 이름과 내 페르소나 */}
       <button className="savedrow sect mypersonas" onClick={() => go('/personas')}>
         <b>내 페르소나</b>
-        <span>이름과 페르소나 고치기 ›</span>
+        <span aria-hidden="true">›</span>
       </button>
       {err && <p className="warn sect">{err}</p>}
       {films !== null && mine.length === 0 && saved.length === 0 && (
