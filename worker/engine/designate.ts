@@ -10,9 +10,9 @@ import type { Film, Persona } from '../../shared/types';
 import { q, type Stmt } from '../db';
 import { type Ctx, Fail } from './ctx';
 import { loadFilm } from './films';
-import { applyMine, type Mine, savedMine } from './persona';
+import { applyMine, type Mine, type Saved, savedMine } from './persona';
 
-interface PersonaRow {
+export interface PersonaRow {
   id: string;
   name: string;
   line: string;
@@ -66,11 +66,12 @@ export async function chosenPersona(ctx: Ctx, filmId: string): Promise<PersonaRo
   );
 }
 
-/** 이 필름의 내 배역이 고른 페르소나와 어긋나 있으면 맞춘다(전에 고친 것이 아직 안 적힌 필름). 맞췄으면 참 */
-export async function catchUp(ctx: Ctx, filmId: string, film: Film): Promise<boolean> {
-  const p = await chosenPersona(ctx, filmId);
+/** 이 필름의 내 배역이 고른 페르소나와 어긋나 있으면 맞춘다(전에 고친 것이 아직 안 적힌 필름). 맞췄으면 참.
+    known은 이미 읽어 둔 고른 페르소나와 기억해 둔 내 배역이다 — 주면 다시 읽지 않는다 */
+export async function catchUp(ctx: Ctx, filmId: string, film: Film, known?: { persona: PersonaRow | null; saved: Saved | null }): Promise<boolean> {
+  const p = known ? known.persona : await chosenPersona(ctx, filmId);
   if (!p) return false;
-  const row = await savedMine(ctx.db, ctx.visitor, filmId);
+  const row = known ? known.saved : await savedMine(ctx.db, ctx.visitor, filmId);
   const role = row && rolesOf(film)[row.role] ? row.role : 0;
   const want = fromPersona(rolesOf(film)[role]!, p);
   if (row && row.name === want.name && row.line === want.line && row.face === want.face) return false;

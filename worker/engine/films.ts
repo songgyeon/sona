@@ -288,7 +288,7 @@ export function parseFilm(input: unknown): Film {
   };
 }
 
-interface FilmRow {
+export interface FilmRow {
   id: string;
   owner: string;
   title: string;
@@ -381,8 +381,12 @@ export async function listFilms(ctx: Ctx): Promise<FilmCard[]> {
 /** 필름 하나. 누구나 읽는다 */
 export async function getFilm(ctx: Ctx, id: string): Promise<{ card: FilmCard; film: Film }> {
   const { row, film } = await loadFilm(ctx, id);
-  // 고치는 화면은 만든 사람만 쓴다. 그 사람에게만 다 보낸다
-  return { card: card(row, ctx.visitor), film: row.owner === ctx.visitor ? film : forScreen(film) };
+  return screenOf(row, film, ctx.visitor);
+}
+
+/** 화면으로 보내는 필름과 그 카드. 고치는 화면은 만든 사람만 쓴다. 그 사람에게만 다 보낸다 */
+export function screenOf(row: FilmRow, film: Film, visitor: string): { card: FilmCard; film: Film } {
+  return { card: card(row, visitor), film: row.owner === visitor ? film : forScreen(film) };
 }
 
 /** 서버가 쓰는 필름. 디렉터가 쓴 그대로다 — 삶은 이것을 들고 간다. 화면으로 보내지 않는다.

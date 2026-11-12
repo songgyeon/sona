@@ -6,22 +6,56 @@
 import { rolesOf } from '../../shared/roles';
 import type { Film, FilmCard, FilmMine } from '../../shared/types';
 import { type Ctx, Fail } from './ctx';
-import { getFilm, loadFilm } from './films';
+import { loadFilm, screenOf } from './films';
 import { myName } from './me';
 import { getPersona } from './mypersonas';
-import { catchUp, chosenPersona, designate, fromPersona } from './designate';
-import { type Mine, roleMine, savedMine } from './persona';
+import { catchUp, designate, fromPersona, type PersonaRow } from './designate';
+import { type Mine, roleMine, type Saved, savedMine } from './persona';
+
+/** 이 사람이 이 필름에 앉은 자리: 기억해 둔 내 배역(맡은 배역까지), 고른 내 페르소나, 내 이름 */
+interface Seat {
+  saved: Saved | null;
+  persona: PersonaRow | null;
+  name: string;
+}
+
+/** 자리를 한 번에 읽는다 — 따로 물으면 필름 정보 하나에 저장소를 일곱 번 오갔다 */
+async function seatOf(ctx: Ctx, filmId: string): Promise<Seat> {
+  const r = await ctx.db.first<{
+    name: string | null;
+    line: string | null;
+    face: string | null;
+    role: number | null;
+    pid: string | null;
+    pname: string | null;
+    pline: string | null;
+    pface: string | null;
+    me: string | null;
+  }>(
+    `SELECT p.name, p.line, p.face, p.role, m.id AS pid, m.name AS pname, m.line AS pline, m.face AS pface,
+       (SELECT v.name FROM visitors v WHERE v.id = ?) AS me
+     FROM (SELECT 1) AS one
+     LEFT JOIN personas p ON p.visitor = ? AND p.film_id = ?
+     LEFT JOIN mypersonas m ON m.id = p.persona_id AND m.visitor = p.visitor`,
+    ctx.visitor,
+    ctx.visitor,
+    filmId,
+  );
+  return {
+    saved: r && r.name !== null ? { name: r.name, line: r.line ?? '', face: r.face ?? '', role: r.role ?? 0 } : null,
+    persona: r && r.pid ? { id: r.pid, name: r.pname ?? '', line: r.pline ?? '', face: r.pface ?? '' } : null,
+    name: r?.me ?? '',
+  };
+}
 
 /** 이 사람이 이 필름에 들어가면 될 사람. 따로 고친 적이 없으면 디렉터가 정한 배역 그대로다.
     내 페르소나를 골랐으면 그 페르소나다(고른 페르소나가 지워졌으면 그때의 모습 그대로, 따로 고친 것으로 본다) */
-async function mineFor(ctx: Ctx, filmId: string, film: Film): Promise<FilmMine> {
-  const saved = await savedMine(ctx.db, ctx.visitor, filmId);
+function mineOf(film: Film, seat: Seat): FilmMine {
+  const { saved, persona, name } = seat;
   const roles = rolesOf(film);
   const role = saved && roles[saved.role] ? saved.role : 0;
-  const name = await myName(ctx.db, ctx.visitor);
   const own = roleMine(roles[role]!, name);
   const base: Mine = saved ? { name: saved.name, line: saved.line, face: saved.face } : own;
-  const persona = await chosenPersona(ctx, filmId);
   if (persona) return { ...base, as: 'me', personaId: persona.id, role };
   const as = base.name === own.name ? 'role' : name && base.name === name ? 'me' : 'custom';
   return { ...base, as, personaId: null, role };
@@ -29,11 +63,11 @@ async function mineFor(ctx: Ctx, filmId: string, film: Film): Promise<FilmMine> 
 
 /** 필름 정보 화면에 건네는 것: 필름, 그리고 이 필름에서의 내 배역 */
 export async function filmView(ctx: Ctx, filmId: string): Promise<{ card: FilmCard; film: Film; mine: FilmMine }> {
-  const { card, film } = await getFilm(ctx, filmId);
-  const { film: made } = await loadFilm(ctx, filmId);
+  const { row, film: made } = await loadFilm(ctx, filmId);
+  let seat = await seatOf(ctx, filmId);
   // 고른 페르소나를 그 뒤에 고쳤는데 아직 안 적혔으면 지금 맞춘다
-  await catchUp(ctx, filmId, made);
-  return { card, film, mine: await mineFor(ctx, filmId, made) };
+  if (await catchUp(ctx, filmId, made, seat)) seat = await seatOf(ctx, filmId);
+  return { ...screenOf(row, made, ctx.visitor), mine: mineOf(made, seat) };
 }
 
 /** 들어가는 사람을 고른다. role = 디렉터가 정한 배역, persona = 내 페르소나 가운데 하나(id), me = 입장권의 내 이름.

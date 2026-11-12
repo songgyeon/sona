@@ -186,33 +186,45 @@ export async function viewOf(ctx: Ctx, playId: string): Promise<PlayView> {
   };
 }
 
+/** 내 삶 목록. 한 번에 읽는다 — 삶이 들고 있는 필름은 통째로 꺼내지 않고 목록에 보일 칸만 꺼낸다.
+    예전에는 삶마다 마지막 말을 따로 물어서, 삶이 많으면 목록 하나에 1초를 넘겼다 */
 export async function listPlays(ctx: Ctx): Promise<PlayCard[]> {
-  const rows = await ctx.db.all<PlayRow>(
-    'SELECT * FROM plays WHERE owner = ? ORDER BY created_at DESC LIMIT 20',
+  const rows = await ctx.db.all<{
+    id: string;
+    film_id: string;
+    elapsed: number;
+    start_dow: number;
+    start_min: number;
+    ended: number;
+    title: string | null;
+    logline: string | null;
+    poster: string | null;
+    casts: string | null;
+    said: string | null;
+    last: string | null;
+  }>(
+    `SELECT p.id, p.film_id, p.elapsed, p.start_dow, p.start_min, p.ended,
+       json_extract(p.film, '$.title') AS title,
+       json_extract(p.film, '$.logline') AS logline,
+       json_extract(p.film, '$.poster') AS poster,
+       (SELECT json_group_array(json_extract(c.value, '$.name')) FROM json_each(p.film, '$.casts') c) AS casts,
+       (SELECT json_extract(b.value, '$.text') FROM json_each(p.film, '$.firstScene.beats') b WHERE json_extract(b.value, '$.kind') = 'say' ORDER BY b.key DESC LIMIT 1) AS said,
+       (SELECT m.text FROM messages m WHERE m.play_id = p.id AND m.speaker != 'tell' AND m.kind != 'aside' ORDER BY m.at DESC, m.rowid DESC LIMIT 1) AS last
+     FROM plays p WHERE p.owner = ? ORDER BY p.created_at DESC LIMIT 20`,
     ctx.visitor,
   );
-  const out: PlayCard[] = [];
-  for (const r of rows) {
-    const p = toPlay(r);
-    const last = await ctx.db.first<{ text: string }>(
-      // 한편의 줄은 내가 나눈 말이 아니다
-      "SELECT text FROM messages WHERE play_id = ? AND speaker != 'tell' AND kind != 'aside' ORDER BY at DESC, rowid DESC LIMIT 1",
-      p.id,
-    );
-    out.push({
-      id: p.id,
-      filmId: p.filmId,
-      title: p.film.title,
-      logline: p.film.logline,
-      poster: p.film.poster ?? '',
-      castNames: p.film.casts.map((c) => c.name),
-      elapsed: p.elapsed,
-      startDow: p.startDow,
-      startMin: p.startMin,
-      ended: p.ended,
-      // 아직 오간 말이 없으면 오프닝의 마지막 대사를 보인다
-      lastLine: last?.text ?? p.film.firstScene.beats.flatMap((b) => (b.kind === 'say' ? [b.text] : [])).pop() ?? '',
-    });
-  }
-  return out;
+  return rows.map((r) => ({
+    id: r.id,
+    filmId: r.film_id,
+    title: r.title ?? '',
+    logline: r.logline ?? '',
+    poster: r.poster ?? '',
+    castNames: r.casts ? (JSON.parse(r.casts) as string[]) : [],
+    elapsed: r.elapsed,
+    startDow: r.start_dow,
+    startMin: r.start_min,
+    ended: r.ended === 1,
+    // 한편의 줄은 내가 나눈 말이 아니다. 아직 오간 말이 없으면 오프닝의 마지막 대사를 보인다
+    lastLine: r.last ?? r.said ?? '',
+  }));
 }
