@@ -111,6 +111,7 @@ export const SCHEMA: string[] = [
     face TEXT NOT NULL,
     updated_at INTEGER NOT NULL,
     persona_id TEXT,
+    role INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (visitor, film_id)
   )`,
 
@@ -251,6 +252,8 @@ const ADDED: { table: string; column: string; sql: string; then?: { sql: string;
       },
     ],
   },
+  // 맡은 배역(0 = 첫째 배역). 필름에 배역이 여럿이면 들어가는 사람이 고른다. 배역이 하나뿐이던 때에 고른 것은 첫째 배역이다
+  { table: 'personas', column: 'role', sql: 'ALTER TABLE personas ADD COLUMN role INTEGER NOT NULL DEFAULT 0' },
   // 비공개 필름. 만든 사람만 목록에서 보고 들어간다
   {
     table: 'films',

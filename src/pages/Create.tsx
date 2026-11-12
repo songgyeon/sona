@@ -1,9 +1,10 @@
 import { type ChangeEvent, cloneElement, type ReactElement, type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import { blankCast, blankDraft, type Draft, type DraftBeat, type DraftCast, type DraftExtra, editSlot, fromFilm, isBlank, toFilm } from '../../shared/draft';
+import { blankCast, blankDraft, blankRole, type Draft, type DraftBeat, type DraftCast, type DraftExtra, type DraftRole, editSlot, fromFilm, isBlank, toFilm } from '../../shared/draft';
 import { FEED_KINDS, FEED_LABEL } from '../../shared/feed';
 import { openingLength } from '../../shared/opening';
 import { lengthOf } from '../../shared/reel';
-import { josa } from '../../shared/ko';
+import { josa, pick as pickJosa } from '../../shared/ko';
+import { standIn } from '../../shared/roles';
 import { DOW_NAMES, RULES } from '../../shared/rules';
 import type { FeedKind, FeedPhoto } from '../../shared/types';
 import { ApiFail, api, imgUrl, newId, uploadImage } from '../api';
@@ -124,6 +125,14 @@ export function Create({ go, editId, draftId }: { go: Go; editId?: string; draft
   const setTie = (pair: string, k: 'relation' | 'calls', v: string) =>
     setD((x) => ({ ...x, ties: { ...x.ties, [pair]: { relation: '', calls: '', ...x.ties[pair], [k]: v } } }));
   const addCast = () => setD((x) => ({ ...x, casts: [...x.casts, blankCast()] }));
+  /** 내 배역들. 첫째는 persona로 시작하는 칸이고, 둘째부터는 roles다 */
+  const roles: DraftRole[] = [{ name: d.personaName, line: d.personaLine, face: d.personaFace, player: d.personaPlayer, extras: d.personaExtras }, ...(d.roles ?? [])];
+  const asFirst = (x: Draft, r: DraftRole): Draft => ({ ...x, personaName: r.name, personaLine: r.line, personaFace: r.face, personaPlayer: r.player, personaExtras: r.extras });
+  const setRole = (i: number, r: DraftRole) => setD((x) => (i === 0 ? asFirst(x, r) : { ...x, roles: x.roles.map((o, j) => (j === i - 1 ? r : o)) }));
+  const addRole = () => setD((x) => ({ ...x, roles: [...(x.roles ?? []), blankRole()] }));
+  /** 배역을 뺀다. 첫째를 빼면 둘째가 첫째가 된다 */
+  const removeRole = (i: number) =>
+    setD((x) => (i === 0 ? { ...asFirst(x, x.roles[0] ?? blankRole()), roles: x.roles.slice(1) } : { ...x, roles: x.roles.filter((_, j) => j !== i - 1) }));
   const removeCast = (i: number) => {
     setD((x) => ({
       ...x,
@@ -179,7 +188,9 @@ export function Create({ go, editId, draftId }: { go: Go; editId?: string; draft
 
   const names = d.casts.map((c, i) => c.name.trim() || `캐스트 ${i + 1}`);
   const pairs = d.casts.flatMap((_, a) => d.casts.map((__, b) => [a, b] as const)).filter(([a, b]) => a !== b);
-  const me = d.personaName.trim() || '나';
+  /** 캐스트 카드와 오프닝에서 내 배역을 부르는 말. 배역이 여럿이면 「내 배역」 */
+  const me = roles.length > 1 ? '내 배역' : d.personaName.trim() || '나';
+  const roleNames = roles.map((r, i) => r.name.trim() || (r.player ? '유저 이름' : roles.length > 1 ? `내 배역 ${i + 1}` : '내 배역'));
   /** 첫 장면을 함께 여는 캐스트. 아직 이름이 없으면 「캐스트」라고 부른다 */
   const opener = d.casts[Math.min(d.room, d.casts.length - 1)]?.name.trim() || '캐스트';
   /** 오프닝에 쓴 글자 수와 남은 자리 */
@@ -191,7 +202,7 @@ export function Create({ go, editId, draftId }: { go: Go; editId?: string; draft
   /** 개봉하려면 채워야 하는 칸 */
   const todo: { step: Step; label: string; done: boolean }[] = [
     { step: 'plan', label: '제목', done: d.title.trim().length > 0 },
-    { step: 'cast', label: '내 배역의 이름', done: d.personaName.trim().length > 0 },
+    { step: 'cast', label: roles.length > 1 ? '내 배역 모두의 이름' : '내 배역의 이름', done: roles.every((r) => r.player || r.name.trim().length > 0) },
     { step: 'cast', label: d.casts.length > 1 ? '캐스트 모두의 이름' : '캐스트의 이름', done: d.casts.every((c) => c.name.trim().length > 0) },
   ];
   const ready = todo.every((t) => t.done);
@@ -341,25 +352,33 @@ export function Create({ go, editId, draftId }: { go: Go; editId?: string; draft
           <>
             <p className="lead">필름에 나오는 인물을 적어 주세요.</p>
 
-            <Card title="내 배역" sub="필름 안에서 내가 맡는 인물이에요.">
-              <div className="casthead">
-                <FacePick face={d.personaFace} label="내 배역의 사진 고르기" disabled={busy} onPick={(id) => set('personaFace', id)} />
-                <Field label="이름" must count={[d.personaName.length, 20]}>
-                  <input value={d.personaName} maxLength={20} placeholder="예) 다온" onChange={(e) => set('personaName', e.target.value)} />
-                </Field>
+            {roles.map((r, i) => (
+              <Card
+                key={`role${i}`}
+                title={roles.length > 1 ? `내 배역 ${i + 1}` : '내 배역'}
+                count={roles.length > 1 ? `${i + 1} / ${RULES.limits.roles}` : undefined}
+                sub={i === 0 ? (roles.length > 1 ? '들어가는 사람이 이 가운데 하나를 골라요.' : '필름 안에서 내가 맡는 인물이에요.') : undefined}
+              >
+                <RoleFields role={r} label={roleNames[i]!} busy={busy} onChange={(v) => setRole(i, v)} />
+                {i === 0 && <p className="hint">플레이하는 사람은 사진과 정보를 자기 것으로 고칠 수 있어요.</p>}
+                {roles.length > 1 && (
+                  <p className="hint">
+                    <button className="textbtn" onClick={() => removeRole(i)}>
+                      {roleNames[i]} 빼기
+                    </button>
+                  </p>
+                )}
+              </Card>
+            ))}
+
+            {roles.length < RULES.limits.roles && (
+              <div className="addrow">
+                <button className="btn" onClick={addRole}>
+                  <Plus />
+                  내 배역 추가
+                </button>
               </div>
-              <Field label="어떤 사람" count={[d.personaLine.length, RULES.limits.persona]}>
-                <textarea
-                  rows={2}
-                  value={d.personaLine}
-                  maxLength={RULES.limits.persona}
-                  placeholder="예) 한 학기 만에 방송부로 돌아온 사람"
-                  onChange={(e) => set('personaLine', e.target.value)}
-                />
-              </Field>
-              <Extras value={d.personaExtras} onChange={(v) => set('personaExtras', v)} examples={{ label: '예) 나이', text: '예) 스물셋. 휴학 중이다.' }} />
-              <p className="hint">플레이하는 사람은 사진과 정보를 자기 것으로 고칠 수 있어요.</p>
-            </Card>
+            )}
 
             {d.casts.map((c, i) => (
               <Card key={i} title={`캐스트 ${i + 1}`} count={`${i + 1} / ${RULES.limits.casts}`} sub={i === 0 ? '필름에서 만나는 인물이에요.' : undefined}>
@@ -1010,6 +1029,39 @@ function Chips<T extends string | number>({
       </div>
       {picked?.desc && <p className="picked">{picked.desc}</p>}
     </div>
+  );
+}
+
+/** 내 배역 한 칸: 사진, 이름, 「유저 이름」, 어떤 사람, 덧붙이는 칸.
+    「유저 이름」을 켜면 들어가는 사람의 이름이 이 배역의 이름이 된다. 그때 이름 칸은 글에 대신 쓰는 이름이다 */
+function RoleFields({ role, label, busy, onChange }: { role: DraftRole; label: string; busy: boolean; onChange: (r: DraftRole) => void }) {
+  const put = <K extends keyof DraftRole>(k: K, v: DraftRole[K]) => onChange({ ...role, [k]: v });
+  const stand = standIn(role);
+  return (
+    <>
+      <div className="casthead">
+        <FacePick face={role.face} label={`${label}의 사진 고르기`} disabled={busy} onPick={(id) => put('face', id)} />
+        <Field label={role.player ? '글에 쓰는 이름' : '이름'} must={!role.player} count={[role.name.length, 20]}>
+          <input value={role.name} maxLength={20} placeholder={role.player ? RULES.playerName : '예) 다온'} onChange={(e) => put('name', e.target.value)} />
+        </Field>
+      </div>
+      <Toggle checked={role.player} onChange={(v) => put('player', v)} label="유저 이름" desc="들어가는 사람의 이름이 이 배역의 이름이 돼요." />
+      {role.player && (
+        <p className="hint">
+          필름의 글에 「{stand}」{pickJosa(stand, '이라고', '라고')} 쓰면 들어가는 사람의 이름으로 바뀌어요.
+        </p>
+      )}
+      <Field label="어떤 사람" count={[role.line.length, RULES.limits.persona]}>
+        <textarea
+          rows={2}
+          value={role.line}
+          maxLength={RULES.limits.persona}
+          placeholder="예) 한 학기 만에 방송부로 돌아온 사람"
+          onChange={(e) => put('line', e.target.value)}
+        />
+      </Field>
+      <Extras value={role.extras} onChange={(v) => put('extras', v)} examples={{ label: '예) 나이', text: '예) 스물셋. 휴학 중이다.' }} />
+    </>
   );
 }
 

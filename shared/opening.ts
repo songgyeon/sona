@@ -21,6 +21,8 @@ export function readFilm(saved: Film): Film {
     bgmName: saved.bgmName ?? '',
     reel: saved.reel ?? null,
     persona: { ...saved.persona, face: saved.persona?.face ?? '', extras: saved.persona?.extras ?? [] },
+    // 내 배역이 하나뿐이던 때의 필름. 둘째 배역은 없다
+    roles: (saved.roles ?? []).map((r) => ({ ...r, face: r.face ?? '', extras: r.extras ?? [] })),
     // 성격부터 비밀까지의 칸이 생기기 전의 캐스트. 비어 있는 것으로 읽는다
     casts: saved.casts.map((c) => ({
       ...c,

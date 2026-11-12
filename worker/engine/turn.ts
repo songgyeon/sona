@@ -10,7 +10,9 @@ import { isUuid } from '../guard';
 import { type Ctx, Fail } from './ctx';
 import { loadFilm } from './films';
 import { pastFeed } from './feed';
-import { applyMine, savedMine } from './persona';
+import { myName } from './me';
+import { applyMine, roleMine, savedMine } from './persona';
+import { withRole } from '../../shared/roles';
 import { lastTurn, loadPlay, SCENE, viewOf } from './store';
 import { settle } from './skip';
 import { answer } from './talk';
@@ -27,10 +29,17 @@ export async function enter(ctx: Ctx, filmId: string, playId: unknown): Promise<
 
   // 삶은 디렉터가 쓴 그대로의 필름을 들고 간다. 화면으로 보내는 필름(getFilm)에는 디렉터만 보는 칸이 비어 있다
   const made = (await loadFilm(ctx, filmId)).film;
-  // 이 사람이 이 필름에서 쓰던 내 배역이 있으면 그것으로 들어간다
-  const mine = await savedMine(ctx.db, ctx.visitor, filmId);
+  // 이 사람이 이 필름에서 쓰던 내 배역이 있으면 그것으로 들어간다. 맡은 배역 하나만 삶에 간다
+  const saved = await savedMine(ctx.db, ctx.visitor, filmId);
+  const base = withRole(made, saved?.role ?? 0);
+  // 고른 적이 없는데 첫째 배역이 「유저 이름」이면 내 이름으로 맡는다
+  const mine = saved
+    ? { name: saved.name, line: saved.line, face: saved.face }
+    : base.persona.player
+      ? roleMine(base.persona, await myName(ctx.db, ctx.visitor))
+      : null;
   // 새로 들어가는 삶이다. 캐스트는 처음부터 이 이름으로 안다
-  const film = mine ? applyMine(made, mine, true) : made;
+  const film = mine ? applyMine(base, mine, true) : base;
   const fs = film.firstScene;
   const cast = film.casts.find((c) => c.key === fs.room)!;
   const turnId = newId();

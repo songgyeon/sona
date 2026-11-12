@@ -17,6 +17,21 @@ const padded = (list: DraftExtra[] | undefined): DraftExtra[] => {
   return have.length >= RULES.extras.show ? have : [...have, ...blankExtras().slice(have.length)];
 };
 
+/** 둘째 배역부터의 칸. 첫째 배역은 persona로 시작하는 칸들이다 */
+export interface DraftRole {
+  name: string;
+  line: string;
+  face: string;
+  /** 유저 이름 — 들어가는 사람의 이름이 이 배역의 이름이 된다. 그때 name은 글에 대신 쓰는 이름이다 */
+  player: boolean;
+  extras: DraftExtra[];
+}
+
+export const blankRole = (): DraftRole => ({ name: '', line: '', face: '', player: false, extras: blankExtras() });
+
+/** 「유저 이름」 배역의 이름 칸. 대신 쓰는 이름을 그대로 두었으면 비워서 보인다 */
+const roleName = (r: { name: string; player?: boolean }): string => (r.player && r.name === RULES.playerName ? '' : r.name);
+
 export interface DraftCast {
   name: string;
   face: string;
@@ -71,6 +86,10 @@ export interface Draft {
   personaLine: string;
   /** 내 배역의 프로필 사진 */
   personaFace: string;
+  /** 내 배역의 「유저 이름」 */
+  personaPlayer: boolean;
+  /** 둘째 배역부터. 배역이 여럿이면 들어가는 사람이 하나를 고른다 */
+  roles: DraftRole[];
   casts: DraftCast[];
   /** 「0>1」 = 첫째 캐스트가 둘째 캐스트를 */
   ties: Record<string, { relation: string; calls: string }>;
@@ -127,6 +146,8 @@ export const blankDraft = (): Draft => ({
   personaName: '',
   personaLine: '',
   personaFace: '',
+  personaPlayer: false,
+  roles: [],
   casts: [blankCast()],
   ties: {},
   place: '',
@@ -175,7 +196,8 @@ export function toFilm(d: Draft): unknown {
     bgmName: d.bgmName,
     reel: d.reel && d.reel.clips.length > 0 ? d.reel : null,
     extras: filled(d.extras),
-    persona: { name: d.personaName, line: d.personaLine, face: d.personaFace, extras: filled(d.personaExtras) },
+    persona: { name: d.personaName, line: d.personaLine, face: d.personaFace, extras: filled(d.personaExtras), player: d.personaPlayer },
+    roles: (d.roles ?? []).map((r) => ({ name: r.name, line: r.line, face: r.face, extras: filled(r.extras), player: r.player })),
     casts: d.casts.map((c) => ({
       name: c.name,
       face: c.face,
@@ -257,9 +279,11 @@ export function fromFilm(f: Film): Draft {
     ping: f.opens.ping,
     // 캐스트가 한 명인 필름은 나중에 캐스트를 더하면 켜진 채로 시작한다
     aside: f.casts.length > 1 ? f.opens.aside === true : true,
-    personaName: f.persona.name,
+    personaName: roleName(f.persona),
     personaLine: f.persona.line,
     personaFace: f.persona.face ?? '',
+    personaPlayer: f.persona.player === true,
+    roles: (f.roles ?? []).map((r) => ({ name: roleName(r), line: r.line, face: r.face ?? '', player: r.player === true, extras: padded(r.extras) })),
     extras: padded(f.extras),
     personaExtras: padded(f.persona.extras),
     bgm: f.bgm ?? '',
@@ -314,7 +338,8 @@ export function readDraft(raw: unknown): Draft {
     for (const still of stills.slice(1)) beats.push(cut(`b${beats.length}`, still));
   }
   const { stills: _stills, situation: _situation, firstLine: _firstLine, ...rest } = base as typeof base & { stills?: unknown; situation?: unknown; firstLine?: unknown };
-  return { ...rest, beats, speaker, casts: base.casts.map((c) => ({ ...blankCast(), ...c })) };
+  const roles = Array.isArray(old.roles) ? old.roles.map((r) => ({ ...blankRole(), ...r })) : [];
+  return { ...rest, beats, speaker, roles, casts: base.casts.map((c) => ({ ...blankCast(), ...c })) };
 }
 
 /* ── 임시저장 ──
@@ -359,6 +384,7 @@ export function isBlank(d: Draft): boolean {
     d.personaName,
     d.personaLine,
     d.personaFace,
+    ...(d.roles ?? []).flatMap((r) => [r.name, r.line, r.face, ...r.extras.flatMap((e) => [e.label, e.text])]),
     d.place,
     ...d.casts.flatMap((c) => [c.name, c.face, c.aliases, c.role, c.intro, c.callsUser, c.speech, c.nature, c.habit, c.trauma, c.lack, c.secret, c.samples, c.dayPlace]),
     ...Object.values(d.ties).flatMap((t) => [t.relation, t.calls]),

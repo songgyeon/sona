@@ -6,7 +6,8 @@ import { ApiFail, api, imgUrl, newId } from '../api';
 import { Back, LinkIcon, Next, Pen, PlayFill } from '../icons';
 import { useMe } from '../me';
 import { Face, StillStrip, titleClass } from '../poster';
-import { AsPop, AsSlot } from '../aspop';
+import { AsPop, AsSlot, type Pick } from '../aspop';
+import { rolesOf } from '../../shared/roles';
 import { Tabs } from '../tabs';
 import { goBack } from '../router';
 
@@ -66,9 +67,9 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
   };
 
   /** 들어가는 사람을 고른다: 배역이나 내 페르소나. 이 필름에서 살던 삶에도 적힌다. 못 바꿨으면 까닭을 돌려준다 */
-  const choose = async (p: { as: 'role' } | { as: 'persona'; id: string }): Promise<string | null> => {
+  const choose = async (p: Pick): Promise<string | null> => {
     try {
-      setData(await api.chooseAs(filmId, p.as, p.as === 'persona' ? p.id : undefined));
+      setData(await api.chooseAs(filmId, p));
       return null;
     } catch (e) {
       return e instanceof ApiFail ? e.message : '바꾸지 못했어요.';
@@ -115,6 +116,7 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
           {/* 들어가는 사람: 지금 고른 사람 한 칸. 누르면 입장권 모양의 목록이 뜬다 */}
           <AsSlot
             mine={mine}
+            roles={rolesOf(film)}
             busy={choosing}
             onOpen={() => setChoosing(true)}
             onEdit={
@@ -234,7 +236,8 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
       {choosing && (
         <AsPop
           title={film.title}
-          role={film.persona}
+          roles={rolesOf(film)}
+          myName={me.name}
           mine={mine}
           personas={personas}
           onPick={choose}

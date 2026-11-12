@@ -18,8 +18,11 @@ export interface Film {
   opens: { feed: boolean; ping: boolean; /** 한편 — 내가 없는 자리에서 캐스트끼리 나눈 장면을 보여 주는가 */ aside: boolean };
   /** 디렉터가 세계에 덧붙인 칸 */
   extras?: Extra[];
-  /** 유저가 맡아 사는 인물. 디렉터가 정해 두고, 플레이하는 사람이 자기 삶에서 고칠 수 있다 */
+  /** 유저가 맡아 사는 인물. 디렉터가 정해 두고, 플레이하는 사람이 자기 삶에서 고칠 수 있다.
+      배역이 여럿이면 이것이 첫째 배역이다. 삶이 들고 가는 필름에서는 들어갈 때 고른 배역이다 */
   persona: Persona;
+  /** 둘째 배역부터. 들어가는 사람이 배역 가운데 하나를 고른다. 삶이 들고 가는 필름에는 없다 */
+  roles?: Persona[];
   casts: Cast[];
   /** 캐스트끼리의 사이. 방향이 있다(from이 to를 어떻게 부르는가) */
   ties: Tie[];
@@ -90,6 +93,8 @@ export interface Persona {
   formerly?: string[];
   /** 디렉터가 덧붙인 칸 */
   extras?: Extra[];
+  /** 유저 이름 — 켜면 들어가는 사람의 이름이 이 배역의 이름이 된다. 그때 name은 디렉터가 글에 적은 이름이다(비우면 RULES.playerName) */
+  player?: boolean;
 }
 
 export interface Cast {
@@ -261,6 +266,8 @@ export interface FilmMine {
   as: 'me' | 'role' | 'custom';
   /** 내 페르소나로 들어가면 그 페르소나 */
   personaId: string | null;
+  /** 맡은 배역(0 = 첫째 배역). 내 페르소나로 들어가도 배역 하나를 맡는다 */
+  role: number;
 }
 
 /** 내 페르소나 — 필름마다 이 가운데 하나로 들어갈 수 있다 */

@@ -3,7 +3,7 @@
 import { RULES } from '../../shared/rules';
 import { readFilm } from '../../shared/opening';
 import { FEED_KINDS } from '../../shared/feed';
-import type { Beat, Cast, Extra, FeedKind, FeedPhoto, Film, FilmCard, Reel, ReelClip, Tie } from '../../shared/types';
+import type { Beat, Cast, Extra, FeedKind, FeedPhoto, Film, FilmCard, Persona, Reel, ReelClip, Tie } from '../../shared/types';
 import { newId } from '../db';
 import { isUuid } from '../guard';
 import { type Ctx, Fail } from './ctx';
@@ -143,10 +143,27 @@ function feedPhotos(v: unknown): FeedPhoto[] {
   return out;
 }
 
+/** 내 배역 하나. 「유저 이름」 배역은 이름 칸을 비워도 된다 — 그때는 글에 대신 쓰는 이름(RULES.playerName)이다 */
+function role(v: unknown, i: number): Persona {
+  const p = obj(v);
+  const player = p.player === true;
+  const what = i === 0 ? '내 배역' : `내 배역 ${i + 1}`;
+  return {
+    name: text(p.name, 20, `${what}의 이름`, !player) || RULES.playerName,
+    line: text(p.line, L.persona, `${what} 설명`),
+    face: image(p.face, what),
+    extras: extras(p.extras, what),
+    ...(player ? { player: true } : {}),
+  };
+}
+
 /** 화면에서 온 것을 필름으로 읽는다. 맞지 않으면 어느 칸인지 말하고 거절한다 */
 export function parseFilm(input: unknown): Film {
   const f = obj(input);
-  const persona = obj(f.persona);
+  const persona = role(f.persona, 0);
+  const rawRoles = Array.isArray(f.roles) ? f.roles : [];
+  if (rawRoles.length > L.roles - 1) throw new Fail(400, 'film_invalid', `내 배역은 ${L.roles}개까지 넣을 수 있어요.`);
+  const roles = rawRoles.map((r, i) => role(r, i + 1));
   const opens = obj(f.opens);
   const fs = obj(f.firstScene);
 
@@ -181,6 +198,9 @@ export function parseFilm(input: unknown): Film {
   });
   const names = new Set(casts.map((c) => c.name));
   if (names.size !== casts.length) throw new Fail(400, 'film_invalid', '캐스트 이름이 겹쳐요.');
+  // 배역의 이름이 캐스트와 같으면 누가 말했는지 가를 수 없다
+  const taken = [persona, ...roles].find((r) => names.has(r.name));
+  if (taken) throw new Fail(400, 'film_invalid', `캐스트와 이름이 같은 내 배역이 있어요: ${taken.name}`);
   const keys = new Set(casts.map((c) => c.key));
 
   // 화면은 캐스트를 순서(c1, c2 …)로 가리킨다
@@ -251,12 +271,8 @@ export function parseFilm(input: unknown): Film {
     startMin: int(f.startMin ?? 16 * 60, 0, 1439, '시작 시각'),
     // 한편은 서로 볼 캐스트가 둘은 있어야 한다
     opens: { feed: opens.feed !== false, ping: opens.ping !== false, aside: opens.aside === true && casts.length > 1 },
-    persona: {
-      name: text(persona.name, 20, '내 배역의 이름', true),
-      line: text(persona.line, L.persona, '내 배역 설명'),
-      face: image(persona.face, '내 배역'),
-      extras: extras(persona.extras, '내 배역'),
-    },
+    persona,
+    roles,
     casts,
     ties,
     bgm: media(f.bgm, '배경 음악'),
@@ -343,6 +359,7 @@ export function forScreen(film: Film): Film {
     ...film,
     extras: [],
     persona: { ...film.persona, extras: [] },
+    roles: (film.roles ?? []).map((r) => ({ ...r, extras: [] })),
     casts: film.casts.map((c) => ({ ...c, nature: '', habit: '', trauma: '', lack: '', secret: '', extras: [], photos: [] })),
   };
 }

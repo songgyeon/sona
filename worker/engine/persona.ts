@@ -4,7 +4,7 @@
 
 import { renameIn } from '../../shared/ko';
 import { RULES } from '../../shared/rules';
-import type { Film, Persona, PlayView } from '../../shared/types';
+import type { Extra, Film, Persona, PlayView } from '../../shared/types';
 import type { Db } from '../db';
 import { type Ctx, Fail } from './ctx';
 import { image, text } from './films';
@@ -14,6 +14,20 @@ export interface Mine {
   name: string;
   line: string;
   face: string;
+  /** 맡은 배역의 덧붙인 칸. 배역을 바꿀 때만 준다 — 없으면 그 필름의 것을 그대로 둔다 */
+  extras?: Extra[];
+}
+
+/** 사람과 필름마다 기억해 둔 내 배역과, 맡은 배역(0 = 첫째 배역) */
+export interface Saved extends Mine {
+  role: number;
+}
+
+/** 배역을 그대로 맡을 때의 내 배역. 「유저 이름」 배역은 들어가는 사람의 이름이다.
+    이름을 아직 정하지 않았으면 디렉터가 글에 쓴 이름이고, 그것도 대신 쓰는 이름이면 「나」다 */
+export function roleMine(role: Persona, myName: string): Mine {
+  const name = role.player ? myName || (role.name === RULES.playerName ? '나' : role.name) : role.name;
+  return { name, line: role.line, face: role.face };
 }
 
 /** 화면에서 온 것을 읽는다. 맞지 않으면 어느 칸인지 말하고 거절한다 */
@@ -37,7 +51,7 @@ export function applyMine(film: Film, mine: Mine, fresh = false): Film {
   const old = film.persona.name;
   if (film.casts.some((c) => c.name === mine.name)) throw new Fail(400, 'persona_taken', '캐스트와 같은 이름은 쓸 수 없어요.');
 
-  const persona: Persona = { name: mine.name, line: mine.line, face: mine.face, extras: film.persona.extras ?? [] };
+  const persona: Persona = { name: mine.name, line: mine.line, face: mine.face, extras: mine.extras ?? film.persona.extras ?? [] };
   const formerly = [...(film.persona.formerly ?? []), ...(old === mine.name ? [] : [old])].filter((n, i, all) => n !== mine.name && all.indexOf(n) === i);
   if (!fresh && formerly.length > 0) persona.formerly = formerly.slice(-3);
   if (old === mine.name) return { ...film, persona };
@@ -84,9 +98,9 @@ export function asNow(film: Film): (text: string) => string {
   return (text) => before.reduce((t, old) => renameIn(t, old, film.persona.name, keep), text);
 }
 
-/** 이 사람이 이 필름에서 쓰던 내 배역. 없으면 null */
-export async function savedMine(db: Db, visitor: string, filmId: string): Promise<Mine | null> {
-  return db.first<Mine>('SELECT name, line, face FROM personas WHERE visitor = ? AND film_id = ?', visitor, filmId);
+/** 이 사람이 이 필름에서 쓰던 내 배역과 맡은 배역. 없으면 null */
+export async function savedMine(db: Db, visitor: string, filmId: string): Promise<Saved | null> {
+  return db.first<Saved>('SELECT name, line, face, role FROM personas WHERE visitor = ? AND film_id = ?', visitor, filmId);
 }
 
 /** 내 배역을 고친다. 내 삶에서만 */

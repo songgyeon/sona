@@ -129,9 +129,9 @@ export const api = {
   key: () => call<{ ok: true; fake: boolean; modelReady: boolean }>('GET', '/api/key'),
   films: () => call<FilmCard[]>('GET', '/api/films'),
   film: (id: string) => call<{ card: FilmCard; film: Film; mine: FilmMine }>('GET', `/api/films/${id}`),
-  /** 들어가는 이름 고르기: 내 이름(me)이나 배역 이름(role) */
-  chooseAs: (id: string, as: 'me' | 'role' | 'persona', personaId?: string) =>
-    call<{ card: FilmCard; film: Film; mine: FilmMine }>('PUT', `/api/films/${id}/as`, { as, id: personaId }),
+  /** 들어가는 사람 고르기: 배역(role)이나 내 페르소나(persona). role은 맡을 배역의 차례(0 = 첫째 배역) */
+  chooseAs: (id: string, pick: { as: 'role'; role: number } | { as: 'persona'; id: string; role: number }) =>
+    call<{ card: FilmCard; film: Film; mine: FilmMine }>('PUT', `/api/films/${id}/as`, pick),
   /** 내 페르소나 */
   personas: () => call<MyPersona[]>('GET', '/api/personas'),
   addPersona: (p: Omit<MyPersona, 'id'>) => call<MyPersona[]>('POST', '/api/personas', p),

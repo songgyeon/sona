@@ -7,14 +7,20 @@ import type { FilmMine, MyPersona, Persona } from '../shared/types';
 import { Close, Next } from './icons';
 import { ticketNo, today } from './me';
 import { Face } from './poster';
+import { shownName } from '../shared/roles';
 
-/** 지금 고른 사람이 무엇인가 */
-export const asLabel = (mine: FilmMine): string =>
-  mine.as === 'role' ? '배역' : mine.personaId ? '내 페르소나' : mine.as === 'me' ? '내 이름' : '고친 배역';
+/** 지금 고른 사람이 무엇인가. 배역이 여럿이면 맡은 배역도 적는다 */
+export const asLabel = (mine: FilmMine, roles: Persona[] = []): string => {
+  const base = mine.as === 'role' ? '배역' : mine.personaId ? '내 페르소나' : mine.as === 'me' ? '내 이름' : '고친 배역';
+  const r = roles[mine.role];
+  if (!r) return base;
+  if (mine.as === 'role') return r.player ? '배역 · 유저 이름' : '배역';
+  return roles.length > 1 ? `${base} · ${r.player ? '유저 이름 배역' : `${r.name} 역`}` : base;
+};
 
 /** 필름 정보의 한 칸. 지금 들어가는 사람, 「고치기」와 「바꾸기」.
     고치기는 고른 내 페르소나면 그 페르소나를, 아니면 살고 있는 삶의 내 배역을 고친다. 둘 다 없으면 서지 않는다 */
-export function AsSlot({ mine, onOpen, onEdit, busy }: { mine: FilmMine; onOpen: () => void; onEdit: (() => void) | null; busy: boolean }) {
+export function AsSlot({ mine, roles, onOpen, onEdit, busy }: { mine: FilmMine; roles: Persona[]; onOpen: () => void; onEdit: (() => void) | null; busy: boolean }) {
   return (
     <div className="asme">
       <p>들어가는 사람</p>
@@ -23,7 +29,7 @@ export function AsSlot({ mine, onOpen, onEdit, busy }: { mine: FilmMine; onOpen:
           <Face id={mine.face} name={mine.name} />
           <span>
             <b>{mine.name}</b>
-            <small>{asLabel(mine)}</small>
+            <small>{asLabel(mine, roles)}</small>
           </span>
         </button>
         <div className="acts">
@@ -42,12 +48,15 @@ export function AsSlot({ mine, onOpen, onEdit, busy }: { mine: FilmMine; onOpen:
   );
 }
 
-type Pick = { as: 'role' } | { as: 'persona'; id: string };
+/** 고른 사람. role은 맡을 배역의 차례(0 = 첫째 배역) */
+export type Pick = { as: 'role'; role: number } | { as: 'persona'; id: string; role: number };
 
-/** 입장권. 배역과 내 페르소나 목록. 고르면 아래쪽이 떨어져 나가며 닫힌다 */
+/** 입장권. 배역과 내 페르소나 목록. 고르면 아래쪽이 떨어져 나가며 닫힌다.
+    배역이 여럿인 필름에서 내 페르소나를 고르면 그 페르소나가 맡을 배역을 한 번 더 묻는다 */
 export function AsPop({
   title,
-  role,
+  roles,
+  myName,
   mine,
   personas,
   onPick,
@@ -55,7 +64,10 @@ export function AsPop({
   onClose,
 }: {
   title: string;
-  role: Persona;
+  /** 필름의 배역 전부(첫째가 film.persona) */
+  roles: Persona[];
+  /** 입장권의 내 이름. 「유저 이름」 배역은 이 이름으로 보인다 */
+  myName: string;
   mine: FilmMine;
   personas: MyPersona[];
   /** 고른 사람으로 바꾼다. 못 바꿨으면 까닭을 돌려준다 */
@@ -67,6 +79,8 @@ export function AsPop({
   const [err, setErr] = useState('');
   const [leaving, setLeaving] = useState(false);
   const [no] = useState(ticketNo);
+  /** 맡을 배역을 묻고 있는 내 페르소나 */
+  const [asking, setAsking] = useState<MyPersona | null>(null);
 
   // 뒤의 화면이 따라 움직이지 않게 붙들어 둔다
   useEffect(() => {
@@ -80,7 +94,7 @@ export function AsPop({
 
   const pick = async (p: Pick) => {
     if (busy) return;
-    const same = p.as === 'role' ? mine.as === 'role' : mine.personaId === p.id;
+    const same = p.as === 'role' ? mine.as === 'role' && !mine.personaId && mine.role === p.role : mine.personaId === p.id && mine.role === p.role;
     if (same) {
       onClose();
       return;
@@ -121,47 +135,90 @@ export function AsPop({
             </button>
           </div>
           <div className="tk-strip" aria-hidden="true" />
-          <p className="tk-kicker">들어가는 사람</p>
-          <h2 className="tk-ask">누구로 들어갈까요?</h2>
-          <ul className="tk-list">
-            {other && (
-              <li>
-                <button className="on" aria-pressed="true" disabled={busy} onClick={onClose}>
-                  <Face id={mine.face} name={mine.name} />
-                  <span>
-                    <b>{mine.name}</b>
-                    <small>{asLabel(mine)}</small>
-                  </span>
-                  <em>지금</em>
-                </button>
-              </li>
-            )}
-            <li>
-              <button className={mine.as === 'role' ? 'on' : ''} aria-pressed={mine.as === 'role'} disabled={busy} onClick={() => void pick({ as: 'role' })}>
-                <Face id={role.face} name={role.name} />
-                <span>
-                  <b>{role.name}</b>
-                  <small>배역</small>
-                </span>
-                {mine.as === 'role' && <em>지금</em>}
+          {asking ? (
+            <>
+              <p className="tk-kicker">{asking.name}</p>
+              <h2 className="tk-ask">어느 배역으로 들어갈까요?</h2>
+              <ul className="tk-list">
+                {roles.map((r, i) => {
+                  const on = mine.personaId === asking.id && mine.role === i;
+                  return (
+                    <li key={i}>
+                      <button className={on ? 'on' : ''} aria-pressed={on} disabled={busy} onClick={() => void pick({ as: 'persona', id: asking.id, role: i })}>
+                        <Face id={r.face} name={r.player ? asking.name : r.name} />
+                        <span>
+                          <b>{r.player ? '유저 이름' : r.name}</b>
+                          <small>{r.line || '배역'}</small>
+                        </span>
+                        {on && <em>지금</em>}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              <button type="button" className="tk-back" disabled={busy} onClick={() => setAsking(null)}>
+                다른 사람 고르기
               </button>
-            </li>
-            {personas.map((p) => {
-              const on = mine.personaId === p.id;
-              return (
-                <li key={p.id}>
-                  <button className={on ? 'on' : ''} aria-pressed={on} disabled={busy} onClick={() => void pick({ as: 'persona', id: p.id })}>
-                    <Face id={p.face} name={p.name} />
-                    <span>
-                      <b>{p.name}</b>
-                      <small>{p.line || '내 페르소나'}</small>
-                    </span>
-                    {on && <em>지금</em>}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+            </>
+          ) : (
+            <>
+              <p className="tk-kicker">들어가는 사람</p>
+              <h2 className="tk-ask">누구로 들어갈까요?</h2>
+              <ul className="tk-list">
+                {other && (
+                  <li>
+                    <button className="on" aria-pressed="true" disabled={busy} onClick={onClose}>
+                      <Face id={mine.face} name={mine.name} />
+                      <span>
+                        <b>{mine.name}</b>
+                        <small>{asLabel(mine, roles)}</small>
+                      </span>
+                      <em>지금</em>
+                    </button>
+                  </li>
+                )}
+                {roles.map((r, i) => {
+                  const on = mine.as === 'role' && !mine.personaId && mine.role === i;
+                  const name = shownName(r, myName);
+                  return (
+                    <li key={`r${i}`}>
+                      <button className={on ? 'on' : ''} aria-pressed={on} disabled={busy} onClick={() => void pick({ as: 'role', role: i })}>
+                        <Face id={r.face} name={name} />
+                        <span>
+                          <b>{name}</b>
+                          <small>
+                            {r.player ? '배역 · 유저 이름' : '배역'}
+                            {roles.length > 1 && r.line ? `\n${r.line}` : ''}
+                          </small>
+                        </span>
+                        {on && <em>지금</em>}
+                      </button>
+                    </li>
+                  );
+                })}
+                {personas.map((p) => {
+                  const on = mine.personaId === p.id;
+                  return (
+                    <li key={p.id}>
+                      <button
+                        className={on ? 'on' : ''}
+                        aria-pressed={on}
+                        disabled={busy}
+                        onClick={() => (roles.length > 1 ? setAsking(p) : void pick({ as: 'persona', id: p.id, role: 0 }))}
+                      >
+                        <Face id={p.face} name={p.name} />
+                        <span>
+                          <b>{p.name}</b>
+                          <small>{p.line || '내 페르소나'}</small>
+                        </span>
+                        {on && <em>지금</em>}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
           {err && (
             <p className="tk-err" role="alert">
               {err}
