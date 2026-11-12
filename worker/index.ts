@@ -9,6 +9,7 @@ import { getMe, setMe } from './engine/me';
 import { addPersona, dropPersona, editPersona, listPersonas } from './engine/mypersonas';
 import { dropSave, listSaves, loadSave, makeSave } from './engine/saves';
 import { loadImage, saveImage } from './engine/images';
+import { finishMedia, putPart, serveMedia, startMedia } from './engine/media';
 import { skip } from './engine/skip';
 import { listPlays, viewOf } from './engine/store';
 import { setMine } from './engine/persona';
@@ -64,6 +65,8 @@ const ROUTES: [string, RegExp, Handler][] = [
   ['PUT', /^\/api\/films\/([^/]+)\/as$/, (ctx, p, body) => chooseAs(ctx, p[0]!, body)],
   ['PUT', /^\/api\/films\/([^/]+)$/, (ctx, p, body) => updateFilm(ctx, p[0]!, body)],
   ['POST', /^\/api\/films\/([^/]+)\/enter$/, (ctx, p, body) => enter(ctx, p[0]!, body.playId)],
+  ['POST', /^\/api\/media$/, (ctx, _p, body) => startMedia(ctx, body)],
+  ['POST', /^\/api\/media\/([^/]+)\/done$/, (ctx, p) => finishMedia(ctx, p[0]!)],
   ['GET', /^\/api\/plays$/, (ctx) => listPlays(ctx)],
   ['GET', /^\/api\/plays\/([^/]+)$/, (ctx, p) => viewOf(ctx, p[0]!)],
   [
@@ -88,6 +91,8 @@ const ROUTES: [string, RegExp, Handler][] = [
 ];
 
 const IMAGE = /^\/api\/img\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
+const MEDIA = /^\/api\/media\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
+const PART = /^\/api\/media\/([0-9a-f-]{36})\/parts\/(\d{1,4})$/;
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -117,6 +122,15 @@ export default {
         });
       }
 
+      // 소리와 영상도 화면의 <audio>, <video>가 바로 부른다. 그림처럼 문지기 앞에서 내준다
+      const media = MEDIA.exec(url.pathname);
+      if (media && (req.method === 'GET' || req.method === 'HEAD')) {
+        const db = d1(env.DB);
+        await ensureSchema(db);
+        const res = await serveMedia(db, media[1]!, req.headers.get('range'));
+        return req.method === 'HEAD' ? new Response(null, { status: res.status, headers: res.headers }) : res;
+      }
+
       await checkKey(req, env.ACCESS_KEY);
       // 화면이 켜질 때 부르는 길. 잠긴 주소면 여기서 걸리고, 모델 열쇠가 빠졌으면 알린다
       if (url.pathname === '/api/key') return json({ ok: true, fake: env.MODEL_KIND === 'fake', modelReady: modelReady(env) });
@@ -127,6 +141,15 @@ export default {
         await ensureSchema(db);
         const ctx: Ctx = { db, model: pickModel(env), visitor: visitorOf(req), now: () => Date.now() };
         return json(await saveImage(ctx, req.headers.get('content-type') ?? '', await req.arrayBuffer()));
+      }
+
+      // 소리와 영상의 조각. 몸통이 글자가 아니라서 따로 받는다
+      const part = PART.exec(url.pathname);
+      if (part && req.method === 'PUT') {
+        const db = d1(env.DB);
+        await ensureSchema(db);
+        const ctx: Ctx = { db, model: pickModel(env), visitor: visitorOf(req), now: () => Date.now() };
+        return json(await putPart(ctx, part[1]!, Number(part[2]), await req.arrayBuffer()));
       }
 
       for (const [method, pattern, handler] of ROUTES) {

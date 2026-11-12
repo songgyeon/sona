@@ -176,6 +176,23 @@ export const SCHEMA: string[] = [
     created_at INTEGER NOT NULL
   )`,
 
+  // 소리와 영상. 커서 나눠 둔다(media_parts). done이 1이 된 것만 내준다
+  `CREATE TABLE IF NOT EXISTS media (
+    id TEXT PRIMARY KEY,
+    owner TEXT NOT NULL,
+    mime TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    parts INTEGER NOT NULL,
+    done INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS media_parts (
+    media_id TEXT NOT NULL,
+    n INTEGER NOT NULL,
+    bytes BLOB NOT NULL,
+    PRIMARY KEY (media_id, n)
+  )`,
+
   // 하루 호출 수
   `CREATE TABLE IF NOT EXISTS usage (
     day TEXT NOT NULL,
