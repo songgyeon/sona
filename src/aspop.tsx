@@ -12,22 +12,32 @@ import { Face } from './poster';
 export const asLabel = (mine: FilmMine): string =>
   mine.as === 'role' ? '배역' : mine.personaId ? '내 페르소나' : mine.as === 'me' ? '내 이름' : '고친 배역';
 
-/** 필름 정보의 한 칸. 지금 들어가는 사람과 「바꾸기」 */
-export function AsSlot({ mine, onOpen, busy }: { mine: FilmMine; onOpen: () => void; busy: boolean }) {
+/** 필름 정보의 한 칸. 지금 들어가는 사람, 「고치기」와 「바꾸기」.
+    고치기는 고른 내 페르소나면 그 페르소나를, 아니면 살고 있는 삶의 내 배역을 고친다. 둘 다 없으면 서지 않는다 */
+export function AsSlot({ mine, onOpen, onEdit, busy }: { mine: FilmMine; onOpen: () => void; onEdit: (() => void) | null; busy: boolean }) {
   return (
     <div className="asme">
       <p>들어가는 사람</p>
-      <button className="asone" onClick={onOpen} disabled={busy} aria-haspopup="dialog">
-        <Face id={mine.face} name={mine.name} />
-        <span>
-          <b>{mine.name}</b>
-          <small>{asLabel(mine)}</small>
-        </span>
-        <em>
-          바꾸기
-          <Next />
-        </em>
-      </button>
+      <div className="asone">
+        <button className="aswho" onClick={onOpen} disabled={busy} aria-haspopup="dialog" aria-label={`${mine.name}, 들어가는 사람 바꾸기`}>
+          <Face id={mine.face} name={mine.name} />
+          <span>
+            <b>{mine.name}</b>
+            <small>{asLabel(mine)}</small>
+          </span>
+        </button>
+        <div className="acts">
+          {onEdit && (
+            <button onClick={onEdit} disabled={busy}>
+              고치기
+            </button>
+          )}
+          <button onClick={onOpen} disabled={busy} aria-haspopup="dialog">
+            바꾸기
+            <Next />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -24,12 +24,25 @@ export function Personas({ go }: { go: (to: string) => void }) {
   const [err, setErr] = useState('');
   const [asking, setAsking] = useState(false);
 
+  /** 필름 정보의 「고치기」로 왔으면 그 페르소나를 바로 열고, 다 고치면 그 필름으로 돌아간다 */
+  const [ask] = useState(() => {
+    const q = new URLSearchParams(window.location.search);
+    return { edit: q.get('edit'), back: q.get('back') };
+  });
+
   useEffect(() => {
     api
       .personas()
-      .then(setList)
+      .then((l) => {
+        setList(l);
+        const p = ask.edit ? l.find((x) => x.id === ask.edit) : undefined;
+        if (p && editing === null) open(p);
+      })
       .catch((e) => setErr(e instanceof ApiFail ? e.message : '페르소나를 불러오지 못했어요.'));
   }, [me.name]);
+
+  /** 돌아갈 곳. 필름 정보에서 왔으면 그 필름으로 */
+  const leave = () => go(ask.back && ask.back.startsWith('/film/') ? ask.back : '/');
 
   const open = (p: MyPersona | null) => {
     setEditing(p ? p.id : 'new');
@@ -44,6 +57,11 @@ export function Personas({ go }: { go: (to: string) => void }) {
     try {
       setList(await work());
       setEditing(null);
+      // 필름 정보에서 고치러 왔으면 그 필름으로 돌아간다
+      if (ask.back) {
+        leave();
+        return;
+      }
     } catch (e) {
       setErr(e instanceof ApiFail ? e.message : '저장하지 못했어요.');
     }
@@ -64,7 +82,7 @@ export function Personas({ go }: { go: (to: string) => void }) {
           <input value={form.name} maxLength={20} placeholder="예) 서하" onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
         </Field>
       </div>
-      <Field label="소개" count={[form.line.length, RULES.limits.persona]} hint="이 페르소나로 들어가면 캐스트가 나를 이런 사람으로 알아요.">
+      <Field label="소개" count={[form.line.length, RULES.limits.persona]} hint="이 페르소나로 들어가는 필름에 고친 대로 적혀요.">
         <textarea rows={3} value={form.line} maxLength={RULES.limits.persona} placeholder="예) 낯을 가리지만 한번 친해지면 말이 많다." onChange={(e) => setForm((f) => ({ ...f, line: e.target.value }))} />
       </Field>
       {err && <p className="warn">{err}</p>}
@@ -83,7 +101,7 @@ export function Personas({ go }: { go: (to: string) => void }) {
           <button className="btn play" disabled={busy || !form.name.trim()} onClick={() => void save()}>
             저장
           </button>
-          <button className="textbtn" disabled={busy} onClick={() => setEditing(null)}>
+          <button className="textbtn" disabled={busy} onClick={() => (ask.back ? leave() : setEditing(null))}>
             취소
           </button>
           {editing !== 'new' && (
@@ -99,7 +117,7 @@ export function Personas({ go }: { go: (to: string) => void }) {
   return (
     <main className="app tabbed make">
       <div className="head">
-        <button className="ico" onClick={() => go('/')} aria-label="돌아가기">
+        <button className="ico" onClick={leave} aria-label="돌아가기">
           <Back />
         </button>
         <b>내 페르소나</b>

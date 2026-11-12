@@ -4,8 +4,9 @@
 
 import { RULES } from '../../shared/rules';
 import type { MyPersona } from '../../shared/types';
-import { newId } from '../db';
+import { newId, q } from '../db';
 import { type Ctx, Fail } from './ctx';
+import { syncPersona } from './designate';
 import { image, text } from './films';
 import { myName } from './me';
 
@@ -55,11 +56,17 @@ export async function editPersona(ctx: Ctx, id: string, input: unknown): Promise
   const row = await ctx.db.first<{ id: string }>('SELECT id FROM mypersonas WHERE id = ? AND visitor = ?', id, ctx.visitor);
   if (!row) throw new Fail(404, 'persona_missing', '페르소나를 찾을 수 없어요.');
   await ctx.db.run('UPDATE mypersonas SET name = ?, line = ?, face = ?, updated_at = ? WHERE id = ?', p.name, p.line, p.face, ctx.now(), id);
+  // 이 페르소나로 들어가는 필름의 내 배역과, 그 필름에서 살던 삶에도 적는다
+  await syncPersona(ctx, id);
   return listPersonas(ctx);
 }
 
 export async function dropPersona(ctx: Ctx, id: string): Promise<MyPersona[]> {
-  await ctx.db.run('DELETE FROM mypersonas WHERE id = ? AND visitor = ?', id, ctx.visitor);
+  await ctx.db.batch([
+    q('DELETE FROM mypersonas WHERE id = ? AND visitor = ?', id, ctx.visitor),
+    // 이 페르소나로 들어가던 필름은 그때의 모습 그대로 둔다
+    q('UPDATE personas SET persona_id = NULL WHERE visitor = ? AND persona_id = ?', ctx.visitor, id),
+  ]);
   return listPersonas(ctx);
 }
 

@@ -97,7 +97,8 @@ export async function setMine(ctx: Ctx, playId: string, input: { name?: unknown;
   await ctx.db.batch([
     { sql: 'UPDATE plays SET film = ? WHERE id = ?', params: [JSON.stringify(film), playId] },
     {
-      sql: 'INSERT INTO personas (visitor, film_id, name, line, face, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(visitor, film_id) DO UPDATE SET name = excluded.name, line = excluded.line, face = excluded.face, updated_at = excluded.updated_at',
+      // 이 필름에서만 고친 것이다. 고른 페르소나와는 끊는다 — 페르소나를 고쳐도 덮어쓰지 않는다
+      sql: 'INSERT INTO personas (visitor, film_id, name, line, face, updated_at, persona_id) VALUES (?, ?, ?, ?, ?, ?, NULL) ON CONFLICT(visitor, film_id) DO UPDATE SET name = excluded.name, line = excluded.line, face = excluded.face, updated_at = excluded.updated_at, persona_id = NULL',
       params: [ctx.visitor, play.filmId, mine.name, mine.line, mine.face, ctx.now()],
     },
   ]);

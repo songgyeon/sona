@@ -110,6 +110,7 @@ export const SCHEMA: string[] = [
     line TEXT NOT NULL,
     face TEXT NOT NULL,
     updated_at INTEGER NOT NULL,
+    persona_id TEXT,
     PRIMARY KEY (visitor, film_id)
   )`,
 
@@ -231,6 +232,19 @@ const ADDED: { table: string; column: string; sql: string; then?: { sql: string;
   // 피드 글의 종류(본 영화, 노래, 일기 …)와 그 속. 예전 글은 한 줄 글(text)이다
   { table: 'posts', column: 'kind', sql: "ALTER TABLE posts ADD COLUMN kind TEXT NOT NULL DEFAULT 'text'" },
   { table: 'posts', column: 'data', sql: "ALTER TABLE posts ADD COLUMN data TEXT NOT NULL DEFAULT ''" },
+  // 들어가는 사람으로 고른 내 페르소나. 그 페르소나를 고치면 이 필름의 내 배역도 같이 바뀐다.
+  // 이 칸이 생기기 전에 고른 것은 이름이 같은 내 페르소나로 잇는다
+  {
+    table: 'personas',
+    column: 'persona_id',
+    sql: 'ALTER TABLE personas ADD COLUMN persona_id TEXT',
+    then: [
+      {
+        sql: 'UPDATE personas SET persona_id = (SELECT m.id FROM mypersonas m WHERE m.visitor = personas.visitor AND m.name = personas.name ORDER BY m.created_at, m.rowid LIMIT 1) WHERE persona_id IS NULL',
+        args: [],
+      },
+    ],
+  },
   // 비공개 필름. 만든 사람만 목록에서 보고 들어간다
   {
     table: 'films',

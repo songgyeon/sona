@@ -60,7 +60,8 @@ button:disabled { opacity: 0.4; cursor: default; }
 .rowhead button, .rowhead span { margin-left: auto; font-size: 12px; font-weight: 500; letter-spacing: 0.02em; color: var(--ink-4); }
 
 /* 제목: 명조를 띄엄띄엄 */
-.title { font-family: var(--serif); font-weight: 700; line-height: 1.15; letter-spacing: 0.22em; }
+.title { font-family: var(--serif); font-weight: 700; line-height: 1.15; letter-spacing: 0.22em; text-align: start; }
+.poster .title, .credits .roll .title { text-align: center; }
 .title.long { letter-spacing: 0.06em; }
 
 /* 단추: 각지게 */
@@ -710,12 +711,15 @@ button:disabled { opacity: 0.4; cursor: default; }
 .extras .btn.wide { margin-top: 12px; }
 
 /* ── 들어가는 사람: 한 칸, 누르면 입장권 목록 ── */
-.asone { width: 100%; display: grid; grid-template-columns: 44px 1fr auto; column-gap: 14px; align-items: center; padding: 12px 14px; border: 1px solid var(--ink-4); text-align: left; }
+.asone { width: 100%; display: flex; align-items: center; gap: 10px; padding: 12px 10px 12px 14px; border: 1px solid var(--ink-4); }
+.asone .aswho { flex: 1; min-width: 0; display: grid; grid-template-columns: 44px 1fr; column-gap: 14px; align-items: center; text-align: left; }
 .asone .face { width: 44px; height: 44px; font-size: 17px; }
 .asone b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16.5px; font-weight: 700; color: var(--ink); }
 .asone small { display: block; margin-top: 2px; font-size: 12px; color: var(--ink-3); }
-.asone em { display: flex; align-items: center; gap: 2px; font-style: normal; font-size: 12.5px; color: var(--ink-3); }
-.asone em svg { width: 14px; height: 14px; }
+.asone .acts { flex: none; display: flex; align-items: center; gap: 2px; }
+.asone .acts button { display: flex; align-items: center; gap: 2px; padding: 8px 6px; font-size: 12.5px; color: var(--ink-3); }
+.asone .acts button + button { border-left: 1px solid var(--hair); padding-left: 10px; }
+.asone .acts svg { width: 14px; height: 14px; }
 .aspop .tk-main { max-height: calc(100dvh - 210px); overflow-y: auto; }
 .tk-list { margin-top: 16px; }
 .tk-list li + li { border-top: 1px dashed rgba(0, 0, 0, 0.2); }
@@ -740,7 +744,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .tix .stub { position: relative; padding: 14px 0; border-radius: 0 4px 4px 0; display: grid; align-content: center; justify-items: center; gap: 6px; -webkit-mask: radial-gradient(circle 7px at 0 0, #0000 96%, #000) top/100% 51% no-repeat, radial-gradient(circle 7px at 0 100%, #0000 96%, #000) bottom/100% 51% no-repeat; mask: radial-gradient(circle 7px at 0 0, #0000 96%, #000) top/100% 51% no-repeat, radial-gradient(circle 7px at 0 100%, #0000 96%, #000) bottom/100% 51% no-repeat; }
 .tix .stub::before { content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; border-left: 2px dashed rgba(0, 0, 0, 0.25); }
 .tix .ad { font-size: 9.5px; font-weight: 700; letter-spacing: 0.34em; color: #777; }
-.tix h3 { margin-top: 6px; font-family: var(--serif); font-size: 23px; font-weight: 700; letter-spacing: 0.04em; line-height: 1.25; word-break: keep-all; }
+.tix h3 { margin-top: 6px; font-family: var(--serif); font-size: 23px; font-weight: 700; letter-spacing: 0.04em; line-height: 1.25; word-break: keep-all; text-align: start; }
 .tix .meta { margin-top: 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.1em; color: #666; font-variant-numeric: tabular-nums; }
 .tix .stub b { font-family: var(--serif); font-size: 19px; font-weight: 700; }
 .tix .stub small { font-size: 9.5px; font-weight: 700; letter-spacing: 0.2em; color: #777; }
@@ -754,7 +758,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .ostband svg { position: absolute; left: 15px; top: 0; width: 24px; height: 100%; }
 .ost .txt { padding: 16px 16px 15px; }
 .ost .txt small { font-size: 10px; font-weight: 700; letter-spacing: 0.32em; color: var(--ink-3); }
-.ost .txt h3 { margin-top: 6px; font-family: var(--serif); font-size: 21px; font-weight: 700; letter-spacing: 0.03em; }
+.ost .txt h3 { margin-top: 6px; font-family: var(--serif); font-size: 21px; font-weight: 700; letter-spacing: 0.03em; text-align: start; }
 .ost .txt p { margin-top: 3px; font-size: 13px; color: var(--ink-2); }
 .ostbar { display: block; margin-top: 14px; height: 2px; background: linear-gradient(90deg, var(--ink-2) 38%, #333 38%); }
 

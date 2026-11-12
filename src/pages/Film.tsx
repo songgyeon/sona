@@ -112,7 +112,18 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
         {film.logline && <p className="line1">{film.logline}</p>}
         <div className="go">
           {/* 들어가는 사람: 지금 고른 사람 한 칸. 누르면 입장권 모양의 목록이 뜬다 */}
-          <AsSlot mine={mine} busy={choosing} onOpen={() => setChoosing(true)} />
+          <AsSlot
+            mine={mine}
+            busy={choosing}
+            onOpen={() => setChoosing(true)}
+            onEdit={
+              mine.personaId
+                ? () => go(`/personas?edit=${mine.personaId}&back=${encodeURIComponent(`/film/${filmId}`)}`)
+                : living
+                  ? () => go(`/play/${living.id}/me`)
+                  : null
+            }
+          />
           {living ? (
             <>
               <button className="btn play wide" onClick={() => go(`/play/${living.id}`)}>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { formatWorld } from '../../shared/clock';
 import { RULES } from '../../shared/rules';
-import type { PlayView } from '../../shared/types';
+import type { MyPersona, PlayView } from '../../shared/types';
 import { ApiFail, api } from '../api';
 import { FacePick } from '../crop';
 import { Back } from '../icons';
@@ -24,14 +24,24 @@ export function Me({ playId, go }: { playId: string; go: (to: string) => void })
   const [posting, setPosting] = useState(false);
   const [postErr, setPostErr] = useState('');
 
+  /** 이 필름에 고른 내 페르소나. 있으면 그 페르소나를 고친다 — 그 페르소나로 들어가는 필름에 모두 적힌다 */
+  const [persona, setPersona] = useState<MyPersona | null>(null);
+
   useEffect(() => {
     api
       .play(playId)
-      .then((v) => {
+      .then(async (v) => {
         setView(v);
-        setName(v.film.persona.name);
-        setLine(v.film.persona.line);
-        setFace(v.film.persona.face ?? '');
+        const mine = await api
+          .film(v.filmId)
+          .then((d) => d.mine)
+          .catch(() => null);
+        const chosen = mine?.personaId ? ((await api.personas().catch(() => [])).find((p) => p.id === mine.personaId) ?? null) : null;
+        setPersona(chosen);
+        // 고른 페르소나면 그 페르소나에 적힌 그대로 고친다(비어 있어 배역의 것을 빌려 쓰던 칸은 빈 채로)
+        setName(chosen ? chosen.name : v.film.persona.name);
+        setLine(chosen ? chosen.line : v.film.persona.line);
+        setFace(chosen ? chosen.face : (v.film.persona.face ?? ''));
         setReady(true);
       })
       .catch((e) => setErr(e instanceof ApiFail ? e.message : '내 배역을 불러오지 못했어요.'));
@@ -43,7 +53,8 @@ export function Me({ playId, go }: { playId: string; go: (to: string) => void })
     setBusy(true);
     setErr('');
     try {
-      await api.setPersona(playId, { name, line, face });
+      if (persona) await api.editPersona(persona.id, { name, line, face });
+      else await api.setPersona(playId, { name, line, face });
       back();
     } catch (x) {
       setErr(x instanceof ApiFail ? x.message : '저장하지 못했어요.');
@@ -85,8 +96,8 @@ export function Me({ playId, go }: { playId: string; go: (to: string) => void })
       </div>
 
       <section className="body">
-        <p className="lead">이 필름에서 내가 맡은 인물이에요.</p>
-        <p className="sub">고친 내용은 내 삶에만 적혀요.</p>
+        <p className="lead">{persona ? '이 필름에 고른 내 페르소나예요.' : '이 필름에서 내가 맡은 인물이에요.'}</p>
+        <p className="sub">{persona ? '고친 내용은 이 페르소나로 들어가는 필름에 모두 적혀요.' : '고친 내용은 내 삶에만 적혀요.'}</p>
 
         <Card title="프로필">
           <div className="casthead">
