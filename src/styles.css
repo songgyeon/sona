@@ -129,7 +129,8 @@ button:disabled { opacity: 0.4; cursor: default; }
 .bill { margin-top: 26px; padding-top: 14px; border-top: 1px solid var(--hair); display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 22px; font-size: 10.5px; letter-spacing: 0.06em; color: var(--ink-3); }
 .bill b { margin-left: 7px; font-weight: 600; letter-spacing: 0.1em; color: var(--ink-2); }
 
-.shelves { padding: 20px 0 40px; display: grid; gap: 30px; }
+/* 줄 칸은 화면 폭에 묶는다 — 묶지 않으면 필름 줄이 넘쳐도 칸이 같이 늘어나, 밀리지 않고 화면 밖에서 잘렸다(2026-11-12 사용자: 「왜 양옆으로 안 움직여?」) */
+.shelves { padding: 20px 0 40px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 30px; }
 
 /* ── 필름 한 줄 ──
    --w 칸 너비, --h 칸 높이, --gap 칸 사이, --n 칸마다 뚫린 구멍 수 */
@@ -156,7 +157,9 @@ button:disabled { opacity: 0.4; cursor: default; }
 .strip.named::after { bottom: 18.5px; }
 .cellwrap { position: relative; flex: none; width: var(--w); }
 .cellwrap small { position: absolute; left: 1px; right: 0; top: calc(var(--h) + 13.5px); font-size: 9.5px; letter-spacing: 0.05em; color: rgba(255, 255, 255, 0.62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.strip.posters { --w: 76px; --h: 100px; --gap: 6px; --n: 4; }
+/* 포스터 비율(2:3). 한 화면에 두 편 반쯤 보이고 나머지는 밀어서 본다(2026-11-12 사용자: 「필름 목록이 너무 작게 나와」) */
+.strip.posters { --w: 136px; --h: 204px; --gap: 8px; --n: 6; }
+.strip.posters .cellwrap small { top: calc(var(--h) + 13px); font-size: 10.5px; }
 .strip.stills { --w: 158px; --h: 105px; --gap: 6px; --n: 8; }
 
 /* ── 필름 정보 ── */
