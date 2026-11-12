@@ -7,6 +7,7 @@ import { Film } from './pages/Film';
 import { Home } from './pages/Home';
 import { Me } from './pages/Me';
 import { Find, Living, Mine } from './pages/Lists';
+import { Entrance, shouldEnter } from './entrance';
 import { MeCtx, NamePop } from './me';
 import { Personas } from './pages/Personas';
 import { Play } from './pages/Play';
@@ -37,6 +38,8 @@ export function App() {
   const [name, setName] = useState('');
   /** 입장권을 띄우고 있나 */
   const [naming, setNaming] = useState(false);
+  /** 들어가는 화면을 띄우고 있나. 로비로 열었을 때, 이 창에서 처음일 때만 */
+  const [entering, setEntering] = useState(() => shouldEnter(window.location.pathname));
 
   const check = async () => {
     setGate('checking');
@@ -83,7 +86,8 @@ export function App() {
   return (
     <MeCtx.Provider value={{ name, rename: () => setNaming(true) }}>
       <Page path={path} go={go} fake={fake} modelReady={modelReady} />
-      {naming && (
+      {entering && <Entrance name={name} onEnter={() => setEntering(false)} />}
+      {naming && !entering && (
         <NamePop
           name={name}
           onDone={(next) => {

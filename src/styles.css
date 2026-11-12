@@ -905,3 +905,42 @@ button:disabled { opacity: 0.4; cursor: default; }
 .bgm small { display: block; margin-top: 2px; font-size: 12px; color: var(--ink-3); }
 .bgm button { flex: none; padding: 7px 10px; border: 1px solid var(--ink-4); font-size: 12px; color: var(--ink-2); }
 @media (prefers-reduced-motion: reduce) { .bgm .disc.spin, .opener, .opener.out { animation: none; } }
+
+/* ── 들어가는 화면: 필름 리더(3·2·1) → SONA ── */
+.entrance { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; overflow: hidden; background: #000; color: #fff; }
+.entrance.grain::after { z-index: 5; opacity: 0.7; }
+.entrance.out { animation: eout 0.52s ease forwards; }
+@keyframes eout { to { opacity: 0; } }
+.eholes { position: absolute; z-index: 4; top: -40px; bottom: -40px; width: 14px; background-image: linear-gradient(#000 0 0); background-color: transparent; background-image: repeating-linear-gradient(to bottom, #1b1b1b 0 12px, transparent 12px 24px); animation: eroll 0.6s linear infinite; }
+.eholes.left { left: 8px; }
+.eholes.right { right: 8px; }
+.entrance.lit .eholes { animation-duration: 2.4s; opacity: 0.6; }
+@keyframes eroll { to { transform: translateY(24px); } }
+.leader { position: relative; width: min(72vw, 320px); aspect-ratio: 1; display: grid; place-items: center; animation: flick 0.12s steps(2) infinite; }
+@keyframes flick { 50% { opacity: 0.88; } }
+.leader .ring { position: absolute; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.85); }
+.leader .ring.outer { inset: 0; }
+.leader .ring.inner { inset: 12%; border-width: 1.5px; border-color: rgba(255, 255, 255, 0.55); }
+.leader .cross { position: absolute; background: rgba(255, 255, 255, 0.45); }
+.leader .cross.h { left: -12%; right: -12%; top: 50%; height: 1.5px; }
+.leader .cross.v { top: -12%; bottom: -12%; left: 50%; width: 1.5px; }
+.leader .sweep { position: absolute; inset: 1.5px; border-radius: 50%; background: conic-gradient(from 0deg, rgba(255, 255, 255, 0.28) 0deg, rgba(255, 255, 255, 0.28) 60deg, transparent 60deg); animation: sweep 0.82s linear forwards; }
+@keyframes sweep { from { transform: rotate(-60deg); } to { transform: rotate(300deg); } }
+.leader b { position: relative; z-index: 2; font-family: var(--serif); font-size: min(34vw, 150px); font-weight: 700; line-height: 1; animation: num 0.82s ease both; }
+@keyframes num { 0% { opacity: 0; transform: scale(1.08); } 15% { opacity: 1; transform: none; } 85% { opacity: 1; } 100% { opacity: 0.2; } }
+.marquee { position: relative; z-index: 3; width: 100%; min-width: 0; display: grid; justify-items: center; text-align: center; animation: lit 0.9s ease both; }
+@keyframes lit { 0% { opacity: 0; filter: brightness(3); } 12% { opacity: 1; filter: brightness(2); } 100% { opacity: 1; filter: none; } }
+.marquee .beam { position: absolute; z-index: -1; left: 50%; top: -38vh; width: 120vw; height: 90vh; transform: translateX(-50%); background: radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04) 40%, transparent 70%); pointer-events: none; }
+.elogo { font-family: var(--serif); font-size: clamp(46px, 17vw, 76px); font-weight: 700; letter-spacing: 0.42em; padding-left: 0.42em; line-height: 1; text-align: center; }
+.etag { margin-top: 18px; font-family: var(--serif); font-size: 14.5px; line-height: 1.7; letter-spacing: 0.04em; color: var(--ink-2); text-align: center; text-align-last: center; }
+.eposters { width: 100%; margin-top: 34px; overflow: hidden; padding: 10px 0; background: #050505; border-top: 1px solid #1a1a1a; border-bottom: 1px solid #1a1a1a; position: relative; }
+.eposters::before, .eposters::after { content: ''; position: absolute; left: 0; right: 0; height: 6px; z-index: 2; background-image: linear-gradient(90deg, #262626 0 8px, transparent 8px); background-size: 14px 6px; }
+.eposters::before { top: 2px; }
+.eposters::after { bottom: 2px; }
+.erow { display: flex; gap: 4px; width: max-content; padding: 6px 0; animation: estrip linear infinite; }
+@keyframes estrip { to { transform: translateX(-50%); } }
+.ecell { width: 64px; aspect-ratio: 2 / 3; flex: none; overflow: hidden; background: #111; }
+.ecell img { width: 100%; height: 100%; object-fit: cover; }
+.eenter { margin-top: 36px; width: calc(100% - 60px); max-width: 320px; }
+.estub { margin-top: 14px; width: calc(100% - 60px); max-width: 320px; display: flex; justify-content: space-between; font-size: 10.5px; font-weight: 600; letter-spacing: 0.14em; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .eholes, .leader, .erow, .marquee { animation: none; } }
