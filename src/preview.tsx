@@ -154,11 +154,12 @@ function FilmPeek({ film, onEnter }: { film: Film; onEnter: () => void }) {
   );
 }
 
-/** 오프닝. 들어가는 순간과 같다: 영상이 있으면 영상, 제목, 컷·지문·대사, 내 배역 카드.
+/** 오프닝. 들어가는 순간과 같다: 오프닝 영상(없으면 검은 화면에 제목), 컷·지문·대사, 내 배역 카드.
     읽는 자리에 닿은 줄의 컷이 위 화면에 걸린다(재생 화면과 같은 셈) */
 function OpeningPeek({ film, onAgain }: { film: Film; onAgain: () => void }) {
+  // 오프닝 영상이 있으면 영상이 오프닝이다. 없으면 기본 오프닝(검은 화면에 제목)이 뜬다
   const [reelOn, setReelOn] = useState((film.reel?.clips.length ?? 0) > 0);
-  const [card, setCard] = useState(true);
+  const [card, setCard] = useState(!((film.reel?.clips.length ?? 0) > 0));
   const [reading, setReading] = useState(hasLines(film));
   const [shot, setShot] = useState('');
   const [under, setUnder] = useState('');
@@ -260,7 +261,7 @@ function OpeningPeek({ film, onAgain }: { film: Film; onAgain: () => void }) {
         </footer>
       )}
       {reelOn && film.reel && <ReelOverlay reel={film.reel} onDone={() => setReelOn(false)} />}
-      {card && <TitleCard title={film.title} hold={reelOn} />}
+      {card && <TitleCard title={film.title} />}
     </div>
   );
 }

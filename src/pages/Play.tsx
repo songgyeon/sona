@@ -107,12 +107,12 @@ export function MeCard({ me }: { me: Persona }) {
   );
 }
 
-/** 들어가는 순간의 제목. 오프닝 영상이 흐르는 동안에는 검은 막으로만 기다리고(hold), 영상이 끝나면 제목이 떴다가 걷힌다.
-    영상 뒤에서 미리 떠 버리면 영상이 끝났을 때는 이미 걷혀 있다 — 기다리다가 새로 띄운다 */
-export function TitleCard({ title, hold }: { title: string; hold: boolean }) {
+/** 기본 오프닝: 검은 화면에 제목이 떴다가 걷힌다. 오프닝 영상이 없는 필름에만 뜬다 — 영상이 있으면 영상이 오프닝이다
+    (2026-11-12 사용자 지시: 「오프닝이 없으면 검은색+글자 기본 오프닝이 뜨고 있으면 그거 안 뜨게」) */
+export function TitleCard({ title }: { title: string }) {
   return (
-    <div className="titlecard" key={hold ? 'hold' : 'run'} style={hold ? { animation: 'none' } : undefined} aria-hidden="true">
-      {!hold && <h1 className={titleClass(title)}>{title}</h1>}
+    <div className="titlecard" aria-hidden="true">
+      <h1 className={titleClass(title)}>{title}</h1>
     </div>
   );
 }
@@ -130,9 +130,9 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
   const [waiting, setWaiting] = useState(false);
   const [err, setErr] = useState('');
   const [notice, setNotice] = useState('');
-  /** 「필름에 들어가기」로 막 들어왔으면 제목이 먼저 뜬다 */
+  /** 「필름에 들어가기」로 막 들어왔고 오프닝 영상이 없으면 기본 오프닝(검은 화면에 제목)이 먼저 뜬다 */
   const [card, setCard] = useState(() => new URLSearchParams(window.location.search).has('open'));
-  /** 막 들어왔고 필름에 오프닝 영상이 있으면 그것부터 흐른다. 끝나거나 건너뛰면 제목이 뜬다 */
+  /** 막 들어왔고 필름에 오프닝 영상이 있으면 그것부터 흐른다. 끝나거나 건너뛰면 바로 첫 장면이다 — 제목을 따로 띄우지 않는다 */
   const [reelOn, setReelOn] = useState(() => new URLSearchParams(window.location.search).has('open'));
   /** 오프닝을 읽는 중. 끝에 닿으면 말하는 칸이 선다 */
   const [reading, setReading] = useState(false);
@@ -156,7 +156,9 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
       .play(playId)
       .then((v) => {
         setView(v);
-        setReelOn((on) => on && (v.film.reel?.clips.length ?? 0) > 0);
+        const reel = (v.film.reel?.clips.length ?? 0) > 0;
+        setReelOn((on) => on && reel);
+        setCard((on) => on && !reel);
         // 아직 한마디도 안 했으면 오프닝을 처음부터 읽는다
         setReading(hasLines(v.film) && v.elapsed === 0 && !v.messages.some((m) => m.speaker === 'persona'));
       })
@@ -733,7 +735,7 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
       )}
 
       {reelOn && film.reel && <ReelOverlay reel={film.reel} onDone={() => setReelOn(false)} />}
-      {card && <TitleCard title={film.title} hold={reelOn} />}
+      {card && <TitleCard title={film.title} />}
       <Tabs path="" go={go} />
     </main>
   );
