@@ -6,6 +6,7 @@ import { type Clock, formatWorld, worldAt } from '../shared/clock';
 import { postLabel } from '../shared/feed';
 import { DOW_NAMES } from '../shared/rules';
 import type { PostData, PostView } from '../shared/types';
+import { useState } from 'react';
 import { imgUrl } from './api';
 
 /** 같은 글이면 늘 같은 수(상영관, 좌석, 소리 띠의 모양) */
@@ -200,5 +201,38 @@ function Program({ post, d, clock }: { post: PostView; d: Extract<PostData, { ki
         );
       })}
     </ol>
+  );
+}
+
+/** 피드 글 밑의 「지우기」. 되돌릴 수 없어서 한 번 묻는다. onDrop은 못 지웠으면 까닭을 돌려준다 */
+export function PostDrop({ onDrop }: { onDrop: () => Promise<string | null> }) {
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const drop = async () => {
+    setBusy(true);
+    const why = await onDrop();
+    setBusy(false);
+    if (why) setErr(why);
+  };
+  return (
+    <div className="pdrop">
+      {asking ? (
+        <p className="ask">
+          이 글을 지울까요?
+          <button className="textbtn" disabled={busy} onClick={() => void drop()}>
+            지우기
+          </button>
+          <button className="textbtn" disabled={busy} onClick={() => setAsking(false)}>
+            취소
+          </button>
+        </p>
+      ) : (
+        <button className="textbtn" onClick={() => setAsking(true)}>
+          지우기
+        </button>
+      )}
+      {err && <p className="warn">{err}</p>}
+    </div>
   );
 }

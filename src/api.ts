@@ -144,6 +144,10 @@ export const api = {
   openFeed: (playId: string) => call<PlayView>('POST', `/api/plays/${playId}/feed`, {}),
   /** 내 피드에 글을 올린다 */
   postMine: (playId: string, text: string) => call<PlayView>('POST', `/api/plays/${playId}/posts`, { text }),
+  /** 피드 글을 지운다. 되돌릴 수 없다 */
+  dropPost: (playId: string, postId: string) => call<PlayView>('POST', `/api/plays/${playId}/posts/${postId}/drop`, {}),
+  /** 필름을 지운다. 만든 사람만. 되돌릴 수 없다 */
+  dropFilm: (id: string) => call<{ ok: true }>('POST', `/api/films/${id}/drop`, {}),
   /** 장면 저장 */
   saves: (playId: string) => call<SaveView[]>('GET', `/api/plays/${playId}/saves`),
   makeSave: (playId: string) => call<SaveView[]>('POST', `/api/plays/${playId}/saves`, {}),

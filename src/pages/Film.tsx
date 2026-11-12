@@ -9,10 +9,11 @@ import { Face, StillStrip, titleClass } from '../poster';
 import { AsPop, AsSlot, type Pick } from '../aspop';
 import { rolesOf } from '../../shared/roles';
 import { Tabs } from '../tabs';
-import { goBack } from '../router';
+import { type Go, goBack } from '../router';
+import { dropFilmFlow } from '../drafts';
 
 /** 필름 정보. 그 필름의 한 장면, 제목, 캐스트, 컷, 오프닝을 보고 들어간다 */
-export function Film({ filmId, go }: { filmId: string; go: (to: string) => void }) {
+export function Film({ filmId, go }: { filmId: string; go: Go }) {
   const [data, setData] = useState<{ card: FilmCard; film: FilmData; mine: FilmMine } | null>(null);
   const [living, setLiving] = useState<PlayCard | null>(null);
   /** 살고 있는 삶에 저장한 장면 수 */
@@ -32,6 +33,8 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [toast, setToast] = useState('');
+  /** 지울지 묻고 있나 */
+  const [dropping, setDropping] = useState(false);
 
   useEffect(() => {
     Promise.all([api.film(filmId), api.plays()])
@@ -73,6 +76,30 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
       return null;
     } catch (e) {
       return e instanceof ApiFail ? e.message : '바꾸지 못했어요.';
+    }
+  };
+
+  /** 필름을 지운다. keep이면 임시저장으로 옮긴 뒤에. 지우면 내 필름으로 간다 — 이 화면은 이제 없다 */
+  const dropFilm = async (keep: boolean) => {
+    if (!data) return;
+    setBusy(true);
+    setErr('');
+    try {
+      const why = await dropFilmFlow(
+        filmId,
+        keep,
+        async () => ({ film: data.film, isPrivate: data.card.private }),
+        () => api.dropFilm(filmId),
+      );
+      if (why) {
+        setErr(why);
+        setBusy(false);
+        return;
+      }
+      go('/mine', { replace: true });
+    } catch (e) {
+      setErr(e instanceof ApiFail ? e.message : '지우지 못했어요.');
+      setBusy(false);
     }
   };
 
@@ -161,6 +188,24 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
               <button className="textbtn" onClick={() => go(`/film/${filmId}/edit`)}>
                 <Pen />
                 고치기
+              </button>
+              <button className="textbtn" onClick={() => setDropping(true)}>
+                지우기
+              </button>
+            </div>
+          )}
+          {card.mine && dropping && (
+            <div className="dropask" role="group" aria-label="필름 지우기">
+              <p>이 필름을 지울까요?</p>
+              <small>들어가 살던 삶은 이어서 살 수 있어요.</small>
+              <button className="btn more wide" disabled={busy} onClick={() => void dropFilm(true)}>
+                임시저장에 두고 지우기
+              </button>
+              <button className="btn more wide" disabled={busy} onClick={() => void dropFilm(false)}>
+                완전히 지우기
+              </button>
+              <button className="textbtn" disabled={busy} onClick={() => setDropping(false)}>
+                취소
               </button>
             </div>
           )}

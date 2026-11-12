@@ -4,7 +4,7 @@ import { RULES } from '../../shared/rules';
 import { readFilm } from '../../shared/opening';
 import { FEED_KINDS } from '../../shared/feed';
 import type { Beat, Cast, Extra, FeedKind, FeedPhoto, Film, FilmCard, Persona, Reel, ReelClip, Tie } from '../../shared/types';
-import { newId } from '../db';
+import { newId, q } from '../db';
 import { isUuid } from '../guard';
 import { type Ctx, Fail } from './ctx';
 import { type MediaType, mediaType } from './media';
@@ -395,4 +395,15 @@ export async function loadFilm(ctx: Ctx, id: string): Promise<{ row: FilmRow; fi
   const row = await ctx.db.first<FilmRow>(`SELECT ${COLS} FROM films WHERE id = ?`, id);
   if (!row || (row.private === 1 && row.owner !== ctx.visitor)) throw new Fail(404, 'film_missing', '필름을 찾을 수 없어요.');
   return { row, film: readFilm(JSON.parse(row.data) as Film) };
+}
+
+/** 필름을 지운다. 만든 사람만. 목록과 필름 정보에서 사라지고, 새로 들어갈 수 없다.
+    이미 들어가 살던 삶은 그대로 이어진다 — 삶은 들어갈 때의 필름을 들고 간다. 그래서 그림과 소리도 지우지 않는다.
+    만든 내용을 남기려면 화면이 지우기 전에 이 기기의 임시저장에 옮긴다 */
+export async function dropFilm(ctx: Ctx, id: string): Promise<{ ok: true }> {
+  const row = await ctx.db.first<{ owner: string }>('SELECT owner FROM films WHERE id = ?', id);
+  if (!row || row.owner !== ctx.visitor) throw new Fail(404, 'film_missing', '필름을 찾을 수 없어요.');
+  // 사람마다 이 필름에 고른 들어가는 사람도 이제 쓸 데가 없다
+  await ctx.db.batch([q('DELETE FROM personas WHERE film_id = ?', id), q('DELETE FROM films WHERE id = ?', id)]);
+  return { ok: true };
 }

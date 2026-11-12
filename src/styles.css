@@ -983,3 +983,18 @@ button:disabled { opacity: 0.4; cursor: default; }
 .life .del { position: absolute; top: 14px; right: 0; padding: 0 0 10px 12px; }
 .life .ask { display: flex; justify-content: flex-end; align-items: center; gap: 18px; padding: 0 0 14px; font-size: 12.5px; color: var(--ink-2); }
 .life .ask .textbtn:first-of-type { color: var(--ink); }
+
+/* 피드 글 밑의 지우기. 글보다 작게, 오른쪽에 */
+.postwrap { position: relative; }
+.pdrop { display: flex; flex-direction: column; align-items: flex-end; margin: -4px 0 14px; }
+.pdrop .ask { display: flex; align-items: center; gap: 18px; font-size: 12.5px; color: var(--ink-2); }
+.pdrop .ask .textbtn:first-of-type { color: var(--ink); }
+.pdrop .warn { margin-top: 6px; }
+
+/* 필름 지우기 — 내 필름의 줄에서는 세 가지를 한 줄에, 넘치면 다음 줄로. 필름 정보에서는 단추로 */
+.draft .ask.wide { flex-wrap: wrap; row-gap: 8px; column-gap: 16px; }
+.lhead:disabled { opacity: 1; cursor: default; }
+.dropask { margin-top: 14px; padding: 16px; display: grid; gap: 10px; justify-items: center; border: 1px solid var(--hair); background: #0e0e0e; }
+.dropask p { font-size: 15px; font-weight: 600; text-align: center; }
+.dropask small { margin-top: -4px; font-size: 12.5px; color: var(--ink-3); text-align: center; }
+.dropask .btn { margin: 0; }

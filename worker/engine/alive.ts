@@ -167,3 +167,17 @@ export async function postMine(ctx: Ctx, playId: string, input: unknown): Promis
   ]);
   return viewOf(ctx, playId);
 }
+
+/** 피드 글을 지운다. 내 삶의 글만 — 캐스트가 올린 글도, 내가 올린 글도.
+    그 글을 올린 일(아는 일)도 같이 지운다: 다음 대목부터 캐스트는 그 글을 모른다. 그날은 치른 날로 남는다 — 바로 다른 글이 올라오지 않는다 */
+export async function dropPost(ctx: Ctx, playId: string, postId: string): Promise<PlayView> {
+  await loadPlay(ctx, playId);
+  const post = await ctx.db.first<{ cast_key: string; text: string; at: number }>('SELECT cast_key, text, at FROM posts WHERE id = ? AND play_id = ?', postId, playId);
+  if (!post) throw new Fail(404, 'post_missing', '글을 찾을 수 없어요.');
+  await ctx.db.batch([
+    // 글과 그 글을 올린 일은 같은 때, 같은 사람, 같은 글로 적혀 있다
+    q("DELETE FROM events WHERE play_id = ? AND kind IN ('feed', 'post') AND actor = ? AND at = ? AND text = ?", playId, post.cast_key, post.at, post.text),
+    q('DELETE FROM posts WHERE id = ? AND play_id = ?', postId, playId),
+  ]);
+  return viewOf(ctx, playId);
+}

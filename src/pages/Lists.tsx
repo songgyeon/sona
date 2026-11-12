@@ -5,7 +5,7 @@ import { formatWorld } from '../../shared/clock';
 import { draftTitle } from '../../shared/draft';
 import type { FilmCard, PlayCard } from '../../shared/types';
 import { ApiFail, api } from '../api';
-import { drafts } from '../drafts';
+import { drafts, dropFilmFlow } from '../drafts';
 import { Next, Search } from '../icons';
 import { Art } from '../poster';
 import { Tabs } from '../tabs';
@@ -100,11 +100,11 @@ export function Living({ go }: { go: (to: string) => void }) {
   };
 
   /** 필름마다 묶는다. 최근에 들어간 삶이 있는 필름부터, 묶음 안에서는 최근 삶부터 */
-  const groups: { filmId: string; title: string; poster: string; plays: PlayCard[] }[] = [];
+  const groups: { filmId: string; title: string; poster: string; gone: boolean; plays: PlayCard[] }[] = [];
   for (const p of plays ?? []) {
     const g = groups.find((x) => x.filmId === p.filmId);
     if (g) g.plays.push(p);
-    else groups.push({ filmId: p.filmId, title: p.title, poster: p.poster, plays: [p] });
+    else groups.push({ filmId: p.filmId, title: p.title, poster: p.poster, gone: p.filmGone, plays: [p] });
   }
 
   return (
@@ -121,15 +121,18 @@ export function Living({ go }: { go: (to: string) => void }) {
       )}
       {groups.map((g) => (
         <section className="lgroup" key={g.filmId}>
-          <button className="lhead" onClick={() => go(`/film/${g.filmId}`)}>
+          {/* 만든 사람이 지운 필름은 필름 정보가 없다. 삶은 이어서 산다 */}
+          <button className="lhead" disabled={g.gone} onClick={() => go(`/film/${g.filmId}`)}>
             <span className="thumb">
               <Art id={g.poster} title={g.title} />
             </span>
             <span className="text">
               <strong>{g.title}</strong>
-              <em>삶 {g.plays.length}개</em>
+              <em>
+                삶 {g.plays.length}개{g.gone ? ' · 지운 필름' : ''}
+              </em>
             </span>
-            <Next />
+            {g.gone ? <span /> : <Next />}
           </button>
           <ul className="lives">
             {g.plays.map((p) => (
@@ -172,10 +175,42 @@ const savedWhen = (at: number): string => new Date(at).toLocaleString('ko-KR', {
 /** 내 필름. 내가 디렉터인 필름들. 만들다 임시저장해 둔 필름이 맨 위에 선다 */
 export function Mine({ go }: { go: (to: string) => void }) {
   const [films, err] = useFilms();
-  const mine = (films ?? []).filter((f) => f.mine);
+  /** 이 화면에서 지운 필름 */
+  const [gone, setGone] = useState<string[]>([]);
+  const mine = (films ?? []).filter((f) => f.mine && !gone.includes(f.id));
   const [saved, setSaved] = useState(() => drafts.list());
   /** 지울지 묻고 있는 임시저장 */
   const [asking, setAsking] = useState('');
+  /** 지울지 묻고 있는 개봉한 필름 */
+  const [dropping, setDropping] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [dropErr, setDropErr] = useState('');
+
+  /** 개봉한 필름을 지운다. keep이면 먼저 임시저장으로 옮긴다 — 맨 위 임시저장에 선다 */
+  const dropFilm = async (f: FilmCard, keep: boolean) => {
+    setBusy(true);
+    setDropErr('');
+    try {
+      const why = await dropFilmFlow(
+        f.id,
+        keep,
+        async () => {
+          const d = await api.film(f.id);
+          return { film: d.film, isPrivate: d.card.private };
+        },
+        () => api.dropFilm(f.id),
+      );
+      if (why) setDropErr(why);
+      else {
+        setGone((g) => [...g, f.id]);
+        setSaved(drafts.list());
+        setDropping('');
+      }
+    } catch (e) {
+      setDropErr(e instanceof ApiFail ? e.message : '지우지 못했어요.');
+    }
+    setBusy(false);
+  };
 
   const drop = (id: string) => {
     drafts.drop(id);
@@ -243,15 +278,42 @@ export function Mine({ go }: { go: (to: string) => void }) {
         </>
       )}
       {saved.length > 0 && mine.length > 0 && <p className="kicker sect shelfname">개봉한 필름</p>}
+      {dropErr && <p className="warn sect">{dropErr}</p>}
       <ul className="rows">
         {mine.map((f) => (
-          <Row key={f.id} poster={f.poster} title={f.title} onClick={() => go(`/film/${f.id}`)}>
-            {f.logline && <span>{f.logline}</span>}
-            <em>
-              {f.private ? '비공개 · ' : ''}
-              {f.castNames.join(' · ')}
-            </em>
-          </Row>
+          <li key={f.id} className="draft">
+            <button className="filmrow" onClick={() => go(`/film/${f.id}`)}>
+              <span className="thumb">
+                <Art id={f.poster} title={f.title} />
+              </span>
+              <span className="text">
+                <strong>{f.title}</strong>
+                {f.logline && <span>{f.logline}</span>}
+                <em>
+                  {f.private ? '비공개 · ' : ''}
+                  {f.castNames.join(' · ')}
+                </em>
+              </span>
+            </button>
+            {dropping === f.id ? (
+              <p className="ask wide">
+                지울까요?
+                <button className="textbtn" disabled={busy} onClick={() => void dropFilm(f, true)}>
+                  임시저장에 두고 지우기
+                </button>
+                <button className="textbtn" disabled={busy} onClick={() => void dropFilm(f, false)}>
+                  완전히 지우기
+                </button>
+                <button className="textbtn" disabled={busy} onClick={() => setDropping('')}>
+                  취소
+                </button>
+              </p>
+            ) : (
+              <button className="textbtn del" onClick={() => setDropping(f.id)} aria-label={`${f.title} 지우기`}>
+                지우기
+              </button>
+            )}
+          </li>
         ))}
       </ul>
       <Tabs path="/mine" go={go} />

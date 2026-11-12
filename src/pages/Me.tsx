@@ -5,6 +5,7 @@ import type { MyPersona, PlayView } from '../../shared/types';
 import { ApiFail, api } from '../api';
 import { FacePick } from '../crop';
 import { Back } from '../icons';
+import { PostDrop } from '../feed';
 import { Card, Field } from './Create';
 import { Tabs } from '../tabs';
 import { goBack } from '../router';
@@ -136,10 +137,22 @@ export function Me({ playId, go }: { playId: string; go: (to: string) => void })
               {posting ? '올리는 중' : '피드에 올리기'}
             </button>
             {mine.map((p) => (
-              <article className="post" key={p.id}>
-                <time>{formatWorld(clock, p.at)}</time>
-                <p>{p.text}</p>
-              </article>
+              <div className="postwrap" key={p.id}>
+                <article className="post">
+                  <time>{formatWorld(clock, p.at)}</time>
+                  <p>{p.text}</p>
+                </article>
+                <PostDrop
+                  onDrop={async () => {
+                    try {
+                      setView(await api.dropPost(playId, p.id));
+                      return null;
+                    } catch (e) {
+                      return e instanceof ApiFail ? e.message : '지우지 못했어요.';
+                    }
+                  }}
+                />
+              </div>
             ))}
           </Card>
         )}

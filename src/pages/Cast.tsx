@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Film, PostView } from '../../shared/types';
 import { ApiFail, api, imgUrl } from '../api';
-import { FeedItem } from '../feed';
+import { FeedItem, PostDrop } from '../feed';
 import { Back, Bubble } from '../icons';
 import { Face } from '../poster';
 import { Tabs } from '../tabs';
@@ -25,6 +25,18 @@ export function Cast({ filmId, playId, castKey, go }: { filmId?: string; playId?
       : api.film(filmId!).then((d): Loaded => ({ film: d.film, elapsed: null, posts: [] }));
     load.then(setData).catch((e) => setErr(e instanceof ApiFail ? e.message : '프로필을 불러오지 못했어요.'));
   }, [filmId, playId, castKey]);
+
+  /** 피드 글을 지운다. 지운 뒤의 이 사람 글로 바꿔 놓는다 */
+  const drop = async (postId: string): Promise<string | null> => {
+    if (!playId) return null;
+    try {
+      const v = await api.dropPost(playId, postId);
+      setData((d) => (d ? { ...d, posts: v.posts.filter((p) => p.cast === castKey) } : d));
+      return null;
+    } catch (e) {
+      return e instanceof ApiFail ? e.message : '지우지 못했어요.';
+    }
+  };
 
   if (!data) return <p className="center">{err || '불러오는 중'}</p>;
   const { film } = data;
@@ -73,7 +85,10 @@ export function Cast({ filmId, playId, castKey, go }: { filmId?: string; playId?
             </p>
           )}
           {posts.map((p) => (
-            <FeedItem key={p.id} post={p} clock={clock} no={photoNo.get(p.id) ?? 1} />
+            <div className="postwrap" key={p.id}>
+              <FeedItem post={p} clock={clock} no={photoNo.get(p.id) ?? 1} />
+              {playId && <PostDrop onDrop={() => drop(p.id)} />}
+            </div>
           ))}
         </section>
       )}

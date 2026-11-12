@@ -319,6 +319,8 @@ export interface PlayCard {
   startMin: number;
   ended: boolean;
   lastLine: string;
+  /** 만든 사람이 필름을 지웠다. 삶은 이어서 살 수 있지만 필름 정보는 없다 */
+  filmGone: boolean;
 }
 
 export interface ApiError {

@@ -202,6 +202,7 @@ export async function listPlays(ctx: Ctx): Promise<PlayCard[]> {
     casts: string | null;
     said: string | null;
     last: string | null;
+    live: number;
   }>(
     `SELECT p.id, p.film_id, p.elapsed, p.start_dow, p.start_min, p.ended,
        json_extract(p.film, '$.title') AS title,
@@ -209,7 +210,8 @@ export async function listPlays(ctx: Ctx): Promise<PlayCard[]> {
        json_extract(p.film, '$.poster') AS poster,
        (SELECT json_group_array(json_extract(c.value, '$.name')) FROM json_each(p.film, '$.casts') c) AS casts,
        (SELECT json_extract(b.value, '$.text') FROM json_each(p.film, '$.firstScene.beats') b WHERE json_extract(b.value, '$.kind') = 'say' ORDER BY b.key DESC LIMIT 1) AS said,
-       (SELECT m.text FROM messages m WHERE m.play_id = p.id AND m.speaker != 'tell' AND m.kind != 'aside' ORDER BY m.at DESC, m.rowid DESC LIMIT 1) AS last
+       (SELECT m.text FROM messages m WHERE m.play_id = p.id AND m.speaker != 'tell' AND m.kind != 'aside' ORDER BY m.at DESC, m.rowid DESC LIMIT 1) AS last,
+       (SELECT COUNT(*) FROM films f WHERE f.id = p.film_id) AS live
      FROM plays p WHERE p.owner = ? ORDER BY p.created_at DESC LIMIT 200`,
     ctx.visitor,
   );
@@ -226,6 +228,7 @@ export async function listPlays(ctx: Ctx): Promise<PlayCard[]> {
     ended: r.ended === 1,
     // 한편의 줄은 내가 나눈 말이 아니다. 아직 오간 말이 없으면 오프닝의 마지막 대사를 보인다
     lastLine: r.last ?? r.said ?? '',
+    filmGone: r.live === 0,
   }));
 }
 
