@@ -8,6 +8,8 @@ import { api, imgUrl } from './api';
 import { ticketNo } from './me';
 
 const SEEN = 'sona.entered';
+/** 포스터 한 칸의 너비와 사이(px). 스타일의 .ecell, .erow와 같다 */
+const CELL = 64 + 4;
 
 /** 이 주소로 열었을 때 들어가는 화면을 띄우나 */
 export function shouldEnter(path: string): boolean {
@@ -68,7 +70,9 @@ export function Entrance({ name, onEnter }: { name: string; onEnter: () => void 
     setTimeout(onEnter, 520);
   };
 
-  const strip = posters.length > 0 ? [...posters, ...posters] : [];
+  // 포스터가 몇 장뿐이어도 필름 한 줄이 화면을 다 채우게 되풀이한다. 그 한 벌을 두 번 이어 붙여 끊김 없이 흐른다
+  const set = posters.length === 0 ? [] : Array.from({ length: Math.max(1, Math.ceil((window.innerWidth + CELL) / (posters.length * CELL))) }, () => posters).flat();
+  const strip = [...set, ...set];
 
   return createPortal(
     <div className={`entrance grain${n > 0 ? ' counting' : ' lit'}${leaving ? ' out' : ''}`} onClick={() => n > 0 && setN(0)} role="dialog" aria-label="SONA">
@@ -87,10 +91,9 @@ export function Entrance({ name, onEnter }: { name: string; onEnter: () => void 
         <div className="marquee">
           <span className="beam" aria-hidden="true" />
           <h1 className="elogo">SONA</h1>
-          <p className="etag">필름을 만들고, 그 안에 들어가 살아요.</p>
           {strip.length > 0 && (
             <div className="eposters" aria-hidden="true">
-              <div className="erow" style={{ animationDuration: `${posters.length * 4}s` }}>
+              <div className="erow" style={{ animationDuration: `${set.length * 3}s` }}>
                 {strip.map((id, i) => (
                   <span className="ecell" key={i}>
                     <img src={imgUrl(id)} alt="" />
