@@ -9,7 +9,7 @@ import { getMe, setMe } from './engine/me';
 import { addPersona, dropPersona, editPersona, listPersonas } from './engine/mypersonas';
 import { dropSave, listSaves, loadSave, makeSave } from './engine/saves';
 import { loadImage, saveImage } from './engine/images';
-import { finishMedia, putPart, serveMedia, startMedia } from './engine/media';
+import { type Edge, finishMedia, putPart, serveMedia, startMedia } from './engine/media';
 import { skip } from './engine/skip';
 import { dropPlay, listPlays, viewOf } from './engine/store';
 import { setMine } from './engine/persona';
@@ -116,7 +116,12 @@ export default {
         // 그림은 주소가 곧 내용이라 바뀌지 않는다. 한 번 내준 것은 가장자리에 담아 두고 거기서 내준다 — 저장소를 다시 오가지 않는다
         const edge = typeof caches === 'undefined' ? null : caches.default;
         const kept = edge ? await edge.match(req) : undefined;
-        if (kept) return kept;
+        if (kept) {
+          // 가장자리에서 내준 것은 표시해 둔다(가장자리 캐시가 듣는지 보려고)
+          const hit = new Response(kept.body, kept);
+          hit.headers.set('x-edge', 'hit');
+          return hit;
+        }
         const db = d1(env.DB);
         await ensureSchema(db);
         const found = await loadImage(db, img[1]!);
@@ -137,7 +142,20 @@ export default {
       if (media && (req.method === 'GET' || req.method === 'HEAD')) {
         const db = d1(env.DB);
         await ensureSchema(db);
-        const res = await serveMedia(db, media[1]!, req.headers.get('range'));
+        // 한 번 내준 덩어리는 가장자리에 담아 둔다. 두 번째부터는 저장소를 오가지 않는다
+        const cache = typeof caches === 'undefined' ? null : caches.default;
+        const shelf: Edge | undefined =
+          cache && run
+            ? {
+                get: async (key) => {
+                  const hit = await cache.match(`${url.origin}/__edge/${key}`);
+                  return hit ? hit.arrayBuffer() : null;
+                },
+                put: (key, body) =>
+                  run.waitUntil(cache.put(`${url.origin}/__edge/${key}`, new Response(body, { headers: { 'cache-control': 'public, max-age=31536000, immutable' } }))),
+              }
+            : undefined;
+        const res = await serveMedia(db, media[1]!, req.headers.get('range'), shelf);
         return req.method === 'HEAD' ? new Response(null, { status: res.status, headers: res.headers }) : res;
       }
 

@@ -1,4 +1,5 @@
 import { type FormEvent, useEffect, useState } from 'react';
+import { wakeSoundOnTouch } from './sound';
 import { ApiFail, api, getKey, setKey } from './api';
 import { Aside } from './pages/Aside';
 import { Cast } from './pages/Cast';
@@ -68,6 +69,8 @@ export function App() {
   useEffect(() => {
     takeKeyFromUrl();
     void check();
+    // 앱을 처음 누를 때 소리 칸을 깨워 둔다 — 오프닝 음악이 휴대폰에서도 바로 나온다
+    wakeSoundOnTouch();
   }, []);
 
   if (gate === 'checking') return <p className="center">불러오는 중</p>;

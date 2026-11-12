@@ -122,4 +122,24 @@ describe('소리와 영상 올리기', () => {
     // 다 올린 뒤에는 누구에게나 내준다(주소는 짐작할 수 없는 값이다)
     expect((await serveMedia(ctx.db, id, null)).status).toBe(200);
   });
+
+  it('가장자리에 담아 둔 덩어리는 저장소를 다시 오가지 않고 내준다', async () => {
+    const ctx = testCtx();
+    const sent = mp4(P * 2 + 99);
+    const id = await upload(ctx, 'video/mp4', sent);
+    const kept = new Map<string, ArrayBuffer>();
+    const edge = {
+      get: async (key: string) => kept.get(key) ?? null,
+      put: (key: string, b: ArrayBuffer | string) => void kept.set(key, typeof b === 'string' ? new TextEncoder().encode(b).buffer : b),
+    };
+    const first = await serveMedia(ctx.db, id, `bytes=0-${P * 2 + 98}`, edge);
+    expect(Array.from(await body(first))).toEqual(Array.from(sent.slice(0, P * 2)));
+    expect([...kept.keys()].sort()).toEqual([`meta/${id}`, `part/${id}/0`, `part/${id}/1`]);
+    // 저장소에서 지워도 담아 둔 것으로 내준다
+    await ctx.db.run('DELETE FROM media_parts WHERE media_id = ?', id);
+    await ctx.db.run('DELETE FROM media WHERE id = ?', id);
+    const again = await serveMedia(ctx.db, id, `bytes=${P - 3}-${P + 2}`, edge);
+    expect(again.status).toBe(206);
+    expect(Array.from(await body(again))).toEqual(Array.from(sent.slice(P - 3, P + 3)));
+  });
 });

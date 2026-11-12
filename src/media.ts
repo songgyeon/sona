@@ -88,13 +88,18 @@ export async function shrinkVideo(file: File, onProgress?: (done: number) => voi
     if (!Number.isFinite(seconds) || seconds <= 0) throw new ApiFail(400, 'media_broken', '영상의 길이를 읽지 못했어요.');
     if (seconds > M.videoSec + 0.5) throw new ApiFail(413, 'media_long', `영상은 ${M.videoSec}초까지 올릴 수 있어요.`);
     const type = typeof MediaRecorder === 'undefined' ? undefined : RECORD.find((t) => MediaRecorder.isTypeSupported(t));
+    // 그대로 재생되는 파일이 한도 안이면 다시 녹화하지 않는다 — 다시 녹화하면 화질이 떨어진다
     const small = /^video\/(mp4|webm)$/.test(file.type) && file.size <= M.keep;
     if (small || !type || !v.videoWidth) {
       if (file.size > M.video) throw new ApiFail(413, 'media_big', `영상은 ${M.video / 1_000_000}MB까지 올릴 수 있어요.`);
       return { blob: file, mime: file.type || 'video/mp4', seconds };
     }
 
-    const scale = Math.min(1, M.edge / Math.max(v.videoWidth, v.videoHeight));
+    // 크기 한도 안에서 길이에 맞춰 가장 높은 비트로 녹화한다. 짧은 영상일수록 선명하다. 비트가 넉넉하면 더 크게
+    const budget = (M.video * 8 * 0.85) / seconds - 128_000;
+    const bitrate = Math.round(Math.min(M.bitrateMax, Math.max(M.bitrate, budget)));
+    const edge = bitrate >= 5_000_000 ? M.edgeHigh : M.edge;
+    const scale = Math.min(1, edge / Math.max(v.videoWidth, v.videoHeight));
     const w = Math.max(2, Math.round((v.videoWidth * scale) / 2) * 2);
     const h = Math.max(2, Math.round((v.videoHeight * scale) / 2) * 2);
     const canvas = document.createElement('canvas');
@@ -114,7 +119,7 @@ export async function shrinkVideo(file: File, onProgress?: (done: number) => voi
       ac = null;
       v.muted = true;
     }
-    const rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: M.bitrate, audioBitsPerSecond: 128_000 });
+    const rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: bitrate, audioBitsPerSecond: 128_000 });
     const chunks: Blob[] = [];
     rec.ondataavailable = (e) => {
       if (e.data.size > 0) chunks.push(e.data);

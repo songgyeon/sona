@@ -135,9 +135,51 @@ function rangeOf(header: string | null, size: number): { start: number; end: num
   return { start, end };
 }
 
-/** 내준다. 범위를 달라고 하면 그만큼만(많아야 덩어리 serve개), 아니면 처음부터 끝까지 조각을 이어서 흘려보낸다 */
-export async function serveMedia(db: Db, id: string, range: string | null): Promise<Response> {
+/** 가장자리(Cloudflare가 가까운 곳에 담아 두는 캐시). 다 올린 파일은 바뀌지 않아서 덩어리를 오래 담아 둔다.
+    두 번째부터는 저장소를 오가지 않고 가장자리에서 내준다. 없으면(시험, 로컬) 저장소에서만 읽는다 */
+export interface Edge {
+  get(key: string): Promise<ArrayBuffer | null>;
+  put(key: string, body: ArrayBuffer | string): void;
+}
+
+type Meta = { mime: string; size: number; parts: number };
+
+/** 파일의 모양(종류, 크기, 덩어리 수). 가장자리에 있으면 거기서 */
+async function metaOf(db: Db, id: string, edge?: Edge): Promise<Meta | null> {
+  const kept = await edge?.get(`meta/${id}`);
+  if (kept) return JSON.parse(new TextDecoder().decode(kept)) as Meta;
   const row = isUuid(id) ? await db.first<MediaRow>('SELECT id, owner, mime, size, parts, done FROM media WHERE id = ? AND done = 1', id) : null;
+  if (!row) return null;
+  const meta = { mime: row.mime, size: row.size, parts: row.parts };
+  edge?.put(`meta/${id}`, JSON.stringify(meta));
+  return meta;
+}
+
+/** 덩어리 first..last. 가장자리에 없는 것만 저장소에서 한 번에 읽고, 읽은 것은 가장자리에 담는다 */
+async function partsOf(db: Db, id: string, first: number, last: number, edge?: Edge): Promise<Map<number, Uint8Array>> {
+  const out = new Map<number, Uint8Array>();
+  if (edge) {
+    const kept = await Promise.all(Array.from({ length: last - first + 1 }, (_, i) => edge.get(`part/${id}/${first + i}`)));
+    kept.forEach((b, i) => b && out.set(first + i, new Uint8Array(b)));
+  }
+  const need = Array.from({ length: last - first + 1 }, (_, i) => first + i).filter((n) => !out.has(n));
+  if (need.length === 0) return out;
+  const rows = await db.all<{ n: number; bytes: unknown }>(
+    `SELECT n, bytes FROM media_parts WHERE media_id = ? AND n IN (${need.map(() => '?').join(', ')}) ORDER BY n`,
+    id,
+    ...need,
+  );
+  for (const r of rows) {
+    const bytes = toBytes(r.bytes);
+    out.set(r.n, bytes);
+    edge?.put(`part/${id}/${r.n}`, bytes.slice().buffer);
+  }
+  return out;
+}
+
+/** 내준다. 범위를 달라고 하면 그만큼만(많아야 덩어리 serve개), 아니면 처음부터 끝까지 조각을 이어서 흘려보낸다 */
+export async function serveMedia(db: Db, id: string, range: string | null, edge?: Edge): Promise<Response> {
+  const row = await metaOf(db, id, edge);
   if (!row) throw new Fail(404, 'no_media', '파일을 찾을 수 없어요.');
   const base = {
     'content-type': row.mime,
@@ -156,13 +198,13 @@ export async function serveMedia(db: Db, id: string, range: string | null): Prom
           c.close();
           return;
         }
-        const part = await db.first<{ bytes: unknown }>('SELECT bytes FROM media_parts WHERE media_id = ? AND n = ?', id, n);
+        const part = (await partsOf(db, id, n, n, edge)).get(n);
         n += 1;
         if (!part) {
           c.error(new Error('조각이 없다'));
           return;
         }
-        c.enqueue(toBytes(part.bytes));
+        c.enqueue(part);
       },
     });
     return new Response(stream, { status: 200, headers: { ...base, 'content-length': String(row.size) } });
@@ -171,14 +213,13 @@ export async function serveMedia(db: Db, id: string, range: string | null): Prom
   const end = Math.min(r.end, r.start + M.part * M.serve - 1);
   const first = Math.floor(r.start / M.part);
   const last = Math.floor(end / M.part);
-  const rows = await db.all<{ n: number; bytes: unknown }>('SELECT n, bytes FROM media_parts WHERE media_id = ? AND n BETWEEN ? AND ? ORDER BY n', id, first, last);
+  const parts = await partsOf(db, id, first, last, edge);
   const out = new Uint8Array(end - r.start + 1);
-  for (const p of rows) {
-    const bytes = toBytes(p.bytes);
-    const from = Math.max(r.start, p.n * M.part);
-    const to = Math.min(end, p.n * M.part + bytes.length - 1);
+  for (const [n, bytes] of parts) {
+    const from = Math.max(r.start, n * M.part);
+    const to = Math.min(end, n * M.part + bytes.length - 1);
     if (to < from) continue;
-    out.set(bytes.subarray(from - p.n * M.part, to - p.n * M.part + 1), from - r.start);
+    out.set(bytes.subarray(from - n * M.part, to - n * M.part + 1), from - r.start);
   }
   return new Response(out, { status: 206, headers: { ...base, 'content-range': `bytes ${r.start}-${end}/${row.size}`, 'content-length': String(out.length) } });
 }

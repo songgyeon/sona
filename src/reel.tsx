@@ -10,6 +10,7 @@ import type { Reel, ReelClip, ReelEnter, ReelMotion, ReelRatio, ReelStyle } from
 import { ApiFail, imgUrl, uploadImage } from './api';
 import { Next, Pause, PlayFill, Sound, SoundOff } from './icons';
 import { audioType, mediaSeconds, mediaUrl, shrinkVideo, uploadMedia } from './media';
+import { soundEl } from './sound';
 
 const R = RULES.reel;
 const SOUND = 'sona.sound';
@@ -36,7 +37,11 @@ export const clock = (sec: number): string => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
 
-/** 화면. 그때(t)의 컷을 그린다. 틀고 있으면 스스로 시간을 민다(onTick) */
+/** 화면. 그때(t)의 컷을 그린다. 틀고 있으면 스스로 시간을 민다(onTick).
+    영상 컷이 보이는 동안은 영상이 실제로 흐른 만큼만 시간을 민다 — 받는 중이라 멈추면 시간도 기다린다.
+    틀고 있을 때는 영상과 음악을 저절로 흐르게 둔다. 컷에 들어설 때와 크게 어긋났을 때만 자리를 맞춘다
+    (2026-11-12: 화면마다 자리를 맞추느라 받는 중인 영상을 계속 옮겨서, 끊기고 느리고 깨져 보였다).
+    music을 주면 그 소리 칸으로 음악을 낸다(오프닝 — src/sound.ts). onReady를 주면 첫 컷의 영상과 음악을 틀 만큼 받았을 때 부른다 */
 export function ReelStage({
   reel,
   t,
@@ -44,6 +49,9 @@ export function ReelStage({
   muted,
   onTick,
   onEnd,
+  onReady,
+  onBlocked,
+  music,
 }: {
   reel: Reel;
   t: number;
@@ -51,6 +59,10 @@ export function ReelStage({
   muted: boolean;
   onTick: (t: number) => void;
   onEnd?: () => void;
+  onReady?: () => void;
+  /** 누르지 않아 소리를 못 냈다(휴대폰). 소리를 끈 것으로 보이게 한다 */
+  onBlocked?: () => void;
+  music?: HTMLAudioElement;
 }) {
   const clips = reel.clips;
   const total = lengthOf(reel);
@@ -58,15 +70,99 @@ export function ReelStage({
   const tRef = useRef(t);
   tRef.current = t;
   const videos = useRef<Record<number, HTMLVideoElement | null>>({});
-  const audio = useRef<HTMLAudioElement>(null);
+  const own = useRef<HTMLAudioElement>(null);
+  const audioOf = () => music ?? own.current;
+  /** 보이는 영상이 멈춰 있은 시간(초) */
+  const stalled = useRef(0);
+  /** 영상 컷마다 이번에 들어섰을 때 자리를 맞췄나 */
+  const entered = useRef<Record<number, boolean>>({});
+  /** 음악을 틀어 달라고 한 뒤 아직 답이 없나, 소리가 막혔나 */
+  const asking = useRef(false);
+  const blocked = useRef(false);
+
+  // 받은 소리 칸에 이 영상의 음악을 건다. 처음 자리(musicFrom)는 다 받기 전에 정해 두면 받은 뒤에 그 자리에서 선다
+  useEffect(() => {
+    if (!music || !reel.music) return;
+    music.src = mediaUrl(reel.music);
+    music.loop = false;
+    music.load();
+    music.currentTime = reel.musicFrom;
+    return () => {
+      music.pause();
+    };
+  }, [music, reel.music]);
+
+  // 첫 컷의 영상과 음악을 틀 만큼 받았는가. 오래 걸리면 정해진 때에 그냥 시작한다
+  useEffect(() => {
+    if (!onReady) return;
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      onReady();
+    };
+    // 영상 컷이 처음부터 틀지 않으면 미리 그 자리로 옮겨 둔다
+    clips.forEach((c, k) => {
+      const v = videos.current[k];
+      if (v && c.kind === 'video' && c.from > 0) v.currentTime = c.from;
+    });
+    const waits: HTMLMediaElement[] = [];
+    const v0 = clips[0]?.kind === 'video' ? videos.current[0] : null;
+    if (v0) waits.push(v0);
+    const a = audioOf();
+    if (a && reel.music) waits.push(a);
+    let left = waits.length;
+    const timer = setTimeout(finish, R.readyMs);
+    const ok = () => {
+      left -= 1;
+      if (left <= 0) {
+        clearTimeout(timer);
+        finish();
+      }
+    };
+    if (left === 0) ok();
+    for (const el of waits) {
+      if (el.readyState >= 3) ok();
+      else {
+        el.addEventListener('canplay', ok, { once: true });
+        el.addEventListener('error', ok, { once: true });
+      }
+    }
+    return () => {
+      done = true;
+      clearTimeout(timer);
+      for (const el of waits) {
+        el.removeEventListener('canplay', ok);
+        el.removeEventListener('error', ok);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!playing || total <= 0) return;
     let raf = 0;
     let last = performance.now();
+    stalled.current = 0;
     const step = (now: number) => {
-      const next = tRef.current + (now - last) / 1000;
+      const dt = Math.min(0.25, (now - last) / 1000);
       last = now;
+      const cur = tRef.current;
+      const k = clipAt(clips, cur);
+      const c = clips[k];
+      const v = c?.kind === 'video' ? videos.current[k] : null;
+      let next = cur + dt;
+      if (c && v && !v.ended) {
+        if (!v.paused && v.readyState >= 3) {
+          // 영상이 흐른 만큼 간다
+          stalled.current = 0;
+          const by = starts[k]! + (v.currentTime - c.from);
+          next = by < cur ? cur : by > cur + 0.5 ? cur + dt : by;
+        } else {
+          // 받는 중이거나 아직 틀기 전이다. 오래 멈춰 있지 않으면 시간도 기다린다
+          stalled.current += dt;
+          if (stalled.current < R.stallSec) next = cur;
+        }
+      }
       if (next >= total) {
         onTick(total);
         onEnd?.();
@@ -82,7 +178,7 @@ export function ReelStage({
   const i = clipAt(clips, t);
   const under = underOf(clips, i, t);
 
-  // 영상 컷: 보이는 동안만 튼다. 시간이 어긋나면 맞춘다
+  // 영상 컷: 보이는 동안만 튼다. 멈춰 있을 때(만드는 화면에서 고르는 중)는 그 자리를 정확히 보인다
   useEffect(() => {
     clips.forEach((c, k) => {
       const v = videos.current[k];
@@ -90,14 +186,23 @@ export function ReelStage({
       const shown = k === i || k === under;
       if (!shown) {
         if (!v.paused) v.pause();
+        entered.current[k] = false;
         return;
       }
       const local = c.from + Math.min(c.dur, Math.max(0, t - starts[k]!));
-      if (Math.abs(v.currentTime - local) > 0.35) v.currentTime = local;
+      const drift = Math.abs(v.currentTime - local);
       v.muted = muted || !c.sound;
       if (!playing) {
         if (!v.paused) v.pause();
-      } else if (v.paused) {
+        if (drift > 0.05 && !v.seeking) v.currentTime = local;
+        entered.current[k] = false;
+        return;
+      }
+      if (!entered.current[k]) {
+        entered.current[k] = true;
+        if (drift > 0.3 && !v.seeking) v.currentTime = local;
+      } else if (drift > R.drift && !v.seeking) v.currentTime = local;
+      if (v.paused && !v.ended) {
         v.play().catch(() => {
           v.muted = true;
           v.play().catch(() => {});
@@ -106,17 +211,40 @@ export function ReelStage({
     });
   });
 
-  // 음악: 영상과 같이 가고, 끝에서 줄어든다
+  // 소리를 다시 켜면(누른 그 자리에서 튼다) 막혔던 것을 잊는다
   useEffect(() => {
-    const a = audio.current;
+    if (!muted) blocked.current = false;
+  }, [muted]);
+
+  // 음악: 영상과 같이 가고, 끝에서 줄어든다. 틀고 있을 때는 크게 어긋날 때만 자리를 맞춘다
+  useEffect(() => {
+    const a = audioOf();
     if (!a || !reel.music) return;
     const want = reel.musicFrom + t;
-    if (Math.abs(a.currentTime - want) > 0.35) a.currentTime = want;
+    const drift = Math.abs(a.currentTime - want);
     a.volume = musicVolume(reel, t);
     a.muted = muted;
     if (!playing) {
       if (!a.paused) a.pause();
-    } else if (a.paused) a.play().catch(() => {});
+      if (drift > 0.05 && !a.seeking) a.currentTime = want;
+      return;
+    }
+    if (a.paused) {
+      if (asking.current || blocked.current) return;
+      if (drift > 0.3 && !a.seeking) a.currentTime = want;
+      asking.current = true;
+      a.play()
+        .then(() => {
+          asking.current = false;
+        })
+        .catch((e: unknown) => {
+          asking.current = false;
+          if (e instanceof DOMException && e.name === 'NotAllowedError') {
+            blocked.current = true;
+            onBlocked?.();
+          }
+        });
+    } else if (drift > R.drift && !a.seeking) a.currentTime = want;
   });
 
   const cur = clips[i];
@@ -154,23 +282,24 @@ export function ReelStage({
           {cur.text}
         </p>
       )}
-      {reel.music && <audio ref={audio} src={mediaUrl(reel.music)} preload="auto" />}
+      {reel.music && !music && <audio ref={own} src={mediaUrl(reel.music)} preload="auto" />}
     </div>
   );
 }
 
-/** 필름에 들어가면 맨 먼저 흐르는 오프닝 영상. 건너뛸 수 있다 */
+/** 필름에 들어가면 맨 먼저 흐르는 오프닝 영상. 건너뛸 수 있다.
+    첫 컷의 영상과 음악을 틀 만큼 받은 다음에 시작한다. 위에 재생 막대를 두지 않는다(2026-11-12 사용자: 「위에 재생바 나오는 거 최악」) */
 export function ReelOverlay({ reel, onDone }: { reel: Reel; onDone: () => void }) {
   const [t, setT] = useState(0);
-  const [playing, setPlaying] = useState(true);
+  const [ready, setReady] = useState(false);
   const [muted, setMuted] = useState(soundOff);
   const [leaving, setLeaving] = useState(false);
   const box = useRef<HTMLDivElement>(null);
-  const total = lengthOf(reel);
+  // 음악은 앱을 처음 누를 때 깨워 둔 소리 칸으로 낸다 — 휴대폰에서도 바로 나온다
+  const [music] = useState(() => (reel.music ? soundEl('reel') : undefined));
 
   const end = () => {
     if (leaving) return;
-    setPlaying(false);
     setLeaving(true);
     setTimeout(onDone, 600);
   };
@@ -180,15 +309,28 @@ export function ReelOverlay({ reel, onDone }: { reel: Reel; onDone: () => void }
     const next = !muted;
     setMuted(next);
     setSoundOff(next);
-    if (!next) box.current?.querySelectorAll<HTMLMediaElement>('audio, video').forEach((el) => void el.play().catch(() => {}));
+    if (!next) {
+      if (music) {
+        music.muted = false;
+        void music.play().catch(() => {});
+      }
+      box.current?.querySelectorAll<HTMLMediaElement>('audio, video').forEach((el) => void el.play().catch(() => {}));
+    }
   };
 
   return createPortal(
     <div className={leaving ? 'opener out' : 'opener'} role="dialog" aria-label="오프닝 영상" ref={box}>
-      <div className="prog" aria-hidden="true">
-        <i style={{ width: `${total > 0 ? (t / total) * 100 : 0}%` }} />
-      </div>
-      <ReelStage reel={reel} t={t} playing={playing} muted={muted} onTick={setT} onEnd={end} />
+      <ReelStage
+        reel={reel}
+        t={t}
+        playing={ready && !leaving}
+        muted={muted}
+        onTick={setT}
+        onEnd={end}
+        onReady={() => setReady(true)}
+        onBlocked={() => setMuted(true)}
+        music={music}
+      />
       <div className="ctl">
         <button className="snd" onClick={toggle} aria-label={muted ? '소리 켜기' : '소리 끄기'}>
           {muted ? <SoundOff /> : <Sound />}

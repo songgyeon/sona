@@ -7,6 +7,7 @@ import { ApiFail } from './api';
 import { Plus } from './icons';
 import { audioType, mediaUrl, uploadMedia } from './media';
 import { setSoundOff, soundOff } from './reel';
+import { soundEl } from './sound';
 
 /** 재생 화면에서 배경 음악을 튼다. active가 거짓이면(오프닝 영상이 흐르는 동안 등) 멈춘다 */
 export function useBgm(id: string, active: boolean): { has: boolean; on: boolean; toggle: () => void } {
@@ -14,9 +15,11 @@ export function useBgm(id: string, active: boolean): { has: boolean; on: boolean
   const [blocked, setBlocked] = useState(false);
   const audio = useRef<HTMLAudioElement | null>(null);
 
+  // 앱을 처음 누를 때 깨워 둔 소리 칸으로 낸다(src/sound.ts) — 휴대폰에서도 바로 나온다
   useEffect(() => {
     if (!id) return;
-    const a = new Audio(mediaUrl(id));
+    const a = soundEl('bgm');
+    a.src = mediaUrl(id);
     a.loop = true;
     a.volume = 0.45;
     a.preload = 'auto';
