@@ -2,7 +2,7 @@
 
 import type { Clock } from '../../shared/clock';
 import { readFilm } from '../../shared/opening';
-import type { AsideView, Film, MessageView, PlayCard, PlayView, PostView, TurnView } from '../../shared/types';
+import type { AsideView, Film, MessageView, PlayCard, PlayView, PostData, PostView, TurnView } from '../../shared/types';
 import type { Db } from '../db';
 import { type Ctx, Fail } from './ctx';
 import { forScreen } from './films';
@@ -134,12 +134,22 @@ export async function sceneMessages(db: Db, play: Play): Promise<MessageView[]> 
   return (await messagesOf(db, play.id)).filter((m) => m.kind !== 'aside');
 }
 
+/** 피드 글의 속. 한 줄 글이거나 못 읽으면 한 줄 글로 둔다 */
+function dataOf(kind: string, data: string): PostData {
+  if (kind === 'text' || !data) return { kind: 'text' };
+  try {
+    return JSON.parse(data) as PostData;
+  } catch {
+    return { kind: 'text' };
+  }
+}
+
 export async function postsOf(db: Db, playId: string): Promise<PostView[]> {
-  const rows = await db.all<{ id: string; cast_key: string; text: string; at: number }>(
-    'SELECT id, cast_key, text, at FROM posts WHERE play_id = ? ORDER BY at, rowid',
+  const rows = await db.all<{ id: string; cast_key: string; text: string; at: number; kind: string; data: string }>(
+    'SELECT id, cast_key, text, at, kind, data FROM posts WHERE play_id = ? ORDER BY at, rowid',
     playId,
   );
-  return rows.map((r) => ({ id: r.id, cast: r.cast_key, text: r.text, at: r.at }));
+  return rows.map((r) => ({ id: r.id, cast: r.cast_key, text: r.text, at: r.at, data: dataOf(r.kind, r.data) }));
 }
 
 export async function asidesOf(db: Db, playId: string): Promise<AsideView[]> {

@@ -1,8 +1,9 @@
 /* 필름 만들기 화면의 칸과 필름 사이를 오간다.
    계산뿐이라 화면 없이도 돌려 볼 수 있다 — 고치기는 필름을 칸으로 되돌려 놓는 데서 시작한다. */
 
+import { FEED_KINDS } from './feed';
 import { RULES } from './rules';
-import type { Extra, Film } from './types';
+import type { Extra, FeedKind, FeedPhoto, Film } from './types';
 
 /** 덧붙이는 칸 하나(항목과 내용) */
 export type DraftExtra = Extra;
@@ -36,6 +37,10 @@ export interface DraftCast {
   dayPlace: string;
   /** 덧붙이는 칸 */
   extras: DraftExtra[];
+  /** 피드에 남기는 것 가운데 켜 둔 것 */
+  feed: FeedKind[];
+  /** 피드에 올릴 사진 */
+  photos: FeedPhoto[];
 }
 
 /** 오프닝의 한 칸 */
@@ -100,6 +105,8 @@ export const blankCast = (): DraftCast => ({
   sleepTo: '07:00',
   dayPlace: '',
   extras: blankExtras(),
+  feed: [...FEED_KINDS],
+  photos: [],
 });
 
 export const blankDraft = (): Draft => ({
@@ -176,6 +183,8 @@ export function toFilm(d: Draft): unknown {
       sleepTo: toMin(c.sleepTo),
       dayPlace: c.dayPlace,
       extras: filled(c.extras),
+      feed: c.feed ?? [...FEED_KINDS],
+      photos: (c.photos ?? []).filter((ph) => ph.id).map((ph) => ({ id: ph.id, about: ph.about.trim() })),
     })),
     ties: Object.entries(d.ties)
       .map(([pair, t]) => {
@@ -260,6 +269,8 @@ export function fromFilm(f: Film): Draft {
       sleepTo: toClock(c.sleepTo),
       dayPlace: c.dayPlace,
       extras: padded(c.extras),
+      feed: c.feed ?? [...FEED_KINDS],
+      photos: c.photos ?? [],
     })),
     ties,
     place: f.firstScene.place,
@@ -338,6 +349,7 @@ export function isBlank(d: Draft): boolean {
     ...d.casts.flatMap((c) => [c.name, c.face, c.aliases, c.role, c.intro, c.callsUser, c.speech, c.nature, c.habit, c.trauma, c.lack, c.secret, c.samples, c.dayPlace]),
     ...Object.values(d.ties).flatMap((t) => [t.relation, t.calls]),
     ...[...(d.extras ?? []), ...(d.personaExtras ?? []), ...d.casts.flatMap((c) => c.extras ?? [])].flatMap((e) => [e.label, e.text]),
+    ...d.casts.flatMap((c) => (c.photos ?? []).map((ph) => ph.id)),
   ];
   return d.casts.length <= 1 && d.beats.length === 0 && written.every((v) => v.trim().length === 0);
 }

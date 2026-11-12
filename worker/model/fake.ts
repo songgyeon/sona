@@ -13,8 +13,8 @@ export const FAKE_DEFAULTS: Record<ModelCall['purpose'], string> = {
   gap: '',
   check: '판정: 없음',
   aside: '',
-  post: '오늘따라 하루가 길다.',
-  past: '2일 전 13:40 | 점심은 또 편의점 샌드위치.\n1일 전 22:10 | 비 오는 날은 일찍 자고 싶다.',
+  post: '노래 | 밤편지 | 아이유 | 문 닫고 한 번 더.',
+  past: '3일 전 | 영화 | 이터널 선샤인 | 세 번째. 이번엔 끝까지 봤다.\n2일 전 | 없음\n1일 전 | 일기 | 비가 왔다. 손님이 둘뿐이었다.',
 };
 
 /** 건네받은 인물 카드에 적힌 이름들. 차례대로 */
@@ -38,7 +38,6 @@ export function fakeModel(script?: Script): Model & { calls: ModelCall[] } {
 const DEMO_DAY = [
   '18:30 | 일상 | 일을 마치고 집에 왔다.',
   '19:10 | 말거리 | 저녁에 뭘 먹을지 한참 골랐다.',
-  '22:40 | 피드 | 오늘은 일찍 잔다',
   '08:40 | 일상 | 일어나서 커피를 내렸다.',
 ].join('\n');
 

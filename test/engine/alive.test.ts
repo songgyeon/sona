@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { RULES } from '../../shared/rules';
 import { createFilm } from '../../worker/engine/films';
-import { viewOf } from '../../worker/engine/store';
+import { dayOf, slotOf } from '../../worker/engine/feed';
+import { loadPlay, viewOf } from '../../worker/engine/store';
 import { enter, say } from '../../worker/engine/turn';
 import { FAKE_DEFAULTS } from '../../worker/model/fake';
 import type { ModelCall, Purpose } from '../../worker/model/index';
@@ -36,47 +37,91 @@ async function setup(parts: Partial<Record<Purpose, Part>> = {}, film: unknown =
   return { ctx, filmId, playId: v.id, entered: v, send, talk, calls };
 }
 
-describe('같이 사는 느낌: 이야기 전에 올려 둔 글', () => {
-  it('들어가면 캐스트마다 이야기가 시작되기 전에 올려 둔 글이 있다', async () => {
+/** 지후(c2)의 사진. 디렉터가 붙인 것만 올라간다 */
+const PHOTO_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const PHOTO_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const PHOTOS = [
+  { id: PHOTO_A, about: '연구실 창밖의 비' },
+  { id: PHOTO_B, about: '식은 커피 두 잔' },
+];
+const withPhotos = (photos: typeof PHOTOS) => ({
+  ...DEV_FILM,
+  opens: { feed: true, ping: false, aside: false },
+  casts: [DEV_FILM.casts[0], { ...DEV_FILM.casts[1], photos }],
+});
+const WITH_PHOTOS = withPhotos(PHOTOS);
+
+/** 지후가 그날 남길 때(흐른 분). 그때까지 시계를 민다 */
+async function untilSlot(s: Awaited<ReturnType<typeof setup>>, day = 0) {
+  const play = await loadPlay(s.ctx, s.playId);
+  const at = slotOf(play, play.film.casts[1]!, day)!;
+  await s.ctx.db.run('UPDATE plays SET elapsed = ? WHERE id = ?', at - RULES.minutesPerSend, s.playId);
+  return at;
+}
+
+describe('피드: 이야기 전 며칠 치', () => {
+  it('들어가면 캐스트마다 이야기 전 사흘 가운데 남긴 날의 것이 있다. 남기지 않은 날은 비어 있다', async () => {
     const { entered, calls } = await setup();
     expect(calls('past')).toHaveLength(2);
-    const before = entered.posts.filter((p) => p.at < 0);
-    // 시각 차례로 선다: 이틀 전 점심, 하루 전 밤
-    expect(before.map((p) => [p.cast, p.text])).toEqual([
-      ['c1', '점심은 또 편의점 샌드위치.'],
-      ['c2', '점심은 또 편의점 샌드위치.'],
-      ['c1', '비 오는 날은 일찍 자고 싶다.'],
-      ['c2', '비 오는 날은 일찍 자고 싶다.'],
+    const c1 = entered.posts.filter((p) => p.cast === 'c1');
+    // 3일 전: 영화, 2일 전: 없음, 1일 전: 일기
+    expect(c1.map((p) => p.data)).toEqual([
+      { kind: 'watch', form: 'movie', title: '이터널 선샤인', ep: '', note: '세 번째. 이번엔 끝까지 봤다.' },
+      { kind: 'diary', text: '비가 왔다. 손님이 둘뿐이었다.' },
     ]);
-    // 「2일 전 13:40」 — 이야기가 시작된 금요일 16:00에서 거꾸로 셈한다
-    expect(before.find((p) => p.text.startsWith('점심'))!.at).toBe(13 * 60 + 40 - 16 * 60 - 2 * 24 * 60);
+    expect(c1.every((p) => p.at < 0)).toBe(true);
+    expect(c1[0]!.text).toBe('한서는 영화 「이터널 선샤인」을 봤다. 세 번째. 이번엔 끝까지 봤다.');
   });
 
-  it('줄 모양이 틀렸거나, 자는 시간이거나, 너무 길면 버린다. 많아야 정해진 수까지', async () => {
+  it('남길 때는 그날 깨어 있는 때 가운데 하나다. 같은 삶이면 늘 같다', async () => {
+    const { ctx, playId } = await setup();
+    const play = await loadPlay(ctx, playId);
+    const hanseo = play.film.casts[0]!;
+    for (const day of [-3, -2, -1, 0, 1]) {
+      const at = slotOf(play, hanseo, day)!;
+      expect(at).toBe(slotOf(play, hanseo, day));
+      expect(dayOf(play, at)).toBe(day);
+      const min = (((play.startMin + at) % 1440) + 1440) % 1440;
+      expect(min >= hanseo.sleepFrom && min < hanseo.sleepTo).toBe(false);
+    }
+    // 이야기가 시작된 날은 시작하고 조금 지나서부터
+    expect(slotOf(play, hanseo, 0)!).toBeGreaterThanOrEqual(RULES.feed.calmMin);
+  });
+
+  it('모양이 틀렸거나, 켜 두지 않은 종류거나, 없는 날이거나, 같은 날을 두 번 적은 줄은 버린다', async () => {
     const lines = [
-      '1일 전 03:00 | 자는 시간에 올린 글',
+      '3일 전 | 노래 | 밤편지 | 아이유 | 문 닫고 한 번 더.',
+      '3일 전 | 일기 | 같은 날을 또 적었다.',
+      '2일 전 | 사진 | 1 | 붙인 사진이 없다',
+      '1일 전 | 검색 | 켜 두지 않은 종류',
+      '4일 전 | 일기 | 없는 날',
       '아무 모양도 아닌 줄',
-      `2일 전 12:00 | ${'가'.repeat(RULES.feed.length + 1)}`,
-      '3일 전 09:10 | 하나',
-      '2일 전 10:10 | 둘',
-      '1일 전 11:10 | 셋',
-      '1일 전 12:10 | 넷',
     ].join('\n');
-    const { entered } = await setup({ past: (call) => (call.layers.cast.includes('이름: 한서') ? lines : '') });
-    expect(entered.posts.filter((p) => p.cast === 'c1').map((p) => p.text)).toEqual(['하나', '둘', '셋']);
+    const film = { ...DEV_FILM, opens: { feed: true, ping: false, aside: false }, casts: [{ ...DEV_FILM.casts[0], feed: ['song', 'diary', 'photo'] }, DEV_FILM.casts[1]] };
+    const { entered, calls } = await setup({ past: (call) => (call.layers.cast.includes('이름: 한서') ? lines : '') }, film);
+    expect(entered.posts.filter((p) => p.cast === 'c1').map((p) => p.data.kind)).toEqual(['song']);
+    // 켜 둔 것만 고르게 건넨다. 사진은 붙인 것이 없어서 건네지 않는다
+    const sys = calls('past').find((c) => c.layers.cast.includes('이름: 한서'))!.layers.system;
+    expect(sys).toContain('- 노래:');
+    expect(sys).toContain('- 일기:');
+    expect(sys).not.toContain('- 사진:');
+    expect(sys).not.toContain('- 검색:');
     expect(entered.posts.filter((p) => p.cast === 'c2')).toHaveLength(0);
   });
 
   it('장면을 쓰는 작가에게 「아는 일」로 건네지 않는다', async () => {
     const { send, calls } = await setup();
     await send('안녕하세요.');
-    expect(calls('reply')[0]!.layers.scene).not.toContain('편의점 샌드위치');
+    expect(calls('reply')[0]!.layers.scene).not.toContain('이터널 선샤인');
   });
 
-  it('피드를 열지 않은 필름에는 없다', async () => {
-    const { entered, calls } = await setup({}, { ...DEV_FILM, opens: { feed: false, ping: false, aside: false } });
-    expect(calls('past')).toHaveLength(0);
-    expect(entered.posts).toHaveLength(0);
+  it('피드를 열지 않은 필름이나, 다 꺼 둔 캐스트에는 없다', async () => {
+    const closed = await setup({}, { ...DEV_FILM, opens: { feed: false, ping: false, aside: false } });
+    expect(closed.calls('past')).toHaveLength(0);
+    expect(closed.entered.posts).toHaveLength(0);
+    const off = await setup({}, { ...DEV_FILM, casts: [{ ...DEV_FILM.casts[0], feed: [] }, DEV_FILM.casts[1]] });
+    expect(off.calls('past')).toHaveLength(1);
+    expect(off.entered.posts.every((p) => p.cast === 'c2')).toBe(true);
   });
 
   it('이 기능이 생기기 전에 들어간 삶은 다음 대목 때 한 번 적는다', async () => {
@@ -91,87 +136,128 @@ describe('같이 사는 느낌: 이야기 전에 올려 둔 글', () => {
   });
 });
 
-describe('같이 사는 느낌: 채팅하는 동안의 피드 글', () => {
-  const steps = RULES.feed.everyMin / RULES.minutesPerSend;
-
-  it('지금 장면에 없는 사람이, 정해진 만큼 시간이 흐르면 올린다. 그 자리에 있는 사람은 올리지 않는다', async () => {
-    const { talk, calls } = await setup({ reply: HANSEO_ONLY });
-    const early = await talk(steps - 1);
-    expect(early.posts.filter((p) => p.at >= 0)).toHaveLength(0);
-    const v = await talk(1);
+describe('피드: 채팅하는 동안 — 하루에 많아야 하나', () => {
+  it('그날 남길 때가 지나면, 지금 장면에 없는 사람이 하나를 남긴다. 그날은 다시 남기지 않는다', async () => {
+    const s = await setup({ reply: HANSEO_ONLY });
+    const at = await untilSlot(s);
+    const v = await s.send('그런데요.');
     const live = v.posts.filter((p) => p.at >= 0);
-    expect(live.map((p) => [p.cast, p.text, p.at])).toEqual([['c2', FAKE_DEFAULTS.post, RULES.feed.everyMin]]);
-    // 지후가 되어 쓴다. 떨어져 있다고 알린다
-    expect(calls('post')[0]!.layers.cast).toContain('이름: 지후');
-    expect(calls('post')[0]!.user).toContain('떨어져 있다');
+    expect(live.map((p) => [p.cast, p.at, p.data.kind])).toEqual([['c2', at, 'song']]);
+    // 지후가 되어 고른다. 켜 둔 것과 그때를 건넨다
+    const call = s.calls('post')[0]!;
+    expect(call.layers.cast).toContain('이름: 지후');
+    expect(call.layers.system).toContain('- 영화:');
+    expect(call.layers.system).toContain('- 없음:');
+    await s.talk(30);
+    expect(s.calls('post')).toHaveLength(1);
+    expect((await viewOf(s.ctx, s.playId)).posts.filter((p) => p.at >= 0)).toHaveLength(1);
   });
 
-  it('올린 글은 모두가 안다. 다음 대목을 쓰는 작가에게 건네진다', async () => {
-    const { talk, send, calls } = await setup({ reply: HANSEO_ONLY });
-    await talk(steps);
-    await send('그런데요.');
-    expect(calls('reply').at(-1)!.layers.scene).toContain(`지후의 피드에 올라온 글: 「${FAKE_DEFAULTS.post}」`);
+  it('「없음」을 고르면 그날은 남기지 않는다. 다시 묻지 않는다', async () => {
+    const s = await setup({ reply: HANSEO_ONLY, post: '없음' });
+    await untilSlot(s);
+    await s.talk(10);
+    expect(s.calls('post')).toHaveLength(1);
+    expect((await viewOf(s.ctx, s.playId)).posts.filter((p) => p.at >= 0)).toHaveLength(0);
   });
 
-  it('방금 말한 사람은 모습 줄에 없어도 그 자리에 있다. 올리지 않는다', async () => {
-    const spoke = '한서: "네."\n지후: "저도 들었어요."\n모습 | 한서는 계산대 뒤에 서 있다.';
-    const { talk, calls } = await setup({ reply: spoke });
-    await talk(steps * 2);
-    expect(calls('post')).toHaveLength(0);
+  it('다음 날이 되면 그날 남길 때에 또 하나', async () => {
+    const s = await setup({ reply: HANSEO_ONLY });
+    await untilSlot(s, 0);
+    await s.send('하나.');
+    await untilSlot(s, 1);
+    await s.send('둘.');
+    const live = (await viewOf(s.ctx, s.playId)).posts.filter((p) => p.at >= 0);
+    expect(live.map((p) => p.cast)).toEqual(['c2', 'c2']);
   });
 
-  it('글과 같이 온 답에 그 사람이 나오면 그 글은 버린다 — 말하다가 피드를 올리지 않는다', async () => {
+  it('그 자리에 있는 사람은 남기지 않는다. 장면에서 빠지면 그날이 가기 전에 남긴다', async () => {
+    let both = true;
+    const s = await setup({ reply: () => (both ? BOTH : HANSEO_ONLY) });
+    await s.send('처음.');
+    await untilSlot(s);
+    await s.talk(3);
+    expect(s.calls('post')).toHaveLength(0);
+    both = false;
+    await s.talk(2);
+    expect(s.calls('post')).toHaveLength(1);
+  });
+
+  it('같이 온 답에 그 사람이 나오면 버린다 — 말하다가 피드를 올리지 않는다. 그날 다시 묻는다', async () => {
     let n = 0;
-    const enters = '문이 열리고 지후가 들어온다.\n지후: "다들 여기 있었네."\n모습 | 한서는 계산대 뒤에, 지후는 문 앞에 서 있다.';
-    const { talk, calls, ctx } = await setup({ reply: () => (++n === steps ? enters : HANSEO_ONLY) });
-    const v = await talk(steps);
-    // 지후의 글은 받았지만 적지 않았다
-    expect(calls('post')).toHaveLength(1);
+    const enters = '문이 열리고 지후가 들어온다.\n지후: "다들 여기 있었네."\n모습 | 한서는 계산대 뒤에 서 있다. 지후는 나갔다.';
+    const s = await setup({ reply: () => (++n === 1 ? enters : HANSEO_ONLY) });
+    await untilSlot(s);
+    const v = await s.send('하나.');
+    expect(s.calls('post')).toHaveLength(1);
     expect(v.posts.filter((p) => p.at >= 0)).toHaveLength(0);
-    const log = await ctx.db.first<{ accepted: number; note: string }>("SELECT accepted, note FROM gen_log WHERE purpose = 'post'");
+    const log = await s.ctx.db.first<{ accepted: number; note: string }>("SELECT accepted, note FROM gen_log WHERE purpose = 'post'");
     expect(log).toEqual({ accepted: 0, note: '이번 대목에 나와서 버림' });
+    // 방금 말한 지후는 다음 대목 때도 그 자리에 있다. 그 다음에 빠져 있으면 다시 묻는다
+    await s.send('둘.');
+    expect(s.calls('post')).toHaveLength(1);
+    await s.send('셋.');
+    expect(s.calls('post')).toHaveLength(2);
+    expect((await viewOf(s.ctx, s.playId)).posts.filter((p) => p.at >= 0)).toHaveLength(1);
   });
 
-  it('모두 그 자리에 있으면 아무도 올리지 않는다', async () => {
-    const { talk, calls } = await setup({ reply: BOTH });
-    const v = await talk(steps * 2);
-    expect(calls('post')).toHaveLength(0);
-    expect(v.posts.filter((p) => p.at >= 0)).toHaveLength(0);
+  it('사진은 모두가 안다. 본 것·들은 것·일기·검색어는 그 사람만 안다', async () => {
+    const s = await setup({ reply: HANSEO_ONLY, post: '사진 | 2 | 또 두 잔.' }, WITH_PHOTOS);
+    await untilSlot(s);
+    const v = await s.send('하나.');
+    expect(v.posts.filter((p) => p.at >= 0).map((p) => p.data)).toEqual([{ kind: 'photo', photo: PHOTO_B, note: '또 두 잔.' }]);
+    await s.send('둘.');
+    const scene = s.calls('reply').at(-1)!.layers.scene;
+    expect(scene).toMatch(/\[모두 아는 일\]\n- \(.+\) 지후가 피드에 사진을 올렸다\(식은 커피 두 잔\)\. 또 두 잔\./);
+
+    const t = await setup({ reply: HANSEO_ONLY, post: '검색 | 연구실 창문 고치는 법 / 비 오는 날 우울' });
+    await untilSlot(t);
+    await t.send('하나.');
+    await t.send('둘.');
+    const scene2 = t.calls('reply').at(-1)!.layers.scene;
+    expect(scene2).toContain('[지후만 아는 일');
+    expect(scene2).toContain('지후가 검색한 말: 연구실 창문 고치는 법 / 비 오는 날 우울');
+    expect(scene2).not.toContain('[모두 아는 일]\n- (금요일');
   });
 
-  it('캐스트가 한 명이고 늘 같이 있으면 채팅하는 동안에는 올리지 않는다', async () => {
-    const solo = { ...DEV_FILM, casts: [DEV_FILM.casts[0]], ties: [], opens: { feed: true, ping: true, aside: false } };
-    const { talk, calls } = await setup({ reply: '한서: "네."\n모습 | 한서는 계산대 뒤에 서 있다.' }, solo);
-    await talk(steps * 2);
-    expect(calls('post')).toHaveLength(0);
-    expect(calls('ping')).toHaveLength(0);
+  it('사진은 디렉터가 붙인 것만, 한 장은 한 번만 올린다. 다 올리면 사진은 고를 수 없다', async () => {
+    const s = await setup({ reply: HANSEO_ONLY, post: '사진 | 1 | 비.' }, withPhotos(PHOTOS.slice(0, 1)));
+    await untilSlot(s, 0);
+    await s.send('하나.');
+    expect(s.calls('post')[0]!.layers.scene).toContain('[올릴 수 있는 사진]\n1. 연구실 창밖의 비');
+    await untilSlot(s, 1);
+    await s.send('둘.');
+    // 다음 날에는 남은 사진이 없다 — 사진을 고를 수 없고, 같은 답은 모양이 틀린 것으로 버린다
+    expect(s.calls('post')[1]!.layers.system).not.toContain('- 사진:');
+    const live = (await viewOf(s.ctx, s.playId)).posts.filter((p) => p.at >= 0);
+    expect(live.map((p) => p.data.kind)).toEqual(['photo']);
+    const bad = await s.ctx.db.first<{ note: string }>("SELECT note FROM gen_log WHERE purpose = 'post' ORDER BY rowid DESC");
+    expect(bad!.note).toBe('모양이 틀림');
   });
 
-  it('같은 사람은 정해진 만큼에 한 번까지다', async () => {
-    const { talk } = await setup({ reply: HANSEO_ONLY });
-    const v = await talk(steps * 2);
-    // 한 시간 지나 지후가 올렸고, 다시 한 시간이 지났지만 지후는 아직 세 시간이 안 됐다. 한서는 그 자리에 있다
-    expect(v.posts.filter((p) => p.at >= 0).map((p) => p.cast)).toEqual(['c2']);
+  it('자는 사람은 남기지 않는다', async () => {
+    const sleepy = { ...DEV_FILM, opens: { feed: true, ping: false, aside: false }, casts: [DEV_FILM.casts[0], { ...DEV_FILM.casts[1], sleepFrom: 0, sleepTo: 23 * 60 + 50 }] };
+    const s = await setup({ reply: HANSEO_ONLY }, sleepy);
+    await s.talk(40);
+    expect(s.calls('post')).toHaveLength(0);
   });
 
-  it('자는 사람은 올리지 않는다', async () => {
-    const sleepy = { ...DEV_FILM, opens: { feed: true, ping: false, aside: false }, casts: [DEV_FILM.casts[0], { ...DEV_FILM.casts[1], sleepFrom: 16 * 60, sleepTo: 20 * 60 }] };
-    const { talk, calls } = await setup({ reply: HANSEO_ONLY }, sleepy);
-    await talk(steps);
-    expect(calls('post')).toHaveLength(0);
-  });
-
-  it('글을 못 받아도 장면은 그대로 간다', async () => {
-    const { talk } = await setup({
+  it('못 받아도 장면은 그대로 간다. 그날 다시 묻는다', async () => {
+    let fail = true;
+    const s = await setup({
       reply: HANSEO_ONLY,
       post: () => {
-        throw new Error('upstream 503');
+        if (fail) throw new Error('upstream 503');
+        return '없음';
       },
     });
-    const v = await talk(steps);
+    await untilSlot(s);
+    const v = await s.send('하나.');
     expect(v.stuck).toBeNull();
     expect(v.messages.at(-1)).toMatchObject({ speaker: 'c1', text: '네.' });
-    expect(v.posts.filter((p) => p.at >= 0)).toHaveLength(0);
+    fail = false;
+    await s.send('둘.');
+    expect(s.calls('post')).toHaveLength(2);
   });
 });
 

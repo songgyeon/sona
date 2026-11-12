@@ -1,5 +1,6 @@
 /* 오프닝 — 디렉터가 컷·지문·대사를 쌓은 것. 화면과 서버가 같은 눈으로 읽는다. 계산뿐이다. */
 
+import { FEED_KINDS } from './feed';
 import type { Beat, Film, FirstScene } from './types';
 
 /** 예전 필름의 첫 장면: 장면 글 한 덩이였다 */
@@ -26,6 +27,9 @@ export function readFilm(saved: Film): Film {
       lack: c.lack ?? '',
       secret: c.secret ?? '',
       extras: c.extras ?? [],
+      // 피드 종류가 생기기 전의 캐스트는 다 켠 것으로 읽는다. 붙인 사진은 없다
+      feed: c.feed ?? [...FEED_KINDS],
+      photos: c.photos ?? [],
     })),
   };
   const fs = stored.firstScene as OldScene;

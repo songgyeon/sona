@@ -16,20 +16,18 @@ export const GAP_SYSTEM = `너는 필름 속 한 사람이 보낸 시간을 적�
 [인물]이 [구간] 동안 보낸 시간을 적는다.
 - 한 줄에 한 가지 일. 모양은 반드시: 시각 | 종류 | 글
 - 시각은 24시간제 HH:MM. [구간] 안의 시각만 쓴다. 자는 시간에는 아무 일도 적지 않는다.
-- 종류는 셋뿐이다.
+- 종류는 둘뿐이다.
   일상: 그 사람이 한 일. 사실만 한 문장으로. 한 줄에서 세 줄.
-  피드: 그 사람이 피드에 올린 한 줄. 그 사람 말투로. 없어도 되고, 많아야 한 줄.
   말거리: 그 사람이 [상대]에게 먼저 건넬 만한 얘깃거리 하나. 없어도 되고, 많아야 한 줄.
 
 [지킬 것]
 - [상대]는 그 자리에 없다. [상대]의 말, 행동, 선택을 쓰지 않는다. 그 사람이 [상대]를 떠올리는 것은 된다.
 - 큰 사건을 만들지 않는다. 평범한 하루의 조각이면 된다.
-- [너]에 트라우마, 결핍, 비밀이 적혀 있으면 그것은 그 사람의 속사정이다. 피드와 말거리에는 그 내용을 적지 않는다.
+- [너]에 트라우마, 결핍, 비밀이 적혀 있으면 그것은 그 사람의 속사정이다. 말거리에는 그 내용을 적지 않는다.
 - 줄만 쓴다. 다른 말을 붙이지 않는다.
 
 [예]
 19:20 | 일상 | 퇴근길에 편의점에서 컵라면을 샀다.
-22:40 | 피드 | 오늘은 진짜 아무것도 하기 싫다
 08:10 | 말거리 | 아침에 비가 와서 우산을 챙겼다.`;
 
 export const GAP_CUE = '(위 구간을 적는다.)';
@@ -68,7 +66,7 @@ export function gapLayers(
   return { system: GAP_SYSTEM, cast: castLayer(film, cast), scene: out.join('\n') };
 }
 
-export type GapKind = 'daily' | 'post' | 'hook';
+export type GapKind = 'daily' | 'hook';
 
 export interface GapItem {
   /** 작중 시각(흐른 분) */
@@ -82,7 +80,7 @@ export interface GapDrop {
   reason: 'shape' | 'kind' | 'out_of_span' | 'asleep' | 'too_many';
 }
 
-const KIND: Record<string, GapKind> = { 일상: 'daily', 피드: 'post', 말거리: 'hook' };
+const KIND: Record<string, GapKind> = { 일상: 'daily', 말거리: 'hook' };
 
 /** 줄마다 확인한다. 맞는 줄은 받고, 안 맞는 줄은 까닭을 달아 버린다 */
 export function parseGap(
@@ -94,7 +92,7 @@ export function parseGap(
 ): { items: GapItem[]; drops: GapDrop[] } {
   const items: GapItem[] = [];
   const drops: GapDrop[] = [];
-  const count: Record<GapKind, number> = { daily: 0, post: 0, hook: 0 };
+  const count: Record<GapKind, number> = { daily: 0, hook: 0 };
 
   for (const line of raw.split(/\r?\n/).map((s) => s.trim()).filter((s) => s.length > 0)) {
     const m = /^(\d{1,2}):(\d{2})\s*\|\s*([^|]+?)\s*\|\s*(.+)$/.exec(line);

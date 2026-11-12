@@ -9,7 +9,7 @@ import { isUniqueError, newId, q, type Stmt } from '../db';
 import { isUuid } from '../guard';
 import { type Ctx, Fail } from './ctx';
 import { loadFilm } from './films';
-import { pastPosts } from './alive';
+import { pastFeed } from './feed';
 import { applyMine, savedMine } from './persona';
 import { lastTurn, loadPlay, SCENE, viewOf } from './store';
 import { settle } from './skip';
@@ -102,11 +102,11 @@ export async function enter(ctx: Ctx, filmId: string, playId: unknown): Promise<
     throw e;
   }
 
-  // 첫 대목과, 캐스트마다 이야기 전에 올려 둔 피드 글을 같이 받는다
+  // 첫 대목과, 캐스트마다 이야기 전 며칠 치의 피드를 같이 받는다
   const play = await loadPlay(ctx, playId);
   await Promise.all([
     needsModel ? lastTurn(ctx.db, playId).then((turn) => answer(ctx, play, turn!)) : null,
-    film.opens.feed ? pastPosts(ctx, play, turnId).then((stmts) => ctx.db.batch(stmts)) : null,
+    film.opens.feed ? pastFeed(ctx, play, turnId).then((stmts) => ctx.db.batch(stmts)) : null,
   ]);
   return viewOf(ctx, playId);
 }

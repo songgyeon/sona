@@ -1,9 +1,8 @@
 /* 같이 사는 느낌 — 캐스트에게도 저마다의 하루가 있다.
-   - 들어갈 때: 캐스트마다 이야기가 시작되기 전에 올려 둔 피드 글이 두세 개 있다(pastPosts).
-   - 채팅하는 동안: 작중 시간이 흐르면 지금 장면에 없는 캐스트가 피드에 글을 올린다(livePost).
-     그 자리에 있는 사람은 올리지 않는다 — 말하다가 피드를 올리는 사람은 없다.
+   - 피드: 캐스트마다 작중 하루에 많아야 하나. 본 영화·드라마, 들은 노래, 일기, 사진, 검색어, 본 영상 가운데서(feed.ts).
+     그 자리에 있는 사람은 남기지 않는다 — 말하다가 피드를 올리는 사람은 없다.
    - 여럿이 나오는 필름에서, 자리에 없는 캐스트는 가끔 먼저 메시지를 보낸다(chatPing).
-   누가 언제 올리고 보낼지는 코드가 정한다. 모델은 글만 쓴다. 답이 늦어지지 않게 답과 같이 부른다. */
+   누가 언제 남기고 보낼지는 코드가 정한다. 모델은 무엇을 남길지 고르고 글만 쓴다. 답이 늦어지지 않게 답과 같이 부른다. */
 
 import { inSpan, worldAt } from '../../shared/clock';
 import { josa } from '../../shared/ko';
@@ -14,8 +13,9 @@ import { newId, q, type Stmt } from '../db';
 import type { ModelCall } from '../model/index';
 import { castLayer } from '../prompt/cast';
 import { sceneLayer, when } from '../prompt/scene';
-import { PAST_SYSTEM, PING_SYSTEM, POST_SYSTEM } from '../prompt/system';
+import { PING_SYSTEM } from '../prompt/system';
 import { type Ctx, Fail } from './ctx';
+import { feedDue, type FeedGot, pastFeed } from './feed';
 import { lastTurn, loadPlay, type Play, viewOf } from './store';
 import { ask, bubbles, errText, eventsFor, logStmt, recent, toLines } from './talk';
 
@@ -46,22 +46,6 @@ export function presentCasts(play: Play, before: MessageView[]): Set<string> {
   return inPassage(play, play.pose ? pieces.filter((p) => p.speaker !== 'tell') : pieces, play.pose);
 }
 
-/** 이번에 피드에 올릴 사람. 없으면 null.
-    지금 장면에 없고, 깨어 있고, 마지막으로 누가 올린 지 everyMin, 그 사람이 올린 지 perCastMin이 지났어야 한다.
-    오래 안 올린 사람부터 */
-export function poster(play: Play, posts: { cast: string; at: number }[], here: Set<string>): Cast | null {
-  if (!play.film.opens.feed) return null;
-  const now = play.elapsed;
-  // 이야기 전에 올려 둔 글(at < 0)은 치지 않는다. 이야기가 시작된 뒤로 셈한다
-  const live = posts.filter((p) => p.at >= 0);
-  const lastAny = Math.max(0, ...live.map((p) => p.at));
-  if (now - lastAny < RULES.feed.everyMin) return null;
-  const lastOf = (key: string) => Math.max(-Infinity, ...live.filter((p) => p.cast === key).map((p) => p.at));
-  const can = play.film.casts.filter((c) => !here.has(c.key) && awake(play, c, now) && now - lastOf(c.key) >= RULES.feed.perCastMin);
-  can.sort((a, b) => lastOf(a.key) - lastOf(b.key));
-  return can[0] ?? null;
-}
-
 /** 이번에 먼저 메시지를 보낼 사람. 없으면 null.
     여럿이 나오는 필름에서만. 지금 장면에 없고, 깨어 있고, 그 사람과 마지막으로 말을 나눈 지 chatMin이 지났어야 한다 */
 export function pinger(play: Play, before: MessageView[], here: Set<string>, busy: Cast | null): Cast | null {
@@ -72,29 +56,6 @@ export function pinger(play: Play, before: MessageView[], here: Set<string>, bus
   const can = film.casts.filter((c) => c.key !== busy?.key && !here.has(c.key) && awake(play, c, now) && now - lastOf(c.key) >= RULES.ping.chatMin);
   can.sort((a, b) => lastOf(a.key) - lastOf(b.key));
   return can[0] ?? null;
-}
-
-/** 피드 글 하나를 적는 문장들. 글은 누구나 본다.
-    이야기 전에 올려 둔 글(at < 0)은 피드에만 둔다 — 장면을 쓰는 작가에게 「아는 일」로 건네지 않는다 */
-function postStmts(ctx: Ctx, play: Play, turnId: string, cast: Cast, text: string, at: number): Stmt[] {
-  const everyone = ['persona', ...play.film.casts.map((c) => c.key)];
-  const post = q('INSERT INTO posts (id, play_id, turn_id, cast_key, text, at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)', newId(), play.id, turnId, cast.key, text, at, ctx.now());
-  if (at < 0) return [post];
-  return [
-    post,
-    q(
-      'INSERT INTO events (id, play_id, turn_id, at, kind, actor, text, known_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      newId(),
-      play.id,
-      turnId,
-      at,
-      'post',
-      cast.key,
-      text,
-      JSON.stringify(everyone),
-      ctx.now(),
-    ),
-  ];
 }
 
 /** 받은 글과 그 기록. 글은 적을지 버릴지 나중에 정한다(drop) */
@@ -115,63 +76,6 @@ async function tryAsk(ctx: Ctx, play: Play, turnId: string, call: ModelCall, use
 }
 
 const keep = (g: Got): Stmt[] => [...g.stmts, g.log(null)];
-
-const hhmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
-
-/** 이야기가 시작되기 전에 올려 둔 피드 글. 캐스트마다 따로 부른다. 다 적으면 삶에 적었다고 표시한다 */
-export async function pastPosts(ctx: Ctx, play: Play, turnId: string): Promise<Stmt[]> {
-  const film = play.film;
-  const done = q('UPDATE plays SET past = 1 WHERE id = ?', play.id);
-  if (!film.opens.feed) return [done];
-  const each = film.casts.map((cast) => {
-    const scene = ['[이야기가 시작되는 때]', when(play, 0), '', `자는 시간: ${hhmm(cast.sleepFrom)} ~ ${hhmm(cast.sleepTo)}`].join('\n');
-    const call: ModelCall = {
-      purpose: 'past',
-      layers: { system: PAST_SYSTEM, cast: castLayer(film, cast), scene },
-      user: '(이야기가 시작되기 전에 올린 글을 적는다.)',
-      temperature: 0.9,
-      maxTokens: 300,
-    };
-    return tryAsk(ctx, play, turnId, call, (text) => {
-      const out: Stmt[] = [];
-      let kept = 0;
-      for (const line of bubbles(text)) {
-        const m = /^([1-3])\s*일\s*전\s*(\d{1,2}):(\d{2})\s*[|｜]\s*(.+)$/.exec(line);
-        if (!m || kept >= RULES.feed.past) continue;
-        const min = Number(m[2]) * 60 + Number(m[3]);
-        const body = m[4]!.trim();
-        if (min >= 24 * 60 || body.length === 0 || body.length > RULES.feed.length) continue;
-        if (inSpan(min, cast.sleepFrom, cast.sleepTo)) continue;
-        // 이야기가 시작된 때(0분)에서 거꾸로 센다
-        const at = min - film.startMin - Number(m[1]) * 24 * 60;
-        out.push(...postStmts(ctx, play, turnId, cast, body, at));
-        kept += 1;
-      }
-      return out;
-    });
-  });
-  return [...(await Promise.all(each)).flatMap(keep), done];
-}
-
-/** 지금 장면에 없는 사람이 피드에 글 하나를 올린다 */
-async function livePost(ctx: Ctx, play: Play, cast: Cast, turnId: string, before: MessageView[]): Promise<Got> {
-  const film = play.film;
-  const call: ModelCall = {
-    purpose: 'post',
-    layers: {
-      system: POST_SYSTEM,
-      cast: castLayer(film, cast),
-      scene: sceneLayer({ film, cast, clock: play, events: await eventsFor(ctx, play, cast.key), history: toLines(play, recent(before)) }),
-    },
-    user: `(${when(play, play.elapsed)}. 너는 지금 ${josa(film.persona.name, '과', '와')} 떨어져 있다. 피드에 글 하나를 올린다.)`,
-    temperature: 0.9,
-    maxTokens: 200,
-  };
-  return tryAsk(ctx, play, turnId, call, (text) => {
-    const first = bubbles(text)[0] ?? '';
-    return first.length > 0 && first.length <= RULES.feed.length ? postStmts(ctx, play, turnId, cast, first, play.elapsed) : [];
-  });
-}
 
 /** 자리에 없는 사람이 먼저 메시지를 보낸다 */
 async function chatPing(ctx: Ctx, play: Play, cast: Cast, turnId: string, before: MessageView[]): Promise<Got> {
@@ -209,34 +113,29 @@ async function chatPing(ctx: Ctx, play: Play, cast: Cast, turnId: string, before
 
 /** 이번 턴에 같이 사는 느낌으로 일어날 일. 답과 같이 부르고, 답을 받으면 함께 적는다.
     돌려주는 것은 「이번 대목에 나온 사람」을 받아 적을 문장을 내주는 함수다 —
-    피드 글과 메시지는 답과 같이 받으니, 이번 대목에 그 사람이 나왔으면(들어와서 말했으면) 버린다.
-    말하다가 피드를 올리는 사람은 없다 */
+    피드와 메시지는 답과 같이 받으니, 이번 대목에 그 사람이 나왔으면(들어와서 말했으면) 버린다.
+    말하다가 피드를 남기는 사람은 없다. 버린 피드는 그날이 가기 전에 다시 묻는다 */
 export async function lifeWork(ctx: Ctx, play: Play, turnId: string, before: MessageView[]): Promise<(appeared: Set<string>) => Stmt[]> {
-  // 이 기능이 생기기 전에 들어간 삶은 이야기 전의 글이 없다. 다음 대목 때 적는다
-  const past = play.film.opens.feed && !play.past ? pastPosts(ctx, play, turnId) : Promise.resolve([] as Stmt[]);
-  const posts = await ctx.db.all<{ cast: string; at: number }>('SELECT cast_key AS cast, at FROM posts WHERE play_id = ?', play.id);
+  // 이 기능이 생기기 전에 들어간 삶은 이야기 전의 피드가 없다. 다음 대목 때 적는다
+  const past = play.film.opens.feed && !play.past ? pastFeed(ctx, play, turnId) : Promise.resolve([] as Stmt[]);
   const here = presentCasts(play, before);
-  const who = poster(play, posts, here);
-  const caller = pinger(play, before, here, who);
-  const [pastStmts, post, ping] = await Promise.all([
-    past,
-    who ? livePost(ctx, play, who, turnId, before) : null,
-    caller ? chatPing(ctx, play, caller, turnId, before) : null,
-  ]);
-  const settle = (got: Got | null, cast: Cast | null, appeared: Set<string>): Stmt[] => {
+  const feed = feedDue(ctx, play, turnId, before, here);
+  const caller = pinger(play, before, here, null);
+  const [pastStmts, post, ping] = await Promise.all([past, feed, caller ? chatPing(ctx, play, caller, turnId, before) : null]);
+  const settle = (got: Got | FeedGot | null, cast: Cast | null, appeared: Set<string>): Stmt[] => {
     if (!got || !cast) return [];
     if (appeared.has(cast.key)) return [got.log('이번 대목에 나와서 버림')];
     return keep(got);
   };
-  return (appeared) => [...pastStmts, ...settle(post, who, appeared), ...settle(ping, caller, appeared)];
+  return (appeared) => [...pastStmts, ...settle(post, post?.cast ?? null, appeared), ...settle(ping, caller, appeared)];
 }
 
-/** 피드를 열 때. 이 기능이 생기기 전에 들어간 삶은 이야기 전에 올려 둔 글이 없다 — 그때 적는다 */
+/** 피드를 열 때. 이 기능이 생기기 전에 들어간 삶은 이야기 전의 피드가 없다 — 그때 적는다 */
 export async function openFeed(ctx: Ctx, playId: string): Promise<PlayView> {
   const play = await loadPlay(ctx, playId);
   if (play.film.opens.feed && !play.past) {
     const turn = await lastTurn(ctx.db, playId);
-    await ctx.db.batch(await pastPosts(ctx, play, turn?.id ?? playId));
+    await ctx.db.batch(await pastFeed(ctx, play, turn?.id ?? playId));
   }
   return viewOf(ctx, playId);
 }

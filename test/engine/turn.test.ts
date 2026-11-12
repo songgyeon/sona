@@ -373,7 +373,8 @@ describe('첫 하루의 끝', () => {
     expect(v.elapsed).toBe(RULES.trialMinutes);
     expect(v.ended).toBe(true);
     // 그 전송까지는 답을 받는다
-    expect(v.messages.at(-1)).toMatchObject({ speaker: 'c1' });
+    const mine = v.messages.map((m) => m.speaker).lastIndexOf('persona');
+    expect(v.messages.slice(mine + 1).some((m) => m.speaker === 'c1' && m.kind === 'chat')).toBe(true);
     expect(await failCode(send(ctx, playId, '하나만 더'))).toBe('ended');
   });
 });

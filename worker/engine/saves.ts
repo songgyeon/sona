@@ -9,7 +9,7 @@ import { type Ctx, Fail } from './ctx';
 import { lastTurn, loadPlay, viewOf } from './store';
 
 /** 삶에 딸린 표들. 저장하고 되돌릴 때 이 표들의 줄을 통째로 옮긴다 */
-const TABLES = ['turns', 'messages', 'events', 'posts', 'asides'] as const;
+const TABLES = ['turns', 'messages', 'events', 'posts', 'asides', 'feed_days'] as const;
 /** 삶 줄에서 저장하는 칸 */
 const PLAY_COLS = ['film', 'elapsed', 'ended', 'days', 'place', 'pose'] as const;
 

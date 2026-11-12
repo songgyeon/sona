@@ -72,9 +72,22 @@ export const SCHEMA: string[] = [
     cast_key TEXT NOT NULL,
     text TEXT NOT NULL,
     at INTEGER NOT NULL,
-    created_at INTEGER NOT NULL
+    created_at INTEGER NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'text',
+    data TEXT NOT NULL DEFAULT ''
   )`,
   `CREATE INDEX IF NOT EXISTS posts_play ON posts(play_id, at)`,
+
+  // 피드를 치른 날. 캐스트마다 하루에 한 줄 — 남겼으면 그 종류, 안 남겼으면 빈 글자
+  `CREATE TABLE IF NOT EXISTS feed_days (
+    play_id TEXT NOT NULL,
+    cast_key TEXT NOT NULL,
+    day INTEGER NOT NULL,
+    at INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (play_id, cast_key, day)
+  )`,
 
   // 한편: 유저가 없는 자리에서 캐스트 둘이 나눈 장면. 줄들은 messages에 room이 이 id인 것들이다
   `CREATE TABLE IF NOT EXISTS asides (
@@ -215,6 +228,9 @@ const ADDED: { table: string; column: string; sql: string; then?: { sql: string;
   { table: 'plays', column: 'pose', sql: "ALTER TABLE plays ADD COLUMN pose TEXT NOT NULL DEFAULT ''" },
   // 이야기 전에 올려 둔 피드 글을 이미 적었나. 들어갈 때 적는다. 그 전에 들어간 삶은 다음 대목 때 적는다
   { table: 'plays', column: 'past', sql: 'ALTER TABLE plays ADD COLUMN past INTEGER NOT NULL DEFAULT 0' },
+  // 피드 글의 종류(본 영화, 노래, 일기 …)와 그 속. 예전 글은 한 줄 글(text)이다
+  { table: 'posts', column: 'kind', sql: "ALTER TABLE posts ADD COLUMN kind TEXT NOT NULL DEFAULT 'text'" },
+  { table: 'posts', column: 'data', sql: "ALTER TABLE posts ADD COLUMN data TEXT NOT NULL DEFAULT ''" },
   // 비공개 필름. 만든 사람만 목록에서 보고 들어간다
   {
     table: 'films',

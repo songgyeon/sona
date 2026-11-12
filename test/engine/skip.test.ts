@@ -16,7 +16,10 @@ import { TWO_FILM, testCtx, uid } from '../helpers/film';
 const clock = (elapsed: number) => ({ startDow: 5, startMin: 16 * 60, elapsed });
 const at = (elapsed: number) => formatWorld(clock(elapsed));
 
-const MINA_DAY = ['18:30 | 일상 | 퇴근길에 서점에 들렀다.', '19:10 | 말거리 | 서점에서 선배가 말한 책을 봤다.', '22:40 | 피드 | 오늘은 일찍 잔다'].join('\n');
+const MINA_DAY = ['18:30 | 일상 | 퇴근길에 서점에 들렀다.', '19:10 | 말거리 | 서점에서 선배가 말한 책을 봤다.'].join('\n');
+/** 민아가 피드에 올릴 사진 */
+const PHOTO = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+const WITH_PHOTO = { ...TWO_FILM, casts: [{ ...TWO_FILM.casts[0], photos: [{ id: PHOTO, about: '퇴근길 하늘' }] }, TWO_FILM.casts[1]] };
 
 type Part = string | ((call: ModelCall) => string);
 function script(parts: Partial<Record<Purpose, Part>>) {
@@ -85,11 +88,10 @@ describe('자리 비우기와 시계', () => {
   });
 
   it('그 사이의 일을 못 만들어도 시계는 간다 — 조용한 구간으로 남는다', async () => {
-    const { away } = await setup({
-      gap: () => {
-        throw new Error('upstream 503');
-      },
-    });
+    const down = () => {
+      throw new Error('upstream 503');
+    };
+    const { away } = await setup({ gap: down, post: down });
     const v = await away('sleep');
     expect(at(v.elapsed)).toBe('토요일 오전 7:00');
     expect(v.stuck).toBeNull();
@@ -113,27 +115,28 @@ describe('그 사이의 하루', () => {
       '19:00 | 속마음 | 조금 서운했다.', // 없는 종류
       '15:00 | 일상 | 점심을 먹었다.', // 구간 밖(시작 전)
       '03:00 | 일상 | 물을 마시러 일어났다.', // 자는 시간
-      '22:40 | 피드 | 오늘은 일찍 잔다',
-      '23:10 | 피드 | 진짜 잔다', // 피드는 한 줄까지
+      '22:40 | 피드 | 오늘은 일찍 잔다', // 피드는 여기서 적지 않는다(날마다 하나, feed.ts)
+      '19:00 | 말거리 | 서점에 새 책이 들어왔다.',
+      '20:00 | 말거리 | 비가 그쳤다.', // 말거리는 하나까지
     ].join('\n');
     const { items, drops } = parseGap(raw, clock(3), 3, 900, mina);
     expect(items.map((i) => [at(i.at), i.kind, i.text])).toEqual([
       ['금요일 오후 6:30', 'daily', '퇴근길에 서점에 들렀다.'],
-      ['금요일 오후 10:40', 'post', '오늘은 일찍 잔다'],
+      ['금요일 오후 7:00', 'hook', '서점에 새 책이 들어왔다.'],
     ]);
-    expect(drops.map((d) => d.reason)).toEqual(['shape', 'kind', 'out_of_span', 'asleep', 'too_many']);
+    expect(drops.map((d) => d.reason)).toEqual(['shape', 'kind', 'out_of_span', 'asleep', 'kind', 'too_many']);
   });
 
-  it('혼자 한 일은 그 사람만 알고, 피드 글은 모두가 "피드에서 봤다"로 안다', async () => {
-    const { send, away, calls } = await setup({ gap: forMina(MINA_DAY) });
+  it('혼자 한 일은 그 사람만 알고, 피드에 올린 사진은 모두가 안다', async () => {
+    const { send, away, calls } = await setup({ gap: forMina(MINA_DAY), post: forMina('사진 | 1 | 오늘은 일찍 잔다', '없음') }, WITH_PHOTO);
     await send('먼저 갈게.');
     const v = await away('sleep');
-    expect(v.posts.filter((p) => p.at >= 0).map((p) => [p.cast, p.text, at(p.at)])).toEqual([['c1', '오늘은 일찍 잔다', '금요일 오후 10:40']]);
+    expect(v.posts.filter((p) => p.at >= 0).map((p) => [p.cast, p.text])).toEqual([['c1', '민아가 피드에 사진을 올렸다(퇴근길 하늘). 오늘은 일찍 잔다']]);
 
     // 장면을 쓰는 작가에게는 누가 아는 일인지 갈라서 건넨다
     await send('좋은 아침.');
     const scene = calls('reply').at(-1)!.layers.scene;
-    expect(scene).toContain('[모두 아는 일]\n- (금요일 밤) 민아의 피드에 올라온 글: 「오늘은 일찍 잔다」');
+    expect(scene).toMatch(/\[모두 아는 일\]\n- \(금요일 [^)]+\) 민아가 피드에 사진을 올렸다\(퇴근길 하늘\)\. 오늘은 일찍 잔다/);
     expect(scene).toContain('[민아만 아는 일 — 다른 사람은 듣기 전에는 모른다]\n- (금요일 저녁) 퇴근길에 서점에 들렀다.');
 
     // 그 사람이 되어 쓰는 자리(혼자 보낸 시간)에서는 제가 아는 일만 받는다
@@ -142,9 +145,9 @@ describe('그 사이의 하루', () => {
     const mina = gaps.find((c) => c.layers.cast.includes('이름: 민아'))!.layers.scene;
     const dohyun = gaps.find((c) => c.layers.cast.includes('이름: 이도현'))!.layers.scene;
     expect(mina).toContain('퇴근길에 서점에 들렀다.');
-    expect(mina).toContain('피드에 올렸다: 「오늘은 일찍 잔다」');
+    expect(mina).toContain('민아가 피드에 사진을 올렸다(퇴근길 하늘). 오늘은 일찍 잔다');
     expect(dohyun).not.toContain('서점에 들렀다'); // 민아가 혼자 한 일은 모른다
-    expect(dohyun).toContain('민아의 피드에서 봤다: 「오늘은 일찍 잔다」');
+    expect(dohyun).toContain('민아가 피드에 사진을 올렸다(퇴근길 하늘). 오늘은 일찍 잔다');
   });
 
   it('유저가 없는 자리에 유저가 나오는 줄은 버린다. 떠올리는 것은 된다', async () => {
@@ -213,8 +216,9 @@ describe('먼저 오는 연락', () => {
     await setElapsed(120); // 금요일 오후 6시
     await send('이따 봐.'); // 6:03
     const v = await away('errand'); // 8:03까지
-    expect(v.messages.filter((m) => m.kind === 'ping')).toHaveLength(0);
-    expect(calls('ping')).toHaveLength(0);
+    // 방금까지 얘기한 민아는 걸지 않는다(자리에 없던 이도현은 채팅하는 동안 먼저 걸 수 있다 — 따로 본다)
+    expect(v.messages.filter((m) => m.kind === 'ping' && m.speaker === 'c1')).toHaveLength(0);
+    expect(calls('ping').filter((c) => c.layers.cast.includes('이름: 민아'))).toHaveLength(0);
   });
 
   it('그 사이에 한 일이 없으면 연락도 없다 — 연락 없는 날도 그 사람의 하루다', async () => {
@@ -226,7 +230,7 @@ describe('먼저 오는 연락', () => {
   });
 
   it('필름이 먼저 오는 연락을 열지 않으면 보내지 않는다. 피드는 따로다', async () => {
-    const { send, away, calls } = await setup({ gap: forMina(MINA_DAY) }, { ...TWO_FILM, opens: { feed: true, ping: false } });
+    const { send, away, calls } = await setup({ gap: forMina(MINA_DAY), post: forMina('노래 | 밤편지 | 아이유 | 문 닫고 한 번 더.', '없음') }, { ...TWO_FILM, opens: { feed: true, ping: false } });
     await send('먼저 갈게.');
     const v = await away('sleep');
     expect(v.messages.filter((m) => m.kind === 'ping')).toHaveLength(0);

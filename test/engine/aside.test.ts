@@ -150,8 +150,11 @@ describe('한편: 자리를 비운 사이', () => {
 
   it('둘 다 아는 일은 한 번만 건넨다. 한 사람만 아는 일은 그 사람 아래에 적힌다', async () => {
     const withFeed = { ...OPEN_FILM, opens: { feed: true, ping: false, aside: true } };
-    const day = (call: ModelCall) => (call.layers.cast.includes('이름: 민아') ? '17:10 | 일상 | 퇴근길에 서점에 들렀다.\n17:30 | 피드 | 오늘은 일찍 잔다' : '');
-    const { away, calls } = await setup({ aside: SCENE, gap: day }, withFeed);
+    const day = (call: ModelCall) => (call.layers.cast.includes('이름: 민아') ? '17:10 | 일상 | 퇴근길에 서점에 들렀다.' : '');
+    const { ctx, playId, away, calls } = await setup({ aside: SCENE, gap: day, post: '없음' }, withFeed);
+    // 내 피드에 올린 글은 모두가 본다
+    const { postMine } = await import('../../worker/engine/alive');
+    await postMine(ctx, playId, { text: '오늘은 일찍 잔다' });
     await away('evening');
     await away('sleep');
 

@@ -14,6 +14,7 @@ import { PING_SYSTEM } from '../prompt/system';
 import { ASIDE_CUE, asideLayers, asideMemory, asideSlot, parseAside, pickPair } from './aside';
 import { type Ctx, Fail } from './ctx';
 import { GAP_CUE, type GapItem, gapLayers, parseGap, parsePresent, presentLayers, presentUser } from './gap';
+import { feedSpan } from './feed';
 import { asNow } from './persona';
 import { pingHeld, pingSlots } from './ping';
 import { lastTurn, loadPlay, type Play, sceneMessages, viewOf } from './store';
@@ -99,10 +100,12 @@ export async function settle(ctx: Ctx, play: Play, turnId: string, from: number,
 
 async function between(ctx: Ctx, play: Play, turnId: string, from: number, to: number, stmts: Stmt[]): Promise<void> {
   await alone(ctx, play, turnId, from, to, stmts);
+  // 피드: 그 사이에 든 날마다 남길 때가 오면 하나(남기지 않기도 한다). 적는 것은 다른 일과 함께 한 번에
+  if (play.film.opens.feed) stmts.push(...(await feedSpan(ctx, play, turnId, from, to, await sceneMessages(ctx.db, play))));
   await meanwhile(ctx, play, turnId, from, to, stmts);
 }
 
-/** 캐스트마다 혼자 보낸 시간: 일상, 피드, 먼저 건 연락 */
+/** 캐스트마다 혼자 보낸 시간: 일상, 먼저 건 연락 */
 async function alone(ctx: Ctx, play: Play, turnId: string, from: number, to: number, stmts: Stmt[]): Promise<void> {
   const film = play.film;
   if (to - from < RULES.gap.minSpanMin || (!film.opens.feed && !film.opens.ping)) return;
@@ -116,21 +119,6 @@ async function alone(ctx: Ctx, play: Play, turnId: string, from: number, to: num
       if (it.kind === 'daily') {
         // 혼자 한 일은 그 사람만 안다
         stmts.push(eventStmt(ctx, play.id, turnId, it.at, 'daily', cast.key, it.text, [cast.key]));
-      } else if (it.kind === 'post' && film.opens.feed) {
-        // 피드에 올린 글은 모두가 본다
-        stmts.push(
-          q(
-            'INSERT INTO posts (id, play_id, turn_id, cast_key, text, at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            newId(),
-            play.id,
-            turnId,
-            cast.key,
-            it.text,
-            it.at,
-            ctx.now(),
-          ),
-        );
-        stmts.push(eventStmt(ctx, play.id, turnId, it.at, 'post', cast.key, it.text, everyone));
       }
     }
 

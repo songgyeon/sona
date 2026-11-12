@@ -231,19 +231,25 @@ describe('본편: 내 지문', () => {
 });
 
 describe('본편: 누가 무엇을 아는가', () => {
-  const OPEN = { ...FILM, opens: { feed: true, ping: true, aside: true } };
-  const DAY = (call: ModelCall) =>
-    call.layers.cast.includes('이름: 한서') ? '18:30 | 일상 | 퇴근길에 약국에 들렀다.\n22:40 | 피드 | 오늘은 일찍 잔다' : '19:00 | 일상 | 연구실에서 늦게까지 실험을 했다.';
+  const PHOTO = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  const OPEN = {
+    ...FILM,
+    opens: { feed: true, ping: true, aside: true },
+    casts: [{ ...FILM.casts[0], photos: [{ id: PHOTO, about: '셔터 내린 가게 앞' }] }, ...FILM.casts.slice(1)],
+  };
+  const DAY = (call: ModelCall) => (call.layers.cast.includes('이름: 한서') ? '18:30 | 일상 | 퇴근길에 약국에 들렀다.' : '19:00 | 일상 | 연구실에서 늦게까지 실험을 했다.');
+  /** 비운 사이의 피드: 한서는 사진을 올리고 지후는 남기지 않는다 */
+  const POST = (call: ModelCall) => (call.layers.cast.includes('이름: 한서') ? '사진 | 1 | 오늘은 일찍 잔다' : '없음');
   const ASIDE = '장소 | 서점 앞\n둘이 셔터를 내린다.\n한서: "형, 새 알바 봤어요?"\n지후: "봤지. 조용하더라."\n한서: "첫 주니까요."';
 
   it('모두 아는 일과 몇 사람만 아는 일을 갈라서 건넨다', async () => {
-    const { ctx, playId, send, calls } = await setup(OPEN, { gap: DAY, aside: ASIDE });
+    const { ctx, playId, send, calls } = await setup(OPEN, { gap: DAY, aside: ASIDE, post: POST });
     await send('먼저 가 볼게요.');
     await skip(ctx, playId, { kind: 'sleep', requestId: uid() });
     await send('좋은 아침이에요.');
     const { scene } = calls('reply').at(-1)!.layers;
-    // 피드에 올린 글은 모두가 본다
-    expect(scene).toContain('[모두 아는 일]\n- (금요일 밤) 한서의 피드에 올라온 글: 「오늘은 일찍 잔다」');
+    // 피드에 올린 사진은 모두가 본다
+    expect(scene).toMatch(/\[모두 아는 일\]\n- \(금요일 [^)]+\) 한서가 피드에 사진을 올렸다\(셔터 내린 가게 앞\)\. 오늘은 일찍 잔다/);
     // 혼자 한 일은 그 사람만 안다
     expect(scene).toContain('[한서만 아는 일 — 다른 사람은 듣기 전에는 모른다]\n- (금요일 저녁) 퇴근길에 약국에 들렀다.');
     expect(scene).toContain('[지후만 아는 일 — 다른 사람은 듣기 전에는 모른다]\n- (금요일 저녁) 연구실에서 늦게까지 실험을 했다.');
@@ -254,7 +260,7 @@ describe('본편: 누가 무엇을 아는가', () => {
 
   it('캐스트가 한 명이어도 혼자 한 일은 그 사람만 안다', async () => {
     const solo = { ...OPEN, casts: [OPEN.casts[0]], ties: [], opens: { feed: true, ping: true, aside: false } };
-    const { ctx, playId, send, calls } = await setup(solo, { gap: '18:30 | 일상 | 퇴근길에 약국에 들렀다.' });
+    const { ctx, playId, send, calls } = await setup(solo, { gap: '18:30 | 일상 | 퇴근길에 약국에 들렀다.', post: '없음' });
     await send('먼저 가 볼게요.');
     await skip(ctx, playId, { kind: 'sleep', requestId: uid() });
     await send('좋은 아침이에요.');

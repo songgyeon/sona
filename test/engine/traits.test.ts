@@ -206,7 +206,7 @@ describe('캐스트의 성격·습관·트라우마·결핍·비밀', () => {
     expect((await viewOf(ctx, playId)).film.casts[0]).toMatchObject(EMPTY);
 
     await say(ctx, playId, { room: 'c1', text: '여기요?', requestId: uid() });
-    const { cast } = ctx.model.calls.at(-1)!.layers;
+    const { cast } = ctx.model.calls.filter((c) => c.purpose === 'reply').at(-1)!.layers;
     expect(cast).toContain('이름: 한서');
     for (const name of NAMES) expect(cast).not.toContain(`${name}:`);
 

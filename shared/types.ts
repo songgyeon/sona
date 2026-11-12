@@ -80,6 +80,19 @@ export interface Cast {
   dayPlace: string;
   /** 디렉터가 덧붙인 칸 */
   extras: Extra[];
+  /** 피드에 남기는 것 가운데 켜 둔 것. 하루에 이 가운데 하나를 남기거나 안 남긴다 */
+  feed: FeedKind[];
+  /** 피드에 올릴 사진. 디렉터가 붙인 것만 올라간다 */
+  photos: FeedPhoto[];
+}
+
+/** 피드에 남기는 것: 본 영화·드라마, 들은 노래, 일기, 사진, 검색어, 본 영상 */
+export type FeedKind = 'watch' | 'song' | 'diary' | 'photo' | 'search' | 'tube';
+
+/** 피드에 올릴 사진. about은 무슨 사진인지 — 대사 모델이 그날에 맞는 사진을 고를 때 읽는다 */
+export interface FeedPhoto {
+  id: string;
+  about: string;
 }
 
 export interface Tie {
@@ -144,9 +157,22 @@ export interface AsideView {
 export interface PostView {
   id: string;
   cast: string;
+  /** 한 줄로 적은 것. 예전 글(text)은 이것뿐이다 */
   text: string;
   at: number;
+  /** 종류마다 화면에 놓을 것 */
+  data: PostData;
 }
+
+/** 피드 글의 속. 종류마다 모양이 다르다. text는 한 줄 글(내 피드, 예전 글) */
+export type PostData =
+  | { kind: 'text' }
+  | { kind: 'watch'; form: 'movie' | 'drama'; title: string; ep: string; note: string }
+  | { kind: 'song'; title: string; artist: string; note: string }
+  | { kind: 'diary'; text: string }
+  | { kind: 'photo'; photo: string; note: string }
+  | { kind: 'search'; queries: string[] }
+  | { kind: 'tube'; items: { title: string; length: string }[] };
 
 export interface TurnView {
   id: string;

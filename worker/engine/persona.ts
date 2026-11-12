@@ -64,6 +64,7 @@ export function applyMine(film: Film, mine: Mine, fresh = false): Film {
       secret: fix(c.secret),
       samples: c.samples.map(fix),
       extras: (c.extras ?? []).map((e) => ({ ...e, text: fix(e.text) })),
+      photos: (c.photos ?? []).map((ph) => ({ ...ph, about: fix(ph.about) })),
     })),
     ties: film.ties.map((t) => ({ ...t, relation: fix(t.relation) })),
     firstScene: {

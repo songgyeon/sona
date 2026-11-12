@@ -2,7 +2,8 @@
 
 import { RULES } from '../../shared/rules';
 import { readFilm } from '../../shared/opening';
-import type { Extra, Beat, Cast, Film, FilmCard, Tie } from '../../shared/types';
+import { FEED_KINDS } from '../../shared/feed';
+import type { Beat, Cast, Extra, FeedKind, FeedPhoto, Film, FilmCard, Tie } from '../../shared/types';
 import { newId } from '../db';
 import { isUuid } from '../guard';
 import { type Ctx, Fail } from './ctx';
@@ -57,6 +58,26 @@ function extras(v: unknown, where: string): Extra[] {
   return out;
 }
 
+/** 피드에 남기는 것 가운데 켜 둔 것. 안 보냈으면 다 켠 것이다. 모르는 종류는 버린다 */
+function feedKinds(v: unknown): FeedKind[] {
+  if (!Array.isArray(v)) return [...FEED_KINDS];
+  return FEED_KINDS.filter((k) => v.includes(k));
+}
+
+/** 피드에 올릴 사진. 무슨 사진인지 적는 칸은 비워도 된다 */
+function feedPhotos(v: unknown): FeedPhoto[] {
+  if (v == null) return [];
+  if (!Array.isArray(v)) throw new Fail(400, 'film_invalid', '피드 사진이 올바르지 않아요.');
+  const out = v
+    .map((x) => {
+      const o = obj(x);
+      return { id: image(o.id, '피드 사진'), about: text(o.about, RULES.feed.about, '무슨 사진') };
+    })
+    .filter((p) => p.id.length > 0);
+  if (out.length > RULES.feed.photos) throw new Fail(400, 'film_invalid', `피드 사진은 캐스트마다 ${RULES.feed.photos}장까지예요.`);
+  return out;
+}
+
 /** 화면에서 온 것을 필름으로 읽는다. 맞지 않으면 어느 칸인지 말하고 거절한다 */
 export function parseFilm(input: unknown): Film {
   const f = obj(input);
@@ -89,6 +110,8 @@ export function parseFilm(input: unknown): Film {
       sleepTo: int(c.sleepTo ?? 420, 0, 1439, '일어나는 시간'),
       dayPlace: text(c.dayPlace, 40, '낮에 있는 곳'),
       extras: extras(c.extras, '캐스트'),
+      feed: feedKinds(c.feed),
+      photos: feedPhotos(c.photos),
     };
   });
   const names = new Set(casts.map((c) => c.name));
@@ -243,14 +266,14 @@ function card(row: FilmRow, visitor: string): FilmCard {
   };
 }
 
-/** 화면으로 보내는 필름. 성격부터 비밀까지는 디렉터만 보는 칸이라, 만든 사람이 고칠 때가 아니면 비워서 보낸다.
+/** 화면으로 보내는 필름. 성격부터 비밀까지, 덧붙이는 칸, 피드 사진(무슨 사진인지 적은 메모)은 디렉터만 보는 칸이라, 만든 사람이 고칠 때가 아니면 비워서 보낸다.
     대사 모델에게 건네는 필름은 서버에 있는 그대로다 */
 export function forScreen(film: Film): Film {
   return {
     ...film,
     extras: [],
     persona: { ...film.persona, extras: [] },
-    casts: film.casts.map((c) => ({ ...c, nature: '', habit: '', trauma: '', lack: '', secret: '', extras: [] })),
+    casts: film.casts.map((c) => ({ ...c, nature: '', habit: '', trauma: '', lack: '', secret: '', extras: [], photos: [] })),
   };
 }
 
