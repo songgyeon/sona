@@ -2,6 +2,7 @@
    시계를 미는 것은 여기뿐이다 — 유저의 전송 1건에 정해진 만큼. 모델은 못 민다. */
 
 import { wasThere } from '../../shared/opening';
+import { type MyLine, splitLine } from '../../shared/line';
 import { RULES } from '../../shared/rules';
 import type { PlayView } from '../../shared/types';
 import { isUniqueError, newId, q, type Stmt } from '../db';
@@ -109,9 +110,9 @@ export async function enter(ctx: Ctx, filmId: string, playId: unknown): Promise<
 }
 
 export interface SayInput {
-  /** 내 대사 */
+  /** 내가 쓴 글. 대사와 지문을 함께 쓴다. 지문은 *별표* 사이에 쓴다(splitLine) */
   text?: unknown;
-  /** 내 지문 — 내 인물이 하는 행동. 대사와 지문 가운데 하나는 있어야 한다 */
+  /** 지문 칸이 따로 있던 때의 화면이 보내던 내 지문. 별표 없이 통째로 지문이다 */
   tell?: unknown;
   requestId: unknown;
   /** 캐스트마다 방이 따로이던 때의 화면이 보내던 것. 쓰지 않는다 */
@@ -140,9 +141,18 @@ export async function say(ctx: Ctx, playId: string, input: SayInput): Promise<Pl
 
   const text = typeof input.text === 'string' ? input.text.trim() : '';
   const tell = typeof input.tell === 'string' ? input.tell.trim() : '';
-  if (text.length === 0 && tell.length === 0) throw new Fail(400, 'empty_say', '보낼 말이나 지문을 입력해 주세요.');
-  if (text.length > RULES.limits.say) throw new Fail(400, 'long_say', `대사는 한 번에 ${RULES.limits.say}자까지 보낼 수 있어요.`);
+  if (text.length > RULES.limits.say) throw new Fail(400, 'long_say', `한 번에 ${RULES.limits.say}자까지 보낼 수 있어요.`);
   if (tell.length > RULES.limits.say) throw new Fail(400, 'long_say', `지문은 한 번에 ${RULES.limits.say}자까지 보낼 수 있어요.`);
+  // 쓴 차례 그대로 적는다. 따로 온 지문이 있으면 그것이 먼저다
+  const lines: MyLine[] = [
+    ...tell
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((t) => ({ kind: 'act' as const, text: t })),
+    ...splitLine(text),
+  ];
+  if (lines.length === 0) throw new Fail(400, 'empty_say', '보낼 말이나 지문을 입력해 주세요.');
 
   const before = play.elapsed;
   const after = before + RULES.minutesPerSend;
@@ -165,13 +175,8 @@ export async function say(ctx: Ctx, playId: string, input: SayInput): Promise<Pl
         after,
         now,
       ),
-      // 지문이 먼저, 대사가 그다음이다. 화면에 놓이는 순서도 같다
-      ...[
-        { kind: 'act', text: tell },
-        { kind: 'chat', text },
-      ]
-        .filter((line) => line.text.length > 0)
-        .map((line) =>
+      // 쓴 차례대로 적는다. 화면에 놓이는 순서도 같다
+      ...lines.map((line) =>
           q(
             'INSERT INTO messages (id, play_id, turn_id, room, speaker, text, at, kind, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
             newId(),

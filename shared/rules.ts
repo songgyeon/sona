@@ -88,7 +88,8 @@ export const RULES = {
 
   /** 입력 길이 */
   limits: {
-    say: 400,
+    /** 말하는 칸 하나에 쓰는 글(대사와 지문을 합쳐) */
+    say: 800,
     title: 40,
     logline: 80,
     setting: 600,

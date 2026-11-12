@@ -6,6 +6,13 @@ import { systemText } from './index';
 
 const URL = 'https://openrouter.ai/api/v1/chat/completions';
 
+/** 어느 제공처에서 돌릴지. 같은 대사 모델을 돌려 주는 곳이 여럿이고 빠르기가 크게 다르다.
+    맡겨 두면 값이 싼 쪽으로도 가서, 지나간 장면이 길어지면 한 턴에 1분 넘게 걸릴 때가 있었다.
+    첫 글자가 빨리 나오는 곳부터 쓴다. 그곳이 안 되면 다음으로 넘어간다 */
+const ROUTE = { sort: 'latency' } as const;
+/** 생각하는 과정을 쓰지 않게 한다. 대사 모델이 생각부터 하면 답이 늦고 들쭉날쭉하다 */
+const NO_THINKING = { effort: 'none' } as const;
+
 interface ChatOut {
   choices?: { message?: { content?: unknown; reasoning?: unknown } }[];
   usage?: { prompt_tokens?: number; completion_tokens?: number };
@@ -49,6 +56,8 @@ export function openRouter(apiKey: string, modelId: string, fetcher: typeof fetc
           ],
           temperature: call.temperature,
           max_tokens: call.maxTokens,
+          provider: ROUTE,
+          reasoning: NO_THINKING,
         }),
       });
       const data = (await res.json().catch(() => null)) as ChatOut | null;

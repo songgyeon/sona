@@ -1,6 +1,7 @@
-import { type FormEvent, Fragment, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type FormEvent, Fragment, type KeyboardEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { dayEnd, dayName, formatWorld, worldAt } from '../../shared/clock';
 import { josa } from '../../shared/ko';
+import { splitLine } from '../../shared/line';
 import { cutsOf, hasLines } from '../../shared/opening';
 import { RULES } from '../../shared/rules';
 import type { AsideView, Film, MessageView, PlayView } from '../../shared/types';
@@ -12,7 +13,7 @@ type SkipKind = 'evening' | 'sleep';
 
 /** 한 번에 보내는 것. 지문과 대사 가운데 하나는 있다 */
 interface Outgoing {
-  tell: string;
+  /** 쓴 글 그대로. 지문은 *별표* 사이에 있다 */
   text: string;
   requestId: string;
 }
@@ -83,10 +84,9 @@ function Opening({ film }: { film: Film }) {
 /** 재생. 위에 지금 장면이 걸리고, 아래로 장면이 흐른다 */
 export function Play({ playId, go }: { playId: string; go: (to: string) => void }) {
   const [view, setView] = useState<PlayView | null>(null);
-  /** 쓰고 있는 내 대사와 내 지문 */
+  /** 쓰고 있는 글. 대사와 지문을 한 칸에 쓴다. 지문은 *별표* 사이에 쓴다 */
   const [draft, setDraft] = useState('');
-  const [act, setAct] = useState('');
-  const actBox = useRef<HTMLTextAreaElement>(null);
+  const box = useRef<HTMLTextAreaElement>(null);
   /** 보냈는데 아직 답이 안 온 말. 끊기면 같은 전송 표로 다시 보낸다 — 서버는 한 번만 처리한다 */
   const [out, setOut] = useState<Outgoing | null>(null);
   /** 시간을 넘기는 중. 끊기면 같은 표로 다시 부른다 */
@@ -220,13 +220,13 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
     look();
   }, [view, out, waiting, reading]);
 
-  // 지문 칸은 쓴 만큼 자란다. 너무 길어지면 그 안에서 굴린다
+  // 말하는 칸은 쓴 만큼 자란다. 너무 길어지면 그 안에서 굴린다
   useLayoutEffect(() => {
-    const el = actBox.current;
+    const el = box.current;
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 132)}px`;
-  }, [act, view]);
+  }, [draft, view]);
 
   useEffect(() => {
     window.addEventListener('resize', onScroll);
@@ -243,14 +243,13 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
     setErr('');
     setNotice('');
     try {
-      setView(await api.say(playId, o.text, o.tell, o.requestId));
+      setView(await api.say(playId, o.text, o.requestId));
       setOut(null);
     } catch (e) {
       if (e instanceof ApiFail && e.status !== 0 && e.status < 500) {
         // 서버가 받지 않았다(끝났거나, 앞 턴이 멈춰 있거나). 쓴 말은 돌려준다
         setOut(null);
         setDraft(o.text);
-        setAct(o.tell);
         setView(await api.play(playId).catch(() => view));
       }
       setErr(e instanceof ApiFail ? e.message : '보내지 못했어요.');
@@ -258,14 +257,45 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
     setWaiting(false);
   };
 
+  const send = () => {
+    const text = draft.trim();
+    if (splitLine(text).length === 0 || waiting || !view || view.ended || view.stuck || out || away) return;
+    setDraft('');
+    void deliver({ text, requestId: newId() });
+  };
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    const text = draft.trim();
-    const tell = act.trim();
-    if ((!text && !tell) || waiting || !view || view.ended || view.stuck || out || away) return;
-    setDraft('');
-    setAct('');
-    void deliver({ tell, text, requestId: newId() });
+    send();
+  };
+
+  /** 자판으로 쓰는 화면에서는 Enter로 보낸다(Shift+Enter는 줄바꿈). 손가락으로 쓰는 화면에서는 줄을 바꾸고, 보내기는 단추로 한다.
+      글자를 조합하는 중에 누른 Enter는 조합을 끝내는 것이다 — 보내지 않는다 */
+  const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing || e.keyCode === 229) return;
+    if (window.matchMedia('(pointer: coarse)').matches) return;
+    e.preventDefault();
+    send();
+  };
+
+  /** 「지문」 단추: 별표 한 쌍을 넣고 그 사이에 쓰게 한다. 골라 둔 글이 있으면 그 글을 별표로 감싼다 */
+  const addAct = () => {
+    const el = box.current;
+    if (!el) return;
+    const from = el.selectionStart ?? draft.length;
+    const to = el.selectionEnd ?? draft.length;
+    const head = draft.slice(0, from);
+    const picked = draft.slice(from, to);
+    // 대사와 붙어 버리지 않게 앞에 한 칸 띄운다
+    const gap = head && !/\s$/.test(head) ? ' ' : '';
+    const next = `${head}${gap}*${picked}*${draft.slice(to)}`;
+    if (next.length > RULES.limits.say) return;
+    setDraft(next);
+    // 고른 글이 없으면 별표 사이에, 있으면 닫는 별표 뒤에 선다
+    const caret = head.length + gap.length + 1 + picked.length + (picked ? 1 : 0);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(caret, caret);
+    });
   };
 
   const retry = async () => {
@@ -447,21 +477,23 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
           ),
         )}
 
-        {pendingHere?.tell &&
-          pendingHere.tell.split('\n').map((line, j) => (
-            <p className="tell byme sending" key={j}>
-              {line}
-            </p>
-          ))}
-        {pendingHere?.text && (
-          <div className={me.face ? 'say me faced sending' : 'say me sending'}>
-            <div>
-              <small>{me.name}</small>
-              <p>{pendingHere.text}</p>
-            </div>
-            {me.face && <Face id={me.face} name={me.name} />}
-          </div>
-        )}
+        {/* 보냈는데 아직 답이 안 온 글. 서버가 가르는 것과 같은 셈으로 미리 놓는다 */}
+        {pendingHere &&
+          splitLine(pendingHere.text).map((line, j) =>
+            line.kind === 'act' ? (
+              <p className="tell byme sending" key={j}>
+                {line.text}
+              </p>
+            ) : (
+              <div className={me.face ? 'say me faced sending' : 'say me sending'} key={j}>
+                <div>
+                  <small>{me.name}</small>
+                  <p>{line.text}</p>
+                </div>
+                {me.face && <Face id={me.face} name={me.name} />}
+              </div>
+            ),
+          )}
         {/* 다음 대목을 쓰는 중. 누가 나올지는 아직 모른다 */}
         {waiting && !away && <p className="tell wait">…</p>}
         {away && waiting && <p className="cut">시간이 흐르는 중</p>}
@@ -539,37 +571,36 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
             ))}
           </div>
         )}
+        {/* 말하는 칸은 하나다. 대사와 지문을 함께 쓰고, 지문은 *별표* 사이에 쓴다 */}
         <form className="box" onSubmit={submit}>
-          <label htmlFor="act" className="sr">
-            내 지문
+          <button
+            type="button"
+            className="addact"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={addAct}
+            disabled={view.ended || !!view.stuck || !!away}
+            aria-label="지문 넣기"
+          >
+            지문
+          </button>
+          <label htmlFor="say" className="sr">
+            대사와 지문
           </label>
           <textarea
-            id="act"
-            ref={actBox}
+            id="say"
+            ref={box}
             rows={1}
-            value={act}
+            value={draft}
             maxLength={RULES.limits.say}
-            onChange={(e) => setAct(e.target.value)}
-            placeholder="지문 쓰기"
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={onKey}
+            placeholder="대사와 *지문*을 써 주세요."
             disabled={view.ended || !!view.stuck || !!away}
+            autoComplete="off"
           />
-          <div className="line">
-            <label htmlFor="say" className="sr">
-              내 대사
-            </label>
-            <input
-              id="say"
-              value={draft}
-              maxLength={RULES.limits.say}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="말하기"
-              disabled={view.ended || !!view.stuck || !!away}
-              autoComplete="off"
-            />
-            <button type="submit" className="send" disabled={locked || (!draft.trim() && !act.trim())} aria-label="보내기">
-              <Arrow />
-            </button>
-          </div>
+          <button type="submit" className="send" disabled={locked || splitLine(draft).length === 0} aria-label="보내기">
+            <Arrow />
+          </button>
         </form>
         <div className="safe" />
       </footer>

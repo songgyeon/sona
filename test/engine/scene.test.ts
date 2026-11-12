@@ -196,9 +196,37 @@ describe('본편: 내 지문', () => {
   it('둘 다 비었거나 너무 길면 받지 않는다', async () => {
     const { ctx, playId, send } = await setup();
     expect((await failOf(send('  ', ' ')))?.code).toBe('empty_say');
-    expect((await failOf(send('가'.repeat(401))))?.code).toBe('long_say');
-    expect((await failOf(send('', '가'.repeat(401))))?.message).toContain('지문');
+    // 별표뿐이면 쓴 것이 없다
+    expect((await failOf(send('** *')))?.code).toBe('empty_say');
+    expect((await failOf(send('가'.repeat(801))))?.code).toBe('long_say');
+    expect((await failOf(send('', '가'.repeat(801))))?.message).toContain('지문');
     expect((await viewOf(ctx, playId)).elapsed).toBe(0);
+  });
+
+  it('한 칸에 대사와 지문을 함께 쓴다. 지문은 별표 사이에 쓰고, 쓴 차례대로 놓인다', async () => {
+    const { send, calls } = await setup();
+    const v = await send('*책을 받아 든다.* 여기요? *고개를 갸웃한다.*\n아, 이쪽이구나.');
+    expect(v.messages.map((m) => [m.speaker, m.kind, m.text])).toEqual([
+      ['persona', 'act', '책을 받아 든다.'],
+      ['persona', 'chat', '여기요?'],
+      ['persona', 'act', '고개를 갸웃한다.'],
+      ['persona', 'chat', '아, 이쪽이구나.'],
+      ['tell', 'chat', '고개를 든다.'],
+      ['c1', 'chat', '응, 듣고 있어.'],
+    ]);
+    expect(calls('reply')[0]!.user.split('\n(이번 대목은')[0]).toBe(
+      '(수아의 지문) 책을 받아 든다.\n수아: 여기요?\n(수아의 지문) 고개를 갸웃한다.\n수아: 아, 이쪽이구나.',
+    );
+    // 한 번 보낸 것은 한 턴이다
+    expect(v.elapsed).toBe(3);
+    expect(new Set(v.messages.map((m) => m.turnId)).size).toBe(1);
+  });
+
+  it('지문만 써도 된다. 닫지 않은 별표 뒤는 끝까지 지문이다', async () => {
+    const { send } = await setup();
+    const v = await send('**말없이 문을 열고 나간다.');
+    expect(v.messages[0]).toMatchObject({ speaker: 'persona', kind: 'act', text: '말없이 문을 열고 나간다.' });
+    expect(v.messages.filter((m) => m.speaker === 'persona')).toHaveLength(1);
   });
 });
 

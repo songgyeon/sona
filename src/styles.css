@@ -298,11 +298,12 @@ button:disabled { opacity: 0.4; cursor: default; }
 .skip { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; letter-spacing: 0.01em; color: var(--ink-3); }
 .skip svg { width: 13px; height: 13px; fill: currentColor; }
 /* 말하는 칸. 위는 내 지문, 아래는 내 대사다. 둘 다 써도 되고 하나만 써도 된다 */
-.box { margin: 0 var(--pad); border-top: 1px solid var(--rule); }
-.box textarea { display: block; width: 100%; padding: 13px 0 3px; font-family: var(--serif); font-size: 15px; line-height: 1.7; color: var(--ink-2); resize: none; outline: none; }
-.box textarea::placeholder, .box input::placeholder { color: var(--ink-4); }
-.box .line { height: 50px; display: flex; align-items: center; gap: 10px; }
-.box input { flex: 1; min-width: 0; height: 100%; font-size: 16px; letter-spacing: -0.01em; outline: none; }
+/* 말하는 칸. 하나다 — 대사와 지문을 함께 쓰고, 지문은 *별표* 사이에 쓴다. 테두리로 칸이 보이게 한다 */
+.box { margin: 0 var(--pad); display: flex; align-items: flex-end; gap: 8px; padding: 7px; border: 1px solid var(--ink-4); background: #0b0b0b; }
+.box:focus-within { border-color: var(--ink-3); }
+.box textarea { flex: 1; min-width: 0; display: block; padding: 5px 2px; font-size: 16px; line-height: 1.5; letter-spacing: -0.01em; color: var(--ink); resize: none; outline: none; }
+.box textarea::placeholder { color: var(--ink-3); }
+.addact { flex: none; height: 34px; padding: 0 10px; border: 1px solid var(--ink-4); font-size: 12.5px; font-weight: 600; letter-spacing: 0.04em; color: var(--ink-2); }
 .send { flex: none; width: 34px; height: 34px; background: var(--ink); color: #000; display: grid; place-items: center; }
 .send svg { width: 17px; height: 17px; stroke-width: 2; }
 .foot .warn { padding: 0 var(--pad) 10px; }

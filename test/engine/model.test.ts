@@ -35,6 +35,9 @@ describe('오픈라우터로 부르기', () => {
       model: 'some/model',
       temperature: 0.8,
       max_tokens: 400,
+      // 빠른 제공처부터, 생각하는 과정 없이
+      provider: { sort: 'latency' },
+      reasoning: { effort: 'none' },
       messages: [
         { role: 'system', content: '시스템\n\n캐릭터\n\n시나리오' },
         { role: 'user', content: '안녕' },

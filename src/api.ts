@@ -135,8 +135,8 @@ export const api = {
   plays: () => call<PlayCard[]>('GET', '/api/plays'),
   play: (id: string) => call<PlayView>('GET', `/api/plays/${id}`),
   /** 내 대사와 내 지문을 보낸다. 하나만 있어도 된다 */
-  say: (id: string, text: string, tell: string, requestId: string) =>
-    call<PlayView>('POST', `/api/plays/${id}/say`, { text, tell, requestId }),
+  /** 대사와 지문을 함께 보낸다. 지문은 *별표* 사이에 쓴다 — 가르는 것은 서버가 한다 */
+  say: (id: string, text: string, requestId: string) => call<PlayView>('POST', `/api/plays/${id}/say`, { text, requestId }),
   skip: (id: string, kind: 'evening' | 'sleep', requestId: string) =>
     call<PlayView>('POST', `/api/plays/${id}/skip`, { kind, requestId }),
   retry: (id: string) => call<PlayView>('POST', `/api/plays/${id}/retry`, {}),
