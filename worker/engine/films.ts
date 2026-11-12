@@ -350,7 +350,13 @@ export function forScreen(film: Film): Film {
 /** 개봉한 필름들. 누구에게나 보인다 — 어느 기기, 어느 길로 들어와도 같은 목록이다.
     비공개 필름과 시험하느라 만든 필름(제목으로 가린다)만 만든 사람에게만 보인다. 최근에 개봉한 것부터 */
 export async function listFilms(ctx: Ctx): Promise<FilmCard[]> {
-  const rows = await ctx.db.all<FilmRow>(`SELECT ${COLS} FROM films ORDER BY featured DESC, created_at DESC LIMIT 300`);
+  // 남에게 안 보이는 필름(비공개, 시험하느라 만든 것)은 내용을 읽지도 않는다. 예전에는 다 읽고 걸러서 목록이 1초 넘게 걸렸다
+  const hide = RULES.unlisted.map(() => 'title NOT LIKE ?').join(' AND ');
+  const rows = await ctx.db.all<FilmRow>(
+    `SELECT ${COLS} FROM films WHERE owner = ? OR (private = 0 AND ${hide}) ORDER BY featured DESC, created_at DESC LIMIT 300`,
+    ctx.visitor,
+    ...RULES.unlisted.map((head) => `${head}%`),
+  );
   const unlisted = (title: string) => RULES.unlisted.some((head) => title.startsWith(head));
   return rows.filter((r) => r.owner === ctx.visitor || (r.private !== 1 && !unlisted(r.title))).map((r) => card(r, ctx.visitor));
 }

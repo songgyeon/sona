@@ -101,7 +101,7 @@ const json = (data: unknown, status = 200) =>
   });
 
 export default {
-  async fetch(req: Request, env: Env): Promise<Response> {
+  async fetch(req: Request, env: Env, run?: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
     if (url.pathname === '/api/health') return json({ ok: true });
 
@@ -109,17 +109,23 @@ export default {
       // 그림은 화면의 <img>가 바로 부른다. 열쇠를 실을 수 없어서 문지기 앞에서 내준다 — 주소는 짐작할 수 없는 값이다
       const img = IMAGE.exec(url.pathname);
       if (img && req.method === 'GET') {
+        // 그림은 주소가 곧 내용이라 바뀌지 않는다. 한 번 내준 것은 가장자리에 담아 두고 거기서 내준다 — 저장소를 다시 오가지 않는다
+        const edge = typeof caches === 'undefined' ? null : caches.default;
+        const kept = edge ? await edge.match(req) : undefined;
+        if (kept) return kept;
         const db = d1(env.DB);
         await ensureSchema(db);
         const found = await loadImage(db, img[1]!);
         if (!found) throw new Fail(404, 'no_image', '그림을 찾을 수 없어요.');
-        return new Response(found.bytes, {
+        const res = new Response(found.bytes, {
           headers: {
             'content-type': found.mime,
             'cache-control': 'public, max-age=31536000, immutable',
             'x-content-type-options': 'nosniff',
           },
         });
+        if (edge && run) run.waitUntil(edge.put(req, res.clone()));
+        return res;
       }
 
       // 소리와 영상도 화면의 <audio>, <video>가 바로 부른다. 그림처럼 문지기 앞에서 내준다

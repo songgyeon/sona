@@ -207,6 +207,12 @@ export const SCHEMA: string[] = [
     PRIMARY KEY (media_id, n)
   )`,
 
+  // 표의 판. 같은 판이면 Worker가 새로 뜰 때 표를 다시 확인하지 않는다
+  `CREATE TABLE IF NOT EXISTS meta (
+    k TEXT PRIMARY KEY,
+    v TEXT NOT NULL
+  )`,
+
   // 하루 호출 수
   `CREATE TABLE IF NOT EXISTS usage (
     day TEXT NOT NULL,
@@ -272,10 +278,28 @@ export async function addColumns(db: Db): Promise<void> {
 
 let ready = false;
 
-/** 표가 없으면 만든다. 몇 번 불러도 같다 */
+/** 지금 표의 판. 표나 붙인 칸이 바뀌면 판도 바뀐다 */
+const VERSION = (() => {
+  const all = JSON.stringify([SCHEMA, ADDED.map((a) => [a.table, a.column, a.sql])]);
+  let h = 0x811c9dc5;
+  for (let i = 0; i < all.length; i++) {
+    h ^= all.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(36);
+})();
+
+/** 표가 없으면 만든다. 몇 번 불러도 같다.
+    Worker가 새로 뜰 때마다 표를 다 확인하면 열 번 넘게 저장소를 오간다 — 판이 같으면 한 번만 읽고 넘어간다 */
 export async function ensureSchema(db: Db): Promise<void> {
   if (ready) return;
+  const row = await db.first<{ v: string }>("SELECT v FROM meta WHERE k = 'schema'").catch(() => null);
+  if (row?.v === VERSION) {
+    ready = true;
+    return;
+  }
   await db.batch(SCHEMA.map((sql) => q(sql)));
   await addColumns(db);
+  await db.run("INSERT INTO meta (k, v) VALUES ('schema', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v", VERSION);
   ready = true;
 }
