@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { formatWorld } from '../../shared/clock';
 import { DEV_FILM } from '../../shared/dev-film';
+import { fillCard } from '../../shared/roles';
 import type { FilmCard, PlayCard } from '../../shared/types';
 import { ApiFail, api } from '../api';
 import { PlayFill, Search } from '../icons';
@@ -45,8 +46,10 @@ export function Home({ go, fake, modelReady }: { go: (to: string) => void; fake:
 
   if (films === null) return <p className="center">{err || '불러오는 중'}</p>;
 
-  const mine = films.filter((f) => f.mine);
-  const others = films.filter((f) => !f.mine);
+  // 글 속의 {{user}}는 내 이름으로 읽는다
+  const cards = films.map((f) => fillCard(f, me.name));
+  const mine = cards.filter((f) => f.mine);
+  const others = cards.filter((f) => !f.mine);
   /** 살고 있던 삶이 있으면 그 필름이 맨 위에 걸린다. 없으면 가장 최근 필름 */
   const now = plays.find((p) => !p.ended) ?? null;
   const lead = now ? null : (mine[0] ?? others[0] ?? null);

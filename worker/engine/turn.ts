@@ -12,7 +12,7 @@ import { loadFilm } from './films';
 import { pastFeed } from './feed';
 import { myName } from './me';
 import { applyMine, roleMine, savedMine } from './persona';
-import { withRole } from '../../shared/roles';
+import { fillFilm, withRole } from '../../shared/roles';
 import { lastTurn, loadPlay, SCENE, viewOf } from './store';
 import { settle } from './skip';
 import { answer } from './talk';
@@ -39,7 +39,8 @@ export async function enter(ctx: Ctx, filmId: string, playId: unknown): Promise<
       ? roleMine(base.persona, await myName(ctx.db, ctx.visitor))
       : null;
   // 새로 들어가는 삶이다. 캐스트는 처음부터 이 이름으로 안다
-  const film = mine ? applyMine(base, mine, true) : base;
+  // 디렉터가 글에 쓴 {{user}}는 맡은 사람의 이름으로 적는다
+  const film = fillFilm(mine ? applyMine(base, mine, true) : base);
   const fs = film.firstScene;
   const cast = film.casts.find((c) => c.key === fs.room)!;
   const turnId = newId();

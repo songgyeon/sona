@@ -46,6 +46,8 @@ const AFTER_NAME: [string, string][] = [
     줄여 부른 이름은 알아보지 못한다 — 그런 곳은 적힌 그대로 남는다 */
 export function renameIn(text: string, from: string, to: string, keep: string[] = []): string {
   if (!from || from === to || !text.includes(from)) return text;
+  // {{user}} 같은 자리표는 사람 이름이 아니라서 받침으로 조사를 짐작할 수 없다
+  if (/^\{\{.*\}\}$/.test(from)) return fillMark(text, new RegExp(from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), to);
   const fromB = hasBatchim(from);
   const toB = hasBatchim(to);
   let out = '';
@@ -80,6 +82,33 @@ export function renameIn(text: string, from: string, to: string, keep: string[] 
     i = rest;
   }
   return out;
+}
+
+/** 글 속의 자리표(예: {{user}})를 이름으로 바꾼다. 바로 뒤에 붙은 조사는 그 이름의 받침에 맞춘다.
+    자리표 뒤의 조사는 받침이 있는 꼴(「은」)로 적었든 없는 꼴(「는」)로 적었든, 「은(는)」처럼 둘 다 적었든 알아본다 */
+export function fillMark(text: string, mark: RegExp, to: string): string {
+  const re = new RegExp(mark.source, `${mark.flags.replace('g', '')}g`);
+  const toB = hasBatchim(to);
+  let out = '';
+  let i = 0;
+  for (let m = re.exec(text); m; m = re.exec(text)) {
+    out += text.slice(i, m.index);
+    let rest = m.index + m[0].length;
+    let particle = '';
+    for (const [withB, without] of AFTER_NAME) {
+      const was = [`${withB}(${without})`, `${without}(${withB})`, withB, without].find((form) => text.startsWith(form, rest));
+      if (!was) continue;
+      // 한 글자 조사 뒤에 한글이 바로 이어지면 다른 낱말일 수 있다(「이름」, 「은행」). 그때는 이름만 바꾼다
+      if (['이', '을', '은', '과', '아'].includes(was) && /[가-힣]/.test(text[rest + 1] ?? '')) continue;
+      particle = withB === '으로' ? (toB && !endsWithRieul(to) ? '으로' : '로') : toB ? withB : without;
+      rest += was.length;
+      break;
+    }
+    out += to + particle;
+    i = rest;
+    re.lastIndex = rest;
+  }
+  return out + text.slice(i);
 }
 
 /** 두 글자 성. 이 성으로 시작하는 네 글자 이름은 뒤 두 글자가 이름이다 */

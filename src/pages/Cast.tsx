@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { fillFilm } from '../../shared/roles';
 import type { Film, PostView } from '../../shared/types';
 import { ApiFail, api, imgUrl } from '../api';
 import { FeedItem, type PostEdit, PostTools } from '../feed';
@@ -24,7 +25,7 @@ export function Cast({ filmId, playId, castKey, go }: { filmId?: string; playId?
   useEffect(() => {
     const load = playId
       ? api.openFeed(playId).then((v): Loaded => ({ film: v.film, elapsed: v.elapsed, posts: v.posts.filter((p) => p.cast === castKey), maker: v.mine }))
-      : api.film(filmId!).then((d): Loaded => ({ film: d.film, elapsed: null, posts: [], maker: d.card.mine }));
+      : api.film(filmId!).then((d): Loaded => ({ film: fillFilm(d.film, d.mine.name), elapsed: null, posts: [], maker: d.card.mine }));
     load.then(setData).catch((e) => setErr(e instanceof ApiFail ? e.message : '프로필을 불러오지 못했어요.'));
   }, [filmId, playId, castKey]);
 

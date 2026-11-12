@@ -3,10 +3,12 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { formatWorld } from '../../shared/clock';
 import { draftTitle } from '../../shared/draft';
+import { fillCard, fillUser } from '../../shared/roles';
 import type { FilmCard, PlayCard } from '../../shared/types';
 import { ApiFail, api } from '../api';
 import { drafts, dropFilmFlow } from '../drafts';
 import { Next, Search } from '../icons';
+import { useMe } from '../me';
 import { Art } from '../poster';
 import { Tabs } from '../tabs';
 
@@ -26,7 +28,9 @@ function Row({ poster, title, onClick, children }: { poster: string; title: stri
   );
 }
 
+/** 개봉한 필름들. 글 속의 {{user}}는 내 이름으로 읽는다 */
 function useFilms(): [FilmCard[] | null, string] {
+  const me = useMe();
   const [films, setFilms] = useState<FilmCard[] | null>(null);
   const [err, setErr] = useState('');
   useEffect(() => {
@@ -35,7 +39,7 @@ function useFilms(): [FilmCard[] | null, string] {
       .then(setFilms)
       .catch((e) => setErr(e instanceof ApiFail ? e.message : '목록을 불러오지 못했어요.'));
   }, []);
-  return [films, err];
+  return [films && films.map((f) => fillCard(f, me.name)), err];
 }
 
 /** 아카이브. 제목, 한 줄, 캐스트 이름으로 찾는다 */
@@ -174,6 +178,7 @@ const savedWhen = (at: number): string => new Date(at).toLocaleString('ko-KR', {
 
 /** 내 필름. 내가 디렉터인 필름들. 만들다 임시저장해 둔 필름이 맨 위에 선다 */
 export function Mine({ go }: { go: (to: string) => void }) {
+  const me = useMe();
   const [films, err] = useFilms();
   /** 이 화면에서 지운 필름 */
   const [gone, setGone] = useState<string[]>([]);
@@ -240,7 +245,7 @@ export function Mine({ go }: { go: (to: string) => void }) {
           <p className="kicker sect shelfname">임시저장</p>
           <ul className="rows">
             {saved.map((s) => {
-              const title = draftTitle(s.draft);
+              const title = fillUser(draftTitle(s.draft), me.name);
               return (
                 <li key={s.id} className="draft">
                   <button className="filmrow" onClick={() => go(s.filmId ? `/film/${s.filmId}/edit` : `/create/${s.id}`)}>
@@ -249,7 +254,7 @@ export function Mine({ go }: { go: (to: string) => void }) {
                     </span>
                     <span className="text">
                       <strong>{title}</strong>
-                      {s.draft.logline.trim() && <span>{s.draft.logline}</span>}
+                      {s.draft.logline.trim() && <span>{fillUser(s.draft.logline, me.name)}</span>}
                       <em>
                         {s.filmId ? '고치는 중 · ' : ''}
                         {savedWhen(s.savedAt)}

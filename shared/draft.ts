@@ -4,7 +4,7 @@
 import { FEED_KINDS } from './feed';
 import { RULES } from './rules';
 import { renameIn } from './ko';
-import { standIn } from './roles';
+import { fillFilm, standIn } from './roles';
 import type { Cast, Extra, FeedKind, FeedPhoto, Film, FirstScene, Reel } from './types';
 
 /** 덧붙이는 칸 하나(항목과 내용) */
@@ -257,7 +257,8 @@ export function previewFilm(d: Draft, myName: string): Film {
   const from = first.player ? standIn(first) : '';
   const fix = (t: string) => (from ? renameIn(t, from, shown, names) : t);
   const beats = f.firstScene.beats.map((b) => (b.kind === 'cut' ? b : { ...b, text: fix(b.text) }));
-  return {
+  // 글 속의 {{user}}도 그 이름으로 읽는다
+  return fillFilm({
     ...f,
     title: f.title.trim() || '제목 없음',
     stills: [...new Set(beats.flatMap((b) => (b.kind === 'cut' ? [b.image] : [])))],
@@ -266,7 +267,7 @@ export function previewFilm(d: Draft, myName: string): Film {
     roles: [],
     casts: f.casts.map((c, i) => ({ ...c, key: key(i), name: names[i]!, role: fix(c.role), callsUser: fix(c.callsUser) })),
     firstScene: { ...f.firstScene, beats, firstLine: '' },
-  };
+  }, shown);
 }
 
 /** 저장된 필름을 화면의 칸으로 되돌린다. 고치기는 여기서 시작한다 */

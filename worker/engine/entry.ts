@@ -3,7 +3,7 @@
    내 페르소나로 들어가도 배역 하나를 맡는다. 「유저 이름」 배역은 내 이름으로 맡는다.
    고른 것은 필름마다 기억하고(personas), 이 필름에서 살던 삶에도 적는다. */
 
-import { rolesOf } from '../../shared/roles';
+import { fillUser, rolesOf } from '../../shared/roles';
 import type { Film, FilmCard, FilmMine } from '../../shared/types';
 import { type Ctx, Fail } from './ctx';
 import { loadFilm, screenOf } from './films';
@@ -55,7 +55,9 @@ function mineOf(film: Film, seat: Seat): FilmMine {
   const roles = rolesOf(film);
   const role = saved && roles[saved.role] ? saved.role : 0;
   const own = roleMine(roles[role]!, name);
-  const base: Mine = saved ? { name: saved.name, line: saved.line, face: saved.face } : own;
+  const kept: Mine = saved ? { name: saved.name, line: saved.line, face: saved.face } : own;
+  // 소개에 디렉터가 쓴 {{user}}는 들어가는 사람의 이름으로 읽는다
+  const base: Mine = { ...kept, line: fillUser(kept.line, kept.name) };
   if (persona) return { ...base, as: 'me', personaId: persona.id, role };
   const as = base.name === own.name ? 'role' : name && base.name === name ? 'me' : 'custom';
   return { ...base, as, personaId: null, role };

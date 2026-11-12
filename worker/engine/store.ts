@@ -2,6 +2,7 @@
 
 import type { Clock } from '../../shared/clock';
 import { readFilm } from '../../shared/opening';
+import { fillFilm, fillUser } from '../../shared/roles';
 import type { AsideView, Film, MessageView, PlayCard, PlayView, PostData, PostView, TurnView } from '../../shared/types';
 import { type Db, q } from '../db';
 import { type Ctx, Fail } from './ctx';
@@ -45,7 +46,8 @@ function toPlay(r: PlayRow): Play {
     id: r.id,
     filmId: r.film_id,
     owner: r.owner,
-    film: readFilm(JSON.parse(r.film) as Film),
+    // 디렉터가 글에 쓴 {{user}}는 이 삶의 내 이름으로 읽는다. 화면에도, 대사 모델에게 건네는 글에도
+    film: fillFilm(readFilm(JSON.parse(r.film) as Film)),
     startDow: r.start_dow,
     startMin: r.start_min,
     elapsed: r.elapsed,
@@ -205,11 +207,13 @@ export async function listPlays(ctx: Ctx): Promise<PlayCard[]> {
     said: string | null;
     last: string | null;
     live: number;
+    me: string | null;
   }>(
     `SELECT p.id, p.film_id, p.elapsed, p.start_dow, p.start_min, p.ended,
        json_extract(p.film, '$.title') AS title,
        json_extract(p.film, '$.logline') AS logline,
        json_extract(p.film, '$.poster') AS poster,
+       json_extract(p.film, '$.persona.name') AS me,
        (SELECT json_group_array(json_extract(c.value, '$.name')) FROM json_each(p.film, '$.casts') c) AS casts,
        (SELECT json_extract(b.value, '$.text') FROM json_each(p.film, '$.firstScene.beats') b WHERE json_extract(b.value, '$.kind') = 'say' ORDER BY b.key DESC LIMIT 1) AS said,
        (SELECT m.text FROM messages m WHERE m.play_id = p.id AND m.speaker != 'tell' AND m.kind != 'aside' ORDER BY m.at DESC, m.rowid DESC LIMIT 1) AS last,
@@ -220,8 +224,8 @@ export async function listPlays(ctx: Ctx): Promise<PlayCard[]> {
   return rows.map((r) => ({
     id: r.id,
     filmId: r.film_id,
-    title: r.title ?? '',
-    logline: r.logline ?? '',
+    title: fillUser(r.title ?? '', r.me ?? ''),
+    logline: fillUser(r.logline ?? '', r.me ?? ''),
     poster: r.poster ?? '',
     castNames: r.casts ? (JSON.parse(r.casts) as string[]) : [],
     elapsed: r.elapsed,
@@ -229,7 +233,7 @@ export async function listPlays(ctx: Ctx): Promise<PlayCard[]> {
     startMin: r.start_min,
     ended: r.ended === 1,
     // 한편의 줄은 내가 나눈 말이 아니다. 아직 오간 말이 없으면 오프닝의 마지막 대사를 보인다
-    lastLine: r.last ?? r.said ?? '',
+    lastLine: r.last ?? fillUser(r.said ?? '', r.me ?? ''),
     filmGone: r.live === 0,
   }));
 }

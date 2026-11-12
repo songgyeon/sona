@@ -7,7 +7,7 @@ import type { FilmMine, MyPersona, Persona } from '../shared/types';
 import { Close, Next } from './icons';
 import { ticketNo, today } from './me';
 import { Face } from './poster';
-import { shownName } from '../shared/roles';
+import { fillUser, shownName } from '../shared/roles';
 
 /** 지금 고른 사람이 무엇인가. 배역이 여럿이면 맡은 배역도 적는다 */
 export const asLabel = (mine: FilmMine, roles: Persona[] = []): string => {
@@ -148,7 +148,7 @@ export function AsPop({
                         <Face id={r.face} name={r.player ? asking.name : r.name} />
                         <span>
                           <b>{r.player ? '유저 이름' : r.name}</b>
-                          <small>{r.line || '배역'}</small>
+                          <small>{fillUser(r.line, r.player ? asking.name : r.name) || '배역'}</small>
                         </span>
                         {on && <em>지금</em>}
                       </button>
@@ -188,7 +188,7 @@ export function AsPop({
                           <b>{name}</b>
                           <small>
                             {r.player ? '배역 · 유저 이름' : '배역'}
-                            {roles.length > 1 && r.line ? `\n${r.line}` : ''}
+                            {roles.length > 1 && r.line ? `\n${fillUser(r.line, name)}` : ''}
                           </small>
                         </span>
                         {on && <em>지금</em>}

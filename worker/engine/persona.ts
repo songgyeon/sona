@@ -3,6 +3,7 @@
    같은 필름에 다시 들어가도 이어지게, 사람과 필름마다 따로 기억해 둔다. */
 
 import { givenName, renameIn } from '../../shared/ko';
+import { fillFilm, fillUser } from '../../shared/roles';
 import { RULES } from '../../shared/rules';
 import type { Extra, Film, Persona, PlayView } from '../../shared/types';
 import type { Db } from '../db';
@@ -47,11 +48,18 @@ const given = givenName;
     캐스트에게 그 사람은 처음부터 지금 이름이다. 전의 이름을 캐스트에게 알려 주지 않는다.
     살던 삶에서 바꿨으면(fresh가 아니면) 전의 이름을 적어 둔다 — 지나간 말 속에 그 이름이 남아 있어서,
     대사 모델에게 건넬 때 지금 이름으로 읽으려는 것이다(asNow). 새로 들어가는 삶에는 그럴 말이 없으니 적지 않는다 */
-export function applyMine(film: Film, mine: Mine, fresh = false): Film {
+export function applyMine(base: Film, mine: Mine, fresh = false): Film {
+  // 디렉터가 글에 쓴 {{user}}는 맡은 사람의 이름으로 — 「유저 이름」 배역이 아니어도
+  const film = fillFilm(base, mine.name);
   const old = film.persona.name;
   if (film.casts.some((c) => c.name === mine.name)) throw new Fail(400, 'persona_taken', '캐스트와 같은 이름은 쓸 수 없어요.');
 
-  const persona: Persona = { name: mine.name, line: mine.line, face: mine.face, extras: mine.extras ?? film.persona.extras ?? [] };
+  const persona: Persona = {
+    name: mine.name,
+    line: fillUser(mine.line, mine.name),
+    face: mine.face,
+    extras: (mine.extras ?? film.persona.extras ?? []).map((e) => ({ ...e, label: fillUser(e.label, mine.name), text: fillUser(e.text, mine.name) })),
+  };
   const formerly = [...(film.persona.formerly ?? []), ...(old === mine.name ? [] : [old])].filter((n, i, all) => n !== mine.name && all.indexOf(n) === i);
   if (!fresh && formerly.length > 0) persona.formerly = formerly.slice(-3);
   if (old === mine.name) return { ...film, persona };

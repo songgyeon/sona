@@ -7,7 +7,7 @@ import { Back, LinkIcon, Next, Pen, PlayFill } from '../icons';
 import { useMe } from '../me';
 import { Face, StillStrip, titleClass } from '../poster';
 import { AsPop, AsSlot, type Pick } from '../aspop';
-import { rolesOf } from '../../shared/roles';
+import { fillFilm, rolesOf } from '../../shared/roles';
 import { Tabs } from '../tabs';
 import { type Go, goBack } from '../router';
 import { dropFilmFlow } from '../drafts';
@@ -116,7 +116,9 @@ export function Film({ filmId, go }: { filmId: string; go: Go }) {
   };
 
   if (!data) return <p className="center">{err || '불러오는 중'}</p>;
-  const { film, card, mine } = data;
+  const { card, mine } = data;
+  /** 글 속의 {{user}}는 들어가는 사람의 이름으로 읽는다 */
+  const film = fillFilm(data.film, mine.name);
   const fs = film.firstScene;
   const stills = film.stills ?? [];
   /** 첫 장면의 첫 지문. 필름이 어떻게 시작하는지 미리 보인다 */
