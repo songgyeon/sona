@@ -2,7 +2,7 @@
    컷마다 시작하는 때, 어느 때에 어느 컷이 보이는지, 서서히 넘어갈 때의 밝기, 움직임의 모양. */
 
 import { RULES } from './rules';
-import type { Reel, ReelClip, ReelMotion } from './types';
+import type { Reel, ReelClip, ReelText, ReelMotion } from './types';
 
 const R = RULES.reel;
 
@@ -75,7 +75,7 @@ export function motionAt(motion: ReelMotion, p: number): { scale: number; x: num
 /** 글자의 밝기: 컷의 처음과 끝에서 0.5초씩 서서히 */
 export function textOpacity(clips: ReelClip[], i: number, t: number): number {
   const c = clips[i];
-  if (!c?.text) return 0;
+  if (!c || layersOf(c).length === 0) return 0;
   const local = t - startsOf(clips)[i]!;
   const edge = Math.min(0.5, c.dur / 3);
   return Math.max(0, Math.min(1, local / edge, (c.dur - local) / edge));
@@ -101,3 +101,15 @@ export const newClip = (kind: ReelClip['kind'], src = '', dur: number = R.dur): 
 });
 
 export const blankReel = (): Reel => ({ ratio: 'tall', clips: [], music: '', musicName: '', musicFrom: 0 });
+
+/** 새로 넣는 글자. 화면 가운데, 흰 글자 */
+export const newText = (text = ''): ReelText => ({ text, font: 'noto-serif', size: R.textSize, x: 50, y: 50, align: 'center', color: 'white' });
+
+/** 컷 위의 글자들. 예전 컷의 글자 하나(text·style)도 같은 모양으로 읽는다 — 제목은 가운데 명조, 자막과 크레딧은 아래 고딕 */
+export function layersOf(c: ReelClip): ReelText[] {
+  if (c.texts) return c.texts;
+  if (!c.text) return [];
+  if (c.style === 'sub') return [{ ...newText(c.text), font: 'pretendard', size: 4.2, y: 88 }];
+  if (c.style === 'credit') return [{ ...newText(c.text), font: 'pretendard', size: 3.2, y: 86 }];
+  return [newText(c.text)];
+}

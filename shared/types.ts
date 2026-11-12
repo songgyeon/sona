@@ -62,6 +62,22 @@ export interface ReelClip {
   sound: boolean;
   /** 영상 파일 전체의 길이(초). 시작 지점과 길이를 고를 때 쓴다 */
   len?: number;
+  /** 컷 위에 얹는 글자들. 있으면 text·style 대신 이것을 그린다(text·style은 예전 컷의 글자 하나다) */
+  texts?: ReelText[];
+}
+
+/** 컷 위에 얹는 글자 한 덩이. 여러 줄도 된다 */
+export interface ReelText {
+  text: string;
+  /** 글꼴(shared/fonts.ts의 이름표) */
+  font: string;
+  /** 크기: 화면 너비의 몇 % */
+  size: number;
+  /** 글자 덩이의 가운데가 놓이는 자리: 화면의 왼쪽에서, 위에서 몇 % */
+  x: number;
+  y: number;
+  align: 'left' | 'center' | 'right';
+  color: 'white' | 'black';
 }
 
 /** 오프닝 영상. 디렉터가 컷을 이어 붙여 만든다. 영상 파일로 굽지 않고, 앱이 컷을 차례로 틀어 준다 */

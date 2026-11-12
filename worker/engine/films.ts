@@ -3,7 +3,8 @@
 import { RULES } from '../../shared/rules';
 import { readFilm } from '../../shared/opening';
 import { FEED_KINDS } from '../../shared/feed';
-import type { Beat, Cast, Extra, FeedKind, FeedPhoto, Film, FilmCard, Persona, Reel, ReelClip, Tie } from '../../shared/types';
+import { fontOf } from '../../shared/fonts';
+import type { Beat, Cast, Extra, FeedKind, FeedPhoto, Film, FilmCard, Persona, Reel, ReelClip, ReelText, Tie } from '../../shared/types';
 import { newId, q } from '../db';
 import { isUuid } from '../guard';
 import { type Ctx, Fail } from './ctx';
@@ -76,6 +77,26 @@ function num(v: unknown, min: number, max: number, name: string): number {
 const pickOf = <T extends string>(v: unknown, all: readonly T[], or: T): T => (all.includes(v as T) ? (v as T) : or);
 
 /** 오프닝 영상. 컷이 없으면 없는 것이다 */
+/** 컷 위의 글자들. 비운 글자는 버린다. 모르는 글꼴은 첫 글꼴로 */
+function textsOf(raw: unknown[]): ReelText[] {
+  const R = RULES.reel;
+  if (raw.length > R.texts) throw new Fail(400, 'film_invalid', `컷 하나에 글자는 ${R.texts}개까지예요.`);
+  return raw
+    .map((x) => {
+      const o = obj(x);
+      return {
+        text: text(o.text, R.text, '컷의 글자'),
+        font: fontOf(typeof o.font === 'string' ? o.font : '').key,
+        size: num(o.size ?? R.textSize, R.textMin, R.textMax, '글자 크기'),
+        x: num(o.x ?? 50, 0, 100, '글자 자리'),
+        y: num(o.y ?? 50, 0, 100, '글자 자리'),
+        align: pickOf(o.align, ['left', 'center', 'right'] as const, 'center'),
+        color: pickOf(o.color, ['white', 'black'] as const, 'white'),
+      };
+    })
+    .filter((t) => t.text.length > 0);
+}
+
 function reelOf(v: unknown): Reel | null {
   if (v == null) return null;
   const o = obj(v);
@@ -98,6 +119,7 @@ function reelOf(v: unknown): Reel | null {
       style: pickOf(c.style, ['title', 'sub', 'credit'] as const, 'title'),
       sound: kind === 'video' && c.sound !== false,
       ...(kind === 'video' && c.len != null ? { len: num(c.len, 0, 3600, '영상의 길이') } : {}),
+      ...(Array.isArray(c.texts) ? { texts: textsOf(c.texts) } : {}),
     };
   });
   if (clips.length === 0) return null;

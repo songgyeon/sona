@@ -2,15 +2,17 @@
    영상 파일로 굽지 않는다. 앱이 컷을 차례로 틀어 준다: 그림과 영상, 움직임, 전환, 글자, 음악.
    그래서 그림 컷은 올린 그대로 선명하다. 영상 컷은 올릴 때 줄여서 화질이 떨어질 수 있다. */
 
-import { type ChangeEvent, useEffect, useRef, useState } from 'react';
+import { type ChangeEvent, type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { blankReel, clipAt, lengthOf, motionAt, musicVolume, newClip, opacityOf, progressIn, startsOf, textOpacity, underOf } from '../shared/reel';
+import { blankReel, clipAt, layersOf, lengthOf, motionAt, musicVolume, newClip, newText, opacityOf, progressIn, startsOf, textOpacity, underOf } from '../shared/reel';
+import { FONTS, fontOf } from '../shared/fonts';
 import { RULES } from '../shared/rules';
-import type { Reel, ReelClip, ReelEnter, ReelMotion, ReelRatio, ReelStyle } from '../shared/types';
+import type { Reel, ReelClip, ReelEnter, ReelMotion, ReelRatio, ReelText } from '../shared/types';
 import { ApiFail, imgUrl, uploadImage } from './api';
 import { Next, Pause, PlayFill, Sound, SoundOff } from './icons';
 import { audioType, mediaSeconds, mediaUrl, shrinkVideo, uploadMedia } from './media';
 import { soundEl } from './sound';
+import { loadFonts, readyFonts } from './fonts';
 
 const R = RULES.reel;
 const SOUND = 'sona.sound';
@@ -52,6 +54,7 @@ export function ReelStage({
   onReady,
   onBlocked,
   music,
+  edit,
 }: {
   reel: Reel;
   t: number;
@@ -63,8 +66,34 @@ export function ReelStage({
   /** 누르지 않아 소리를 못 냈다(휴대폰). 소리를 끈 것으로 보이게 한다 */
   onBlocked?: () => void;
   music?: HTMLAudioElement;
+  /** 만드는 화면: 고른 컷의 글자를 누르면 고르고, 끌면 옮긴다(자리는 화면의 %) */
+  edit?: { clip: number; layer: number; onPick: (layer: number) => void; onMove: (layer: number, x: number, y: number) => void };
 }) {
   const clips = reel.clips;
+  const box = useRef<HTMLDivElement>(null);
+  /** 글자를 눌러 끌기 시작한다. 손을 떼면 그 자리에 놓인다 */
+  const grab = (e: ReactPointerEvent<HTMLParagraphElement>, j: number) => {
+    if (!edit) return;
+    e.preventDefault();
+    edit.onPick(j);
+    const el = e.currentTarget;
+    const rect = box.current?.getBoundingClientRect();
+    if (!rect) return;
+    el.setPointerCapture(e.pointerId);
+    const at = (ev: PointerEvent) => {
+      const x = Math.round(Math.max(0, Math.min(100, ((ev.clientX - rect.left) / rect.width) * 100)) * 10) / 10;
+      const y = Math.round(Math.max(0, Math.min(100, ((ev.clientY - rect.top) / rect.height) * 100)) * 10) / 10;
+      edit.onMove(j, x, y);
+    };
+    const up = () => {
+      el.removeEventListener('pointermove', at);
+      el.removeEventListener('pointerup', up);
+      el.removeEventListener('pointercancel', up);
+    };
+    el.addEventListener('pointermove', at);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+  };
   const total = lengthOf(reel);
   const starts = startsOf(clips);
   const tRef = useRef(t);
@@ -92,49 +121,33 @@ export function ReelStage({
     };
   }, [music, reel.music]);
 
-  // 첫 컷의 영상과 음악을 틀 만큼 받았는가. 오래 걸리면 정해진 때에 그냥 시작한다
+  // 첫 컷의 영상과 음악을 틀 만큼 받았는가, 글자의 글꼴을 받았는가. 오래 걸리면 정해진 때에 그냥 시작한다
   useEffect(() => {
     if (!onReady) return;
     let done = false;
-    const finish = () => {
-      if (done) return;
-      done = true;
-      onReady();
-    };
     // 영상 컷이 처음부터 틀지 않으면 미리 그 자리로 옮겨 둔다
     clips.forEach((c, k) => {
       const v = videos.current[k];
       if (v && c.kind === 'video' && c.from > 0) v.currentTime = c.from;
     });
-    const waits: HTMLMediaElement[] = [];
+    const canPlay = (el: HTMLMediaElement) =>
+      new Promise<void>((ok) => {
+        if (el.readyState >= 3) return ok();
+        el.addEventListener('canplay', () => ok(), { once: true });
+        el.addEventListener('error', () => ok(), { once: true });
+      });
+    const waits: Promise<void>[] = [readyFonts(clips.flatMap(layersOf))];
     const v0 = clips[0]?.kind === 'video' ? videos.current[0] : null;
-    if (v0) waits.push(v0);
+    if (v0) waits.push(canPlay(v0));
     const a = audioOf();
-    if (a && reel.music) waits.push(a);
-    let left = waits.length;
-    const timer = setTimeout(finish, R.readyMs);
-    const ok = () => {
-      left -= 1;
-      if (left <= 0) {
-        clearTimeout(timer);
-        finish();
-      }
-    };
-    if (left === 0) ok();
-    for (const el of waits) {
-      if (el.readyState >= 3) ok();
-      else {
-        el.addEventListener('canplay', ok, { once: true });
-        el.addEventListener('error', ok, { once: true });
-      }
-    }
+    if (a && reel.music) waits.push(canPlay(a));
+    void Promise.race([Promise.all(waits), new Promise((ok) => setTimeout(ok, R.readyMs))]).then(() => {
+      if (done) return;
+      done = true;
+      onReady();
+    });
     return () => {
       done = true;
-      clearTimeout(timer);
-      for (const el of waits) {
-        el.removeEventListener('canplay', ok);
-        el.removeEventListener('error', ok);
-      }
     };
   }, []);
 
@@ -249,7 +262,7 @@ export function ReelStage({
 
   const cur = clips[i];
   return (
-    <div className={`reelstage ${reel.ratio}`}>
+    <div className={`reelstage ${reel.ratio}`} ref={box}>
       {clips.map((c, k) => {
         const shown = k === i || k === under;
         const m = motionAt(c.motion, k === i ? progressIn(clips, k, t) : 1);
@@ -277,11 +290,32 @@ export function ReelStage({
           );
         return <div key={k} className="layer black" style={style} />;
       })}
-      {cur?.text && (
-        <p className={`rtext ${cur.style}`} style={{ opacity: textOpacity(clips, i, t) }}>
-          {cur.text}
-        </p>
-      )}
+      <div className="rtexts">
+      {cur &&
+        layersOf(cur).map((l, j) => {
+          const f = fontOf(l.font);
+          const picked = edit && edit.clip === i && edit.layer === j;
+          return (
+            <p
+              key={j}
+              className={`rlayer ${l.color}${picked ? ' sel' : ''}${edit && edit.clip === i ? ' grab' : ''}${l.text ? '' : ' empty'}`}
+              style={{
+                left: `${l.x}%`,
+                top: `${l.y}%`,
+                fontFamily: f.family,
+                fontWeight: f.weight,
+                fontSize: `${l.size}cqw`,
+                textAlign: l.align,
+                textAlignLast: l.align,
+                opacity: edit && !playing && edit.clip === i ? 1 : textOpacity(clips, i, t),
+              }}
+              onPointerDown={edit && edit.clip === i ? (e) => grab(e, j) : undefined}
+            >
+              {l.text || (edit ? '글자' : '')}
+            </p>
+          );
+        })}
+      </div>
       {reel.music && !music && <audio ref={own} src={mediaUrl(reel.music)} preload="auto" />}
     </div>
   );
@@ -362,11 +396,22 @@ const ENTERS: { value: ReelEnter; label: string }[] = [
   { value: 'fade', label: '서서히' },
   { value: 'black', label: '암전' },
 ];
-const STYLES: { value: ReelStyle; label: string }[] = [
-  { value: 'title', label: '제목' },
-  { value: 'sub', label: '자막' },
-  { value: 'credit', label: '크레딧' },
+const ALIGNS: { value: ReelText['align']; label: string }[] = [
+  { value: 'left', label: '왼쪽' },
+  { value: 'center', label: '가운데' },
+  { value: 'right', label: '오른쪽' },
 ];
+const COLORS: { value: ReelText['color']; label: string }[] = [
+  { value: 'white', label: '흰색' },
+  { value: 'black', label: '검은색' },
+];
+/** 빠른 자리: 위, 가운데, 아래(가로는 가운데) */
+const SPOTS: { value: 'top' | 'middle' | 'bottom'; label: string; y: number }[] = [
+  { value: 'top', label: '위', y: 16 },
+  { value: 'middle', label: '가운데', y: 50 },
+  { value: 'bottom', label: '아래', y: 84 },
+];
+const spotOf = (l: ReelText): 'top' | 'middle' | 'bottom' => (l.y < 33 ? 'top' : l.y > 67 ? 'bottom' : 'middle');
 
 /** 타임라인에서 1초의 너비(px) */
 const PX = 16;
@@ -407,19 +452,43 @@ export function ReelEditor({ reel, onChange, onError }: { reel: Reel | null; onC
   const [playing, setPlaying] = useState(false);
   const [sel, setSel] = useState(0);
   const [work, setWork] = useState('');
+  /** 고른 컷에서 고른 글자 */
+  const [lay, setLay] = useState(0);
   const r = reel ?? blankReel();
   const clips = r.clips;
   const total = lengthOf(r);
   const starts = startsOf(clips);
   const at = Math.min(sel, Math.max(0, clips.length - 1));
   const cur = clips[at];
+  const layers = cur ? layersOf(cur) : [];
+  const li = Math.min(lay, Math.max(0, layers.length - 1));
+  const cl = layers[li];
 
   useEffect(() => {
     if (t > total) setT(total);
   }, [total]);
 
+  // 글꼴 고르는 칸이 제 글꼴로 보이게 다 걸어 둔다(쓰는 글자 조각만 받는다)
+  useEffect(() => {
+    void loadFonts(FONTS.map((f) => f.key));
+  }, []);
+
   const put = (next: Reel) => onChange(next.clips.length === 0 && !next.music ? null : next);
   const setClip = (patch: Partial<ReelClip>) => put({ ...r, clips: clips.map((c, k) => (k === at ? { ...c, ...patch } : c)) });
+  /** 고른 컷의 글자들을 바꾼다. 예전 컷의 글자 하나(text)는 이때 글자들로 옮긴다 */
+  const putLayers = (list: ReelText[]) => setClip({ texts: list, text: '' });
+  const setLayer = (j: number, patch: Partial<ReelText>) => putLayers(layers.map((l, k) => (k === j ? { ...l, ...patch } : l)));
+  const addText = () => {
+    if (!cur || layers.length >= R.texts) return;
+    putLayers([...layers, { ...newText(), y: [50, 84, 16, 66][layers.length] ?? 50 }]);
+    setLay(layers.length);
+    setPlaying(false);
+    setT(shownAt(clips, at));
+  };
+  const dropText = (j: number) => {
+    putLayers(layers.filter((_, k) => k !== j));
+    setLay(Math.max(0, j - 1));
+  };
   const seek = (v: number) => {
     setPlaying(false);
     setT(Math.max(0, Math.min(total, v)));
@@ -489,7 +558,27 @@ export function ReelEditor({ reel, onChange, onError }: { reel: Reel | null; onC
     <div className="ed">
       {clips.length > 0 && (
         <>
-          <ReelStage reel={r} t={t} playing={playing} muted={false} onTick={setT} onEnd={() => setPlaying(false)} />
+          <ReelStage
+            reel={r}
+            t={t}
+            playing={playing}
+            muted={false}
+            onTick={setT}
+            onEnd={() => setPlaying(false)}
+            edit={
+              cur
+                ? {
+                    clip: at,
+                    layer: li,
+                    onPick: (j) => {
+                      setPlaying(false);
+                      setLay(j);
+                    },
+                    onMove: (j, x, y) => setLayer(j, { x, y }),
+                  }
+                : undefined
+            }
+          />
           <div className="transport">
             <button
               className="pl"
@@ -526,13 +615,14 @@ export function ReelEditor({ reel, onChange, onError }: { reel: Reel | null; onC
                     aria-pressed={k === at}
                     onClick={() => {
                       setSel(k);
+                      setLay(0);
                       seek(shownAt(clips, k));
                     }}
                   >
                     {c.kind === 'image' && <img src={imgUrl(c.src)} alt="" />}
                     {c.kind === 'video' && <span className="vid">영상</span>}
                     {k > 0 && c.enter !== 'cut' && <i className={`tr ${c.enter}`} aria-hidden="true" />}
-                    {c.text && <span className="tx">글자</span>}
+                    {layersOf(c).length > 0 && <span className="tx">글자</span>}
                     <b>{c.dur.toFixed(1)}</b>
                   </button>
                 ))}
@@ -593,11 +683,54 @@ export function ReelEditor({ reel, onChange, onError }: { reel: Reel | null; onC
           ) : null}
           {cur.kind !== 'black' && <Pick label="움직임" value={cur.motion} options={MOTIONS} onChange={(v) => setClip({ motion: v })} />}
           <Pick label="전환" value={cur.enter} options={ENTERS} onChange={(v) => setClip({ enter: v })} />
-          <div className="row2">
-            <p className="lbl">글자</p>
-            <input value={cur.text} maxLength={R.text} placeholder="예) 금요일 오후" aria-label="글자" onChange={(e) => setClip({ text: e.target.value })} />
+          <div className="txts">
+            <div className="txhead">
+              <p className="lbl">글자</p>
+              <button className="addtx" disabled={layers.length >= R.texts} onClick={addText}>
+                + 글자 추가
+              </button>
+            </div>
+            {layers.length > 0 && (
+              <div className="txlist" role="group" aria-label="고칠 글자">
+                {layers.map((l, j) => (
+                  <button
+                    key={j}
+                    className={j === li ? 'on' : ''}
+                    aria-pressed={j === li}
+                    style={{ fontFamily: fontOf(l.font).family, fontWeight: fontOf(l.font).weight }}
+                    onClick={() => {
+                      setLay(j);
+                      seek(shownAt(clips, at));
+                    }}
+                  >
+                    {l.text.trim().split('\n')[0] || '빈 글자'}
+                  </button>
+                ))}
+              </div>
+            )}
+            {cl && (
+              <div className="txedit">
+                <textarea rows={2} value={cl.text} maxLength={R.text} placeholder="예) 금요일 오후" aria-label="글자 내용" onChange={(e) => setLayer(li, { text: e.target.value })} />
+                <p className="lbl">글꼴</p>
+                <div className="fonts" role="group" aria-label="글꼴">
+                  {FONTS.map((f) => (
+                    <button key={f.key} className={cl.font === f.key ? 'on' : ''} aria-pressed={cl.font === f.key} onClick={() => setLayer(li, { font: f.key })}>
+                      <b style={{ fontFamily: f.family, fontWeight: f.weight }}>가나다 Aa</b>
+                      <small>{f.label}</small>
+                    </button>
+                  ))}
+                </div>
+                <Slider label="크기" value={cl.size} min={R.textMin} max={R.textMax} unit="" onChange={(v) => setLayer(li, { size: v })} />
+                <Pick label="자리" value={spotOf(cl)} options={SPOTS} onChange={(v) => setLayer(li, { x: 50, y: SPOTS.find((s) => s.value === v)!.y })} />
+                <Pick label="정렬" value={cl.align} options={ALIGNS} onChange={(v) => setLayer(li, { align: v })} />
+                <Pick label="색" value={cl.color} options={COLORS} onChange={(v) => setLayer(li, { color: v })} />
+                <p className="hint">화면의 글자를 끌어서 옮길 수 있어요.</p>
+                <div className="acts2">
+                  <button onClick={() => dropText(li)}>이 글자 빼기</button>
+                </div>
+              </div>
+            )}
           </div>
-          {cur.text && <Pick label="글자 모양" value={cur.style} options={STYLES} onChange={(v) => setClip({ style: v })} />}
           {cur.kind === 'video' && (
             <Pick label="소리" value={cur.sound ? 'on' : 'off'} options={[{ value: 'on', label: '켜기' }, { value: 'off', label: '끄기' }]} onChange={(v) => setClip({ sound: v === 'on' })} />
           )}
