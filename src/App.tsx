@@ -71,7 +71,7 @@ export function App() {
   if (gate === 'down')
     return (
       <main className="gate">
-        <h1>소나</h1>
+        <h1>SONA</h1>
         <p className="warn">{why}</p>
         <button className="btn more" onClick={() => void check()}>
           다시 시도
@@ -124,7 +124,7 @@ function KeyGate({ why, onSubmit }: { why: string; onSubmit: () => void }) {
   };
   return (
     <main className="gate">
-      <h1>소나</h1>
+      <h1>SONA</h1>
       <form onSubmit={submit}>
         <label htmlFor="key">열쇠</label>
         <input id="key" type="password" autoComplete="off" value={value} onChange={(e) => setValue(e.target.value)} placeholder="받은 열쇠" />

@@ -8,6 +8,7 @@ import { FacePick } from '../crop';
 import { drafts } from '../drafts';
 import { Arrow, Close, Down, Plus, Up, Upload } from '../icons';
 import { Face } from '../poster';
+import { Tabs } from '../tabs';
 
 /* 필름 만들기. 디렉터가 채우는 칸이다.
    며칠 치 일정을 쓰는 자리가 아니다 — 이 사람들이 어떤 사이이고 서로를 뭐라고 부르는지를 쓴다.
@@ -220,7 +221,7 @@ export function Create({ go, editId, draftId }: { go: (to: string) => void; edit
   if (loadErr) return <p className="center">{loadErr}</p>;
 
   return (
-    <main className="app make">
+    <main className="app tabbed make">
       <div className="head">
         <button className="ico" onClick={() => go(editId ? `/film/${editId}` : '/')} aria-label="닫기">
           <Close />
@@ -751,6 +752,7 @@ export function Create({ go, editId, draftId }: { go: (to: string) => void; edit
           {toast}
         </p>
       )}
+      <Tabs path={'/create'} go={go} />
     </main>
   );
 }

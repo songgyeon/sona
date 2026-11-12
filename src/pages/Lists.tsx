@@ -1,4 +1,4 @@
-/* 줄로 보는 화면 셋: 디깅(찾기), 이어 살기, 내 필름. */
+/* 줄로 보는 화면 셋: 아카이브(찾기), 이어 살기, 내 필름. */
 
 import { type ReactNode, useEffect, useState } from 'react';
 import { formatWorld } from '../../shared/clock';
@@ -38,7 +38,7 @@ function useFilms(): [FilmCard[] | null, string] {
   return [films, err];
 }
 
-/** 디깅. 제목, 한 줄, 캐스트 이름으로 찾는다 */
+/** 아카이브. 제목, 한 줄, 캐스트 이름으로 찾는다 */
 export function Find({ go }: { go: (to: string) => void }) {
   const [films, err] = useFilms();
   const [word, setWord] = useState('');
@@ -47,7 +47,7 @@ export function Find({ go }: { go: (to: string) => void }) {
 
   return (
     <main className="app tabbed page">
-      <h1>디깅</h1>
+      <h1>아카이브</h1>
       <label className="find">
         <Search />
         <span className="sr">찾을 말</span>

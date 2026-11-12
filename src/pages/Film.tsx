@@ -6,6 +6,7 @@ import { ApiFail, api, imgUrl, newId } from '../api';
 import { Back, LinkIcon, Next, Pen, PlayFill } from '../icons';
 import { useMe } from '../me';
 import { Face, StillStrip, titleClass } from '../poster';
+import { Tabs } from '../tabs';
 
 /** 필름 정보. 그 필름의 한 장면, 제목, 캐스트, 컷, 오프닝을 보고 들어간다 */
 export function Film({ filmId, go }: { filmId: string; go: (to: string) => void }) {
@@ -90,7 +91,7 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
   const castPath = (key: string) => (living ? `/play/${living.id}/cast/${key}` : `/film/${filmId}/cast/${key}`);
 
   return (
-    <main className="app info">
+    <main className="app tabbed info">
       <div className="top">
         <button className="ico" onClick={() => go('/')} aria-label="홈으로">
           <Back />
@@ -229,6 +230,7 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
           {toast}
         </p>
       )}
+      <Tabs path={`/film/${filmId}`} go={go} />
     </main>
   );
 }

@@ -29,7 +29,14 @@ html { height: 100%; }
 body {
   font-family: var(--sans); font-size: 16px; line-height: 1.5; color: var(--ink);
   -webkit-font-smoothing: antialiased; word-break: keep-all; overflow-wrap: anywhere;
+  /* 글은 모두 양쪽을 맞춘다(2026-11-12 사용자 지시) */
+  text-align: justify;
 }
+/* 문단은 책처럼 짠다: 양쪽을 맞추고, 줄은 글자 단위로 바꾼다. 낱말 단위로 바꾸면 띄어쓰기가 듬성듬성 벌어진다.
+   단추와 이름표는 낱말 단위 그대로 둔다 */
+p, textarea, .prose, .line1, .lead, .sub, .hint, .note, .warn, .picked, .castrow small, .filmrow .text span, .who .role { word-break: normal; }
+/* 쓰는 칸은 글자를 물려받지 않는다. 따로 맞춘다 */
+textarea { text-align: justify; }
 ul { list-style: none; }
 img, svg { display: block; }
 button, input, select, textarea { font: inherit; color: inherit; border: 0; background: none; border-radius: 0; }
@@ -241,6 +248,10 @@ button:disabled { opacity: 0.4; cursor: default; }
 
 /* ── 재생 ── */
 .playing { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+/* 재생 화면에도 아래 탭이 선다. 말하는 칸에 쓰는 동안에는 탭을 접어 자리를 넓힌다 */
+.playing { padding-bottom: var(--tabs); }
+.playing:has(form.box :focus) { padding-bottom: 0; }
+.playing:has(form.box :focus) .tabs { display: none; }
 .band { flex: none; height: 50px; padding: 0 8px; display: flex; align-items: center; justify-content: space-between; }
 .screen { position: relative; flex: none; height: min(224px, 30dvh); background: #050505; }
 .screen img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
@@ -270,20 +281,22 @@ button:disabled { opacity: 0.4; cursor: default; }
 .tell.byme.sending { opacity: 0.5; }
 /* 오프닝이 끝나면 서는 내 배역 소개 */
 .introme { margin: 34px 0 10px; padding: 30px 6px; text-align: center; border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
-.introme .face { width: 74px; height: 74px; margin: 0 auto; font-size: 26px; box-shadow: 0 0 0 1px var(--ink-4); }
+.introme .face { width: 96px; height: 96px; margin: 0 auto; font-size: 32px; box-shadow: 0 0 0 1px var(--ink-4); }
 .introme .k { margin-top: 18px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.44em; padding-left: 0.44em; color: var(--ink-3); }
-.introme h2 { margin-top: 8px; font-family: var(--serif); font-size: 34px; font-weight: 700; letter-spacing: 0.3em; padding-left: 0.3em; line-height: 1.3; }
+.introme h2 { margin-top: 8px; font-family: var(--serif); font-size: 40px; font-weight: 700; letter-spacing: 0.3em; padding-left: 0.3em; line-height: 1.3; }
 .introme .l { margin: 14px auto 0; max-width: 300px; font-family: var(--serif); font-size: 14.5px; line-height: 1.85; color: var(--ink-2); text-wrap: balance; white-space: pre-line; }
 .opening + .introme { margin-top: 34px; }
 /* 다음 대목을 쓰는 중 */
 .tell.wait { color: var(--ink-3); letter-spacing: 0.3em; }
-.say { margin: 24px 0; display: grid; grid-template-columns: 38px 1fr; column-gap: 14px; align-items: center; text-align: left; width: 100%; }
+.say { margin: 24px 0; display: grid; grid-template-columns: 38px 1fr; column-gap: 14px; align-items: center; text-align: justify; width: 100%; }
 .say:first-child { margin-top: 0; }
 .say .face { width: 38px; height: 38px; font-size: 15px; }
 .say small { display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.16em; color: var(--ink-3); }
 .say p { margin-top: 4px; font-size: 19px; line-height: 1.4; font-weight: 600; letter-spacing: -0.02em; white-space: pre-wrap; }
 /* 내 대사: 얼굴 없이 오른쪽으로 */
 .say.me { grid-template-columns: 1fr; text-align: right; }
+/* 내 대사도 양쪽을 맞춘다. 마지막 줄은 오른쪽에 붙인다 */
+.say.me p { text-align: justify; text-align-last: right; }
 .say.me p { color: var(--ink-2); font-weight: 500; }
 .say.sending p { opacity: 0.5; }
 /* 내 사진을 올렸으면 내 대사 오른쪽에 선다 */
@@ -292,7 +305,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .mine { width: 40px; height: 40px; display: grid; place-items: center; }
 .mine .face { width: 28px; height: 28px; font-size: 11px; }
 /* 작품 속 폰으로 온 메시지. 말풍선은 여기만 쓴다 */
-.msg { margin: 22px 0; display: grid; grid-template-columns: 30px 1fr; column-gap: 12px; align-items: end; text-align: left; width: 100%; }
+.msg { margin: 22px 0; display: grid; grid-template-columns: 30px 1fr; column-gap: 12px; align-items: end; text-align: justify; width: 100%; }
 .msg .face { width: 30px; height: 30px; font-size: 12px; }
 .msg small { display: block; margin-bottom: 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; color: var(--ink-3); }
 .msg p { display: inline-block; max-width: 88%; padding: 10px 14px; border-radius: 16px 16px 16px 4px; background: #1c1c1c; font-size: 15.5px; line-height: 1.45; white-space: pre-wrap; }
@@ -478,7 +491,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .blk .none { padding: 3px 0; font-size: 13px; line-height: 1.6; color: var(--ink-3); }
 .peek { display: block; width: 100%; text-align: left; }
 /* 지문은 세 줄까지만 보이고, 고르면 다 보인다 */
-.blk .tell { font-size: 13.5px; line-height: 1.75; white-space: pre-wrap; text-align: left; word-break: keep-all; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.blk .tell { font-size: 13.5px; line-height: 1.75; white-space: pre-wrap; text-align: justify; word-break: normal; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .blk .say { margin: 0; grid-template-columns: 30px 1fr; column-gap: 11px; }
 .blk .say .face { width: 30px; height: 30px; font-size: 12px; }
 .blk .say small { font-size: 10px; }
@@ -660,3 +673,8 @@ button:disabled { opacity: 0.4; cursor: default; }
 .feednote .t { flex: 1; min-width: 0; font-size: 13px; line-height: 1.5; color: var(--ink-2); }
 .feednote .t small { display: block; margin-top: 2px; font-size: 12px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .feednote > svg { flex: none; width: 16px; height: 16px; color: var(--ink-4); }
+
+/* 가운데에 서는 글도 양쪽을 맞춘다. 마지막 줄만 가운데 */
+.poster .line1, .introme .l, .stuck p, .empty p { text-align: justify; text-align-last: center; }
+.empty p { text-align-last: auto; }
+.introme .more { margin-top: 14px; font-size: 12.5px; color: var(--ink-3); text-decoration: underline; text-underline-offset: 3px; }

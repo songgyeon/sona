@@ -6,6 +6,7 @@ import { ApiFail, api } from '../api';
 import { Back } from '../icons';
 import { Face } from '../poster';
 import { TITLE_MS } from './Play';
+import { Tabs } from '../tabs';
 
 /** 한편. 내가 없는 자리에서 캐스트 둘이 나눈 장면을 읽기만 한다.
     화면에 거는 그림도, 말하는 칸도 없다 — 나는 그 자리에 없다 */
@@ -102,6 +103,7 @@ export function Aside({ playId, asideId, go }: { playId: string; asideId: string
           </div>
         </div>
       )}
+      <Tabs path="" go={go} />
     </main>
   );
 }

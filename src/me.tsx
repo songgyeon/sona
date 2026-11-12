@@ -65,7 +65,7 @@ export function NamePop({ name, onDone, onClose }: { name: string; onDone: (name
       <form className={leaving ? 'ticket out' : 'ticket'} onSubmit={submit}>
         <div className="tk-main">
           <div className="tk-top">
-            <span className="tk-logo">소나</span>
+            <span className="tk-logo">SONA</span>
             <span className="tk-no">No. {no}</span>
             {onClose && (
               <button type="button" className="tk-x" onClick={onClose} disabled={busy} aria-label="닫기">

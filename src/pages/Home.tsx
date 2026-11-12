@@ -54,7 +54,7 @@ export function Home({ go, fake, modelReady }: { go: (to: string) => void; fake:
   return (
     <main className="app tabbed">
       <header className="bar">
-        <span className="logo">소나</span>
+        <span className="logo">SONA</span>
         <div className="right">
           {/* 내 이름. 누르면 입장권을 다시 띄워 고친다 */}
           {me.name && (
@@ -62,7 +62,7 @@ export function Home({ go, fake, modelReady }: { go: (to: string) => void; fake:
               {me.name}
             </button>
           )}
-          <button className="ico" onClick={() => go('/find')} aria-label="디깅">
+          <button className="ico" onClick={() => go('/find')} aria-label="아카이브">
             <Search />
           </button>
         </div>
@@ -70,7 +70,7 @@ export function Home({ go, fake, modelReady }: { go: (to: string) => void; fake:
 
       <section className="hero">
         <div className="art grain">
-          <Art id={now?.poster ?? lead?.poster ?? ''} title={now?.title ?? lead?.title ?? '소나'} />
+          <Art id={now?.poster ?? lead?.poster ?? ''} title={now?.title ?? lead?.title ?? 'SONA'} />
         </div>
 
         {now && (

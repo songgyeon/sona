@@ -4,6 +4,7 @@ import { ApiFail, api } from '../api';
 import { FacePick } from '../crop';
 import { Back } from '../icons';
 import { Card, Field } from './Create';
+import { Tabs } from '../tabs';
 
 /** 내 배역. 플레이하는 사람이 자기 삶에서 맡은 인물의 사진과 정보를 고친다.
     고친 것은 내 삶에만 적히고, 같은 필름에 다시 들어가도 이어진다. 디렉터의 필름은 그대로다 */
@@ -44,7 +45,7 @@ export function Me({ playId, go }: { playId: string; go: (to: string) => void })
   if (!ready) return <p className="center">{err || '불러오는 중'}</p>;
 
   return (
-    <main className="app make">
+    <main className="app tabbed make">
       <div className="head">
         <button className="ico" onClick={back} aria-label="돌아가기">
           <Back />
@@ -93,6 +94,7 @@ export function Me({ playId, go }: { playId: string; go: (to: string) => void })
           </button>
         </div>
       </section>
+      <Tabs path={''} go={go} />
     </main>
   );
 }

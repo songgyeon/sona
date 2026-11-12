@@ -4,6 +4,7 @@ import type { Film, PostView } from '../../shared/types';
 import { ApiFail, api, imgUrl } from '../api';
 import { Back, Bubble } from '../icons';
 import { Face } from '../poster';
+import { Tabs } from '../tabs';
 
 interface Loaded {
   film: Film;
@@ -35,7 +36,7 @@ export function Cast({ filmId, playId, castKey, go }: { filmId?: string; playId?
   const back = playId ? `/play/${playId}` : `/film/${filmId}`;
 
   return (
-    <main className="app">
+    <main className="app tabbed">
       <div className="top">
         <button className="ico" onClick={() => go(back)} aria-label="돌아가기">
           <Back />
@@ -76,6 +77,7 @@ export function Cast({ filmId, playId, castKey, go }: { filmId?: string; playId?
           ))}
         </section>
       )}
+      <Tabs path={''} go={go} />
     </main>
   );
 }
