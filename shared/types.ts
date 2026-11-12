@@ -78,6 +78,9 @@ export interface ReelText {
   y: number;
   align: 'left' | 'center' | 'right';
   color: 'white' | 'black';
+  /** 컷이 시작하고 서서히 나타나는 시간, 컷이 끝나기 전 서서히 사라지는 시간(초). 0이면 바로. 없으면 RULES.reel.textFade(짧은 컷은 그 길이의 3분의 1까지) */
+  fadeIn?: number;
+  fadeOut?: number;
 }
 
 /** 오프닝 영상. 디렉터가 컷을 이어 붙여 만든다. 영상 파일로 굽지 않고, 앱이 컷을 차례로 틀어 준다 */

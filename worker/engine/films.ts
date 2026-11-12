@@ -90,6 +90,8 @@ function textsOf(raw: unknown[]): ReelText[] {
         size: num(o.size ?? R.textSize, R.textMin, R.textMax, '글자 크기'),
         x: num(o.x ?? 50, 0, 100, '글자 자리'),
         y: num(o.y ?? 50, 0, 100, '글자 자리'),
+        ...(o.fadeIn != null ? { fadeIn: num(o.fadeIn, 0, R.textFadeMax, '글자가 나타나는 시간') } : {}),
+        ...(o.fadeOut != null ? { fadeOut: num(o.fadeOut, 0, R.textFadeMax, '글자가 사라지는 시간') } : {}),
         align: pickOf(o.align, ['left', 'center', 'right'] as const, 'center'),
         color: pickOf(o.color, ['white', 'black'] as const, 'white'),
       };

@@ -102,6 +102,9 @@ export const RULES = {
     textMin: 3,
     textMax: 18,
     textSize: 7,
+    /** 글자가 서서히 나타나고 사라지는 시간(초): 정하지 않았을 때, 가장 길게 */
+    textFade: 0.5,
+    textFadeMax: 3,
     /** 서서히 넘어가는 데 걸리는 시간(초) */
     fade: 0.8,
     /** 음악이 끝에서 줄어드는 시간(초) */

@@ -4,7 +4,7 @@
 
 import { type ChangeEvent, type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { blankReel, clipAt, layersOf, lengthOf, motionAt, musicVolume, newClip, newText, opacityOf, progressIn, startsOf, textOpacity, underOf } from '../shared/reel';
+import { blankReel, clipAt, fadesOf, layersOf, lengthOf, motionAt, musicVolume, newClip, newText, opacityOf, progressIn, startsOf, textOpacity, underOf } from '../shared/reel';
 import { FONTS, fontOf } from '../shared/fonts';
 import { RULES } from '../shared/rules';
 import type { Reel, ReelClip, ReelEnter, ReelMotion, ReelRatio, ReelText } from '../shared/types';
@@ -307,7 +307,7 @@ export function ReelStage({
                 fontSize: `${l.size}cqw`,
                 textAlign: l.align,
                 textAlignLast: l.align,
-                opacity: edit && !playing && edit.clip === i ? 1 : textOpacity(clips, i, t),
+                opacity: edit && !playing && edit.clip === i ? 1 : textOpacity(clips, i, t, l),
               }}
               onPointerDown={edit && edit.clip === i ? (e) => grab(e, j) : undefined}
             >
@@ -431,15 +431,21 @@ function Pick<T extends string>({ label, value, options, onChange }: { label: st
   );
 }
 
-function Slider({ label, value, min, max, step = 0.5, unit = '초', onChange }: { label: string; value: number; min: number; max: number; step?: number; unit?: string; onChange: (v: number) => void }) {
+function Slider({ label, value, min, max, step = 0.5, unit = '초', zero, onChange }: { label: string; value: number; min: number; max: number; step?: number; unit?: string; zero?: string; onChange: (v: number) => void }) {
   return (
     <div className="row2">
       <p className="lbl">{label}</p>
       <div className="slider">
         <input type="range" min={min} max={Math.max(min, max)} step={step} value={value} aria-label={label} onChange={(e) => onChange(Number(e.target.value))} />
         <b>
-          {value.toFixed(1)}
-          {unit}
+          {zero && value === 0 ? (
+            zero
+          ) : (
+            <>
+              {value.toFixed(1)}
+              {unit}
+            </>
+          )}
         </b>
       </div>
     </div>
@@ -721,6 +727,8 @@ export function ReelEditor({ reel, onChange, onError }: { reel: Reel | null; onC
                   ))}
                 </div>
                 <Slider label="크기" value={cl.size} min={R.textMin} max={R.textMax} unit="" onChange={(v) => setLayer(li, { size: v })} />
+                <Slider label="나타나는 시간" value={fadesOf(cur, cl).fadeIn} min={0} max={Math.min(R.textFadeMax, cur.dur)} step={0.1} zero="바로" onChange={(v) => setLayer(li, { fadeIn: v })} />
+                <Slider label="사라지는 시간" value={fadesOf(cur, cl).fadeOut} min={0} max={Math.min(R.textFadeMax, cur.dur)} step={0.1} zero="바로" onChange={(v) => setLayer(li, { fadeOut: v })} />
                 <Pick label="자리" value={spotOf(cl)} options={SPOTS} onChange={(v) => setLayer(li, { x: 50, y: SPOTS.find((s) => s.value === v)!.y })} />
                 <Pick label="정렬" value={cl.align} options={ALIGNS} onChange={(v) => setLayer(li, { align: v })} />
                 <Pick label="색" value={cl.color} options={COLORS} onChange={(v) => setLayer(li, { color: v })} />

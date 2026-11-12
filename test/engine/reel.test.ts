@@ -143,6 +143,22 @@ describe('오프닝 영상: 필름에 넣기', () => {
 });
 
 describe('오프닝 영상: 컷 위의 글자', () => {
+  it('글자마다 서서히 나타나는 시간과 사라지는 시간을 정한다. 0이면 바로, 정하지 않으면 0.5초(짧은 컷은 3분의 1)', () => {
+    const clip = { ...newClip('image', IMG, 3), texts: [newText('가')] };
+    const at = (l: ReturnType<typeof newText>, t: number) => textOpacity([clip], 0, t, l);
+    expect(at({ ...newText('가'), fadeIn: 0 }, 0)).toBe(1);
+    expect(at({ ...newText('가'), fadeIn: 2 }, 1)).toBe(0.5);
+    expect(at({ ...newText('가'), fadeOut: 0 }, 2.99)).toBe(1);
+    expect(at({ ...newText('가'), fadeOut: 1 }, 2.5)).toBe(0.5);
+    expect(at(newText('가'), 0.25)).toBe(0.5);
+    expect(at({ ...newText('가'), fadeIn: 0 }, 3.2)).toBe(0); // 컷이 끝나면 없다
+    // 저장하고 다시 읽어도 남고, 정하지 않은 글자는 정하지 않은 채로
+    const film = parseFilm({ ...DEV_FILM, reel: { ...REEL, clips: [{ ...REEL.clips[0], texts: [{ ...newText('가'), fadeIn: 1.2, fadeOut: 0 }, newText('나')] }] } });
+    const saved = film.reel!.clips[0]!.texts!;
+    expect([saved[0]!.fadeIn, saved[0]!.fadeOut]).toEqual([1.2, 0]);
+    expect('fadeIn' in saved[1]! || 'fadeOut' in saved[1]!).toBe(false);
+  });
+
   it('글자 덩이마다 글꼴, 크기, 자리, 정렬, 색이 저장된다. 비운 글자는 버리고, 모르는 글꼴은 첫 글꼴로 읽는다', () => {
     const texts = [
       { ...newText('금요일 오후'), font: 'nanum-brush-script', size: 12, x: 30, y: 20, align: 'left', color: 'black' },
@@ -161,6 +177,8 @@ describe('오프닝 영상: 컷 위의 글자', () => {
     expect(await fail(() => parseFilm({ ...DEV_FILM, reel: { ...REEL, clips: [{ ...REEL.clips[0], texts: many }] } }))).toContain(`${RULES.reel.texts}개`);
     expect(await fail(() => parseFilm({ ...DEV_FILM, reel: { ...REEL, clips: [{ ...REEL.clips[0], texts: [{ ...newText('가'), size: 99 }] }] } }))).toContain('글자 크기');
     expect(await fail(() => parseFilm({ ...DEV_FILM, reel: { ...REEL, clips: [{ ...REEL.clips[0], texts: [{ ...newText('가'), x: 140 }] }] } }))).toContain('글자 자리');
+    expect(await fail(() => parseFilm({ ...DEV_FILM, reel: { ...REEL, clips: [{ ...REEL.clips[0], texts: [{ ...newText('가'), fadeIn: 9 }] }] } }))).toContain('나타나는 시간');
+    expect(await fail(() => parseFilm({ ...DEV_FILM, reel: { ...REEL, clips: [{ ...REEL.clips[0], texts: [{ ...newText('가'), fadeOut: -1 }] }] } }))).toContain('사라지는 시간');
   });
 
   it('예전 컷의 글자 하나도 같은 모양으로 읽는다: 제목은 가운데 명조, 자막과 크레딧은 아래 고딕', () => {

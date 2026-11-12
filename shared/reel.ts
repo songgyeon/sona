@@ -72,13 +72,22 @@ export function motionAt(motion: ReelMotion, p: number): { scale: number; x: num
   }
 }
 
-/** 글자의 밝기: 컷의 처음과 끝에서 0.5초씩 서서히 */
-export function textOpacity(clips: ReelClip[], i: number, t: number): number {
+/** 글자가 서서히 나타나는 시간과 사라지는 시간(초). 정하지 않았으면 RULES.reel.textFade, 짧은 컷은 그 길이의 3분의 1까지 */
+export function fadesOf(c: ReelClip, l?: ReelText): { fadeIn: number; fadeOut: number } {
+  const or = Math.min(R.textFade, c.dur / 3);
+  return { fadeIn: l?.fadeIn ?? or, fadeOut: l?.fadeOut ?? or };
+}
+
+/** 글자의 밝기: 컷이 시작하면 서서히 나타나고, 끝나기 전에 서서히 사라진다. 시간이 0이면 바로 */
+export function textOpacity(clips: ReelClip[], i: number, t: number, l?: ReelText): number {
   const c = clips[i];
   if (!c || layersOf(c).length === 0) return 0;
   const local = t - startsOf(clips)[i]!;
-  const edge = Math.min(0.5, c.dur / 3);
-  return Math.max(0, Math.min(1, local / edge, (c.dur - local) / edge));
+  if (local < 0 || local > c.dur) return 0;
+  const { fadeIn, fadeOut } = fadesOf(c, l);
+  const a = fadeIn > 0 ? local / fadeIn : 1;
+  const b = fadeOut > 0 ? (c.dur - local) / fadeOut : 1;
+  return Math.max(0, Math.min(1, a, b));
 }
 
 /** 음악의 크기(0~1): 끝에서 줄어든다 */
