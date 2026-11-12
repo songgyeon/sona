@@ -6,6 +6,7 @@ import { ApiFail, api, imgUrl, newId } from '../api';
 import { Back, LinkIcon, Next, Pen, PlayFill } from '../icons';
 import { useMe } from '../me';
 import { Face, StillStrip, titleClass } from '../poster';
+import { AsPop, AsSlot } from '../aspop';
 import { Tabs } from '../tabs';
 
 /** 필름 정보. 그 필름의 한 장면, 제목, 캐스트, 컷, 오프닝을 보고 들어간다 */
@@ -14,7 +15,7 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
   const [living, setLiving] = useState<PlayCard | null>(null);
   /** 살고 있는 삶에 저장한 장면 수 */
   const [saved, setSaved] = useState(0);
-  /** 들어가는 이름을 바꾸는 중 */
+  /** 들어가는 사람을 고르는 입장권을 띄우고 있나 */
   const [choosing, setChoosing] = useState(false);
   const me = useMe();
   /** 내 페르소나. 이 가운데 하나로 들어갈 수 있다 */
@@ -63,19 +64,14 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
     }
   };
 
-  /** 들어가는 사람을 고른다: 배역이나 내 페르소나. 이 필름에서 살던 삶에도 적힌다 */
-  const choose = async (as: 'role' | 'persona', personaId?: string) => {
-    if (!data || choosing) return;
-    if (as === 'role' && data.mine.as === 'role') return;
-    if (as === 'persona' && data.mine.personaId === personaId) return;
-    setChoosing(true);
-    setErr('');
+  /** 들어가는 사람을 고른다: 배역이나 내 페르소나. 이 필름에서 살던 삶에도 적힌다. 못 바꿨으면 까닭을 돌려준다 */
+  const choose = async (p: { as: 'role' } | { as: 'persona'; id: string }): Promise<string | null> => {
     try {
-      setData(await api.chooseAs(filmId, as, personaId));
+      setData(await api.chooseAs(filmId, p.as, p.as === 'persona' ? p.id : undefined));
+      return null;
     } catch (e) {
-      setErr(e instanceof ApiFail ? e.message : '이름을 바꾸지 못했어요.');
+      return e instanceof ApiFail ? e.message : '바꾸지 못했어요.';
     }
-    setChoosing(false);
   };
 
   const enter = async () => {
@@ -115,27 +111,8 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
         <h1 className={titleClass(film.title)}>{film.title}</h1>
         {film.logline && <p className="line1">{film.logline}</p>}
         <div className="go">
-          {/* 들어가는 사람: 디렉터가 정한 배역이나, 내 페르소나 가운데 하나 */}
-          <div className="asme" role="group" aria-label="들어가는 사람">
-            <p>
-              들어가는 사람
-              <button className="textbtn" onClick={() => go('/personas')}>
-                페르소나 관리
-              </button>
-            </p>
-            <div className="pick">
-              <button className={mine.as === 'role' ? 'on' : ''} aria-pressed={mine.as === 'role'} disabled={choosing} onClick={() => void choose('role')}>
-                <b>{film.persona.name}</b>
-                <small>배역</small>
-              </button>
-              {personas.map((p) => (
-                <button key={p.id} className={mine.personaId === p.id ? 'on' : ''} aria-pressed={mine.personaId === p.id} disabled={choosing} onClick={() => void choose('persona', p.id)}>
-                  <b>{p.name}</b>
-                  <small>내 페르소나</small>
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* 들어가는 사람: 지금 고른 사람 한 칸. 누르면 입장권 모양의 목록이 뜬다 */}
+          <AsSlot mine={mine} busy={choosing} onOpen={() => setChoosing(true)} />
           {living ? (
             <>
               <button className="btn play wide" onClick={() => go(`/play/${living.id}`)}>
@@ -242,6 +219,17 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
         </span>
       </p>
 
+      {choosing && (
+        <AsPop
+          title={film.title}
+          role={film.persona}
+          mine={mine}
+          personas={personas}
+          onPick={choose}
+          onManage={() => go('/personas')}
+          onClose={() => setChoosing(false)}
+        />
+      )}
       {toast && (
         <p className="toast" role="status">
           {toast}

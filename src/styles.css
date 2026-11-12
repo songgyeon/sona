@@ -708,3 +708,21 @@ button:disabled { opacity: 0.4; cursor: default; }
 .extra .field:first-child { margin-top: 0; }
 .extra .exdel { margin-top: 10px; font-size: 12px; color: var(--ink-4); }
 .extras .btn.wide { margin-top: 12px; }
+
+/* ── 들어가는 사람: 한 칸, 누르면 입장권 목록 ── */
+.asone { width: 100%; display: grid; grid-template-columns: 44px 1fr auto; column-gap: 14px; align-items: center; padding: 12px 14px; border: 1px solid var(--ink-4); text-align: left; }
+.asone .face { width: 44px; height: 44px; font-size: 17px; }
+.asone b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16.5px; font-weight: 700; color: var(--ink); }
+.asone small { display: block; margin-top: 2px; font-size: 12px; color: var(--ink-3); }
+.asone em { display: flex; align-items: center; gap: 2px; font-style: normal; font-size: 12.5px; color: var(--ink-3); }
+.asone em svg { width: 14px; height: 14px; }
+.aspop .tk-main { max-height: calc(100dvh - 210px); overflow-y: auto; }
+.tk-list { margin-top: 16px; }
+.tk-list li + li { border-top: 1px dashed rgba(0, 0, 0, 0.2); }
+.tk-list button { width: 100%; display: grid; grid-template-columns: 40px 1fr auto; column-gap: 12px; align-items: center; padding: 11px 0; text-align: left; color: #111; }
+.tk-list .face { width: 40px; height: 40px; font-size: 15px; background: #d9d9d6; color: #555; }
+.tk-list b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--serif); font-size: 18px; font-weight: 700; letter-spacing: 0.02em; }
+.tk-list small { display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: #666; }
+.tk-list em { padding: 3px 8px; border: 1.5px solid #111; font-style: normal; font-size: 10.5px; font-weight: 700; letter-spacing: 0.2em; transform: rotate(-4deg); }
+.tk-list button:not(.on) b { color: #333; }
+.tk-film { max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

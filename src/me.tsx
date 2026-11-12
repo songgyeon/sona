@@ -12,10 +12,10 @@ export const MeCtx = createContext<{ name: string; rename: () => void }>({ name:
 export const useMe = () => useContext(MeCtx);
 
 /** 입장권의 번호. 이 기기의 표에서 뽑는다 — 같은 기기면 늘 같은 번호다 */
-const ticketNo = (): string => String(parseInt(visitor().replace(/[^0-9a-f]/g, '').slice(0, 8) || '0', 16) % 1_000_000).padStart(6, '0');
+export const ticketNo = (): string => String(parseInt(visitor().replace(/[^0-9a-f]/g, '').slice(0, 8) || '0', 16) % 1_000_000).padStart(6, '0');
 
 /** 오늘 날짜. 「2026. 11. 12」 */
-const today = (): string => {
+export const today = (): string => {
   const d = new Date();
   return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}`;
 };
