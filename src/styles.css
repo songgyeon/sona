@@ -914,42 +914,77 @@ button:disabled { opacity: 0.4; cursor: default; }
 @media (prefers-reduced-motion: reduce) { .bgm .disc.spin, .opener, .opener.out { animation: none; } }
 
 /* ── 들어가는 화면: 필름 리더(3·2·1) → SONA ── */
-.entrance { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; overflow: hidden; background: #000; color: #fff; }
-.entrance.grain::after { z-index: 5; opacity: 0.7; }
-.entrance.out { animation: eout 0.52s ease forwards; }
+/* ── 들어가는 화면 ──
+   가는 빛줄기 → SONA가 한 글자씩 떴다가 그 자리에서 사라진다 → 조명 아래로 영화표 한 장이 올라와 떠 있는다.
+   「입장하기」를 누르면 절취선을 따라 아래 반쪽이 뜯겨 나간다. 화면을 누르면(.skip) 연출을 건너뛰고 표가 바로 선다 */
+.entrance { position: fixed; inset: 0; z-index: 120; overflow: hidden; background: #000; color: #fff; }
+.entrance.grain::after { z-index: 6; opacity: 0.7; }
+/* 가장자리 어둡게 */
+.entrance::before { content: ''; position: absolute; inset: 0; z-index: 5; pointer-events: none; background: radial-gradient(ellipse 90% 80% at 50% 45%, transparent 55%, rgba(0, 0, 0, 0.7) 100%); }
+.entrance.torn { animation: eout 0.5s 0.6s ease forwards; }
 @keyframes eout { to { opacity: 0; } }
-.eholes { position: absolute; z-index: 4; top: -40px; bottom: -40px; width: 14px; background-image: linear-gradient(#000 0 0); background-color: transparent; background-image: repeating-linear-gradient(to bottom, #1b1b1b 0 12px, transparent 12px 24px); animation: eroll 0.6s linear infinite; }
-.eholes.left { left: 8px; }
-.eholes.right { right: 8px; }
-.entrance.lit .eholes { animation-duration: 2.4s; opacity: 0.6; }
-@keyframes eroll { to { transform: translateY(24px); } }
-.leader { position: relative; width: min(72vw, 320px); aspect-ratio: 1; display: grid; place-items: center; animation: flick 0.12s steps(2) infinite; }
-@keyframes flick { 50% { opacity: 0.88; } }
-.leader .ring { position: absolute; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.85); }
-.leader .ring.outer { inset: 0; }
-.leader .ring.inner { inset: 12%; border-width: 1.5px; border-color: rgba(255, 255, 255, 0.55); }
-.leader .cross { position: absolute; background: rgba(255, 255, 255, 0.45); }
-.leader .cross.h { left: -12%; right: -12%; top: 50%; height: 1.5px; }
-.leader .cross.v { top: -12%; bottom: -12%; left: 50%; width: 1.5px; }
-.leader .sweep { position: absolute; inset: 1.5px; border-radius: 50%; background: conic-gradient(from 0deg, rgba(255, 255, 255, 0.28) 0deg, rgba(255, 255, 255, 0.28) 60deg, transparent 60deg); animation: sweep 0.82s linear forwards; }
-@keyframes sweep { from { transform: rotate(-60deg); } to { transform: rotate(300deg); } }
-.leader b { position: relative; z-index: 2; font-family: var(--serif); font-size: min(34vw, 150px); font-weight: 700; line-height: 1; animation: num 0.82s ease both; }
-@keyframes num { 0% { opacity: 0; transform: scale(1.08); } 15% { opacity: 1; transform: none; } 85% { opacity: 1; } 100% { opacity: 0.2; } }
-.marquee { position: relative; z-index: 3; width: 100%; min-width: 0; display: grid; justify-items: center; text-align: center; animation: lit 0.9s ease both; }
-@keyframes lit { 0% { opacity: 0; filter: brightness(3); } 12% { opacity: 1; filter: brightness(2); } 100% { opacity: 1; filter: none; } }
-.marquee .beam { position: absolute; z-index: -1; left: 50%; top: -38vh; width: 120vw; height: 90vh; transform: translateX(-50%); background: radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04) 40%, transparent 70%); pointer-events: none; }
-.elogo { font-family: var(--serif); font-size: clamp(46px, 17vw, 76px); font-weight: 700; letter-spacing: 0.42em; padding-left: 0.42em; line-height: 1; text-align: center; }
-.eposters { width: 100%; margin-top: 44px; overflow: hidden; padding: 10px 0; background: #050505; border-top: 1px solid #1a1a1a; border-bottom: 1px solid #1a1a1a; position: relative; }
-.eposters::before, .eposters::after { content: ''; position: absolute; left: 0; right: 0; height: 6px; z-index: 2; background-image: linear-gradient(90deg, #262626 0 8px, transparent 8px); background-size: 14px 6px; }
-.eposters::before { top: 2px; }
-.eposters::after { bottom: 2px; }
-.erow { display: flex; gap: 4px; width: max-content; padding: 6px 0; animation: estrip linear infinite; }
-@keyframes estrip { to { transform: translateX(-50%); } }
-.ecell { width: 64px; aspect-ratio: 2 / 3; flex: none; overflow: hidden; background: #111; }
-.ecell img { width: 100%; height: 100%; object-fit: cover; }
-.eenter { margin-top: 36px; width: calc(100% - 60px); max-width: 320px; }
-.estub { margin-top: 14px; width: calc(100% - 60px); max-width: 320px; display: flex; justify-content: space-between; font-size: 10.5px; font-weight: 600; letter-spacing: 0.14em; color: var(--ink-3); font-variant-numeric: tabular-nums; }
-@media (prefers-reduced-motion: reduce) { .eholes, .leader, .erow, .marquee { animation: none; } }
+.eslit { position: absolute; left: 50%; top: 50%; z-index: 3; width: 0; height: 1px; background: rgba(255, 255, 255, 0.9); box-shadow: 0 0 14px rgba(255, 255, 255, 0.55); transform: translate(-50%, -50%); animation: eslit 0.75s 0.1s cubic-bezier(0.6, 0, 0.2, 1) forwards, egone 0.6s 0.8s ease forwards; }
+@keyframes eslit { to { width: 100%; } }
+.etitle { position: absolute; left: 0; right: 0; top: 50%; z-index: 3; margin: 0; display: flex; justify-content: center; gap: 0.36em; font-family: var(--serif); font-size: 64px; font-weight: 250; line-height: 1; transform: translateY(-50%); animation: egone 0.6s 2.55s ease forwards; }
+.etitle span { opacity: 0; animation: eletter 1.2s cubic-bezier(0.2, 0.7, 0.1, 1) forwards; }
+.etitle span:nth-child(1) { animation-delay: 0.85s; }
+.etitle span:nth-child(2) { animation-delay: 1s; }
+.etitle span:nth-child(3) { animation-delay: 1.15s; }
+.etitle span:nth-child(4) { animation-delay: 1.3s; }
+@keyframes eletter { 0% { opacity: 0; filter: blur(12px); transform: translateY(8px); } 100% { opacity: 1; filter: blur(0); transform: none; } }
+@keyframes egone { to { opacity: 0; } }
+@keyframes eon { to { opacity: 1; } }
+/* 표를 비추는 조명 */
+.espot { position: absolute; inset: 0; z-index: 1; opacity: 0; background: radial-gradient(ellipse 75% 50% at 50% 40%, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.035) 55%, transparent 76%); animation: eon 1.5s 2.8s ease forwards; }
+/* 표 한 장. 화면이 낮으면 높이에 맞춰 줄인다. 휴대폰 위아래의 가린 자리(safe-area)를 뺀 가운데에 선다 */
+.efloat {
+  position: absolute; left: 50%; z-index: 4;
+  top: calc(50% + (env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) / 2);
+  width: min(286px, 74vw, calc(80vh - 171px)); width: min(286px, 74vw, calc(80dvh - 171px));
+  transform: translate(-50%, -52%); animation: ehover 7s 4.6s ease-in-out infinite;
+}
+@keyframes ehover { 0%, 100% { transform: translate(-50%, -52%); } 50% { transform: translate(-50%, calc(-52% - 5px)); } }
+.efloor { position: absolute; left: 10%; right: 10%; bottom: -34px; height: 34px; border-radius: 50%; background: radial-gradient(closest-side, rgba(0, 0, 0, 0.9), transparent); filter: blur(6px); opacity: 0; animation: eon 1.6s 3.3s ease forwards; }
+.eticket { position: relative; opacity: 0; transform: perspective(900px) translateY(46px) rotateX(18deg); animation: eissue 1.5s 3s cubic-bezier(0.2, 0.7, 0.1, 1) forwards; }
+@keyframes eissue { to { opacity: 1; transform: none; } }
+/* 종이는 흰색과 검은색뿐이다. 색은 포스터에서만 나온다 */
+.et-main, .et-stub { position: relative; display: block; width: 100%; background: #ededed; color: #111; overflow: hidden; }
+.et-main::before, .et-stub::before { content: ''; position: absolute; inset: 0; background: var(--grain); background-size: 200px; mix-blend-mode: multiply; opacity: 0.32; pointer-events: none; }
+/* 절취선 양쪽의 반원 홈 */
+.et-main {
+  border-radius: 5px 5px 0 0;
+  -webkit-mask: radial-gradient(circle 10px at 0 100%, #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle 10px at 100% 100%, #0000 97%, #000) right / 51% 100% no-repeat;
+  mask: radial-gradient(circle 10px at 0 100%, #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle 10px at 100% 100%, #0000 97%, #000) right / 51% 100% no-repeat;
+}
+.et-main::after { content: ''; position: absolute; left: 16px; right: 16px; bottom: 0; border-bottom: 1.5px dashed rgba(0, 0, 0, 0.3); }
+.et-head { display: flex; justify-content: space-between; align-items: baseline; padding: 17px 17px 13px; }
+.et-head b { font-family: var(--serif); font-size: 15px; font-weight: 700; letter-spacing: 0.36em; }
+.et-head span { font-size: 9.5px; font-weight: 600; letter-spacing: 0.18em; color: rgba(0, 0, 0, 0.5); font-variant-numeric: tabular-nums; }
+.et-art { position: relative; margin: 0 13px; aspect-ratio: 4 / 5; overflow: hidden; background: #111; }
+.et-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; opacity: 0; transition: opacity 1.6s ease; }
+.et-art img.on { opacity: 1; }
+.et-name { display: flex; justify-content: space-between; align-items: center; min-height: 46px; padding: 13px 17px 17px; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; color: rgba(0, 0, 0, 0.78); }
+.et-when { font-size: 10.5px; font-weight: 600; letter-spacing: 0.12em; color: rgba(0, 0, 0, 0.5); font-variant-numeric: tabular-nums; }
+.et-stub {
+  display: grid; place-items: center; height: 76px; border-radius: 0 0 5px 5px; font-size: 14.5px; font-weight: 600; letter-spacing: 0.5em; padding-left: 0.5em;
+  -webkit-mask: radial-gradient(circle 10px at 0 0, #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle 10px at 100% 0, #0000 97%, #000) right / 51% 100% no-repeat;
+  mask: radial-gradient(circle 10px at 0 0, #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle 10px at 100% 0, #0000 97%, #000) right / 51% 100% no-repeat;
+}
+.et-stub[aria-disabled='true'] { cursor: default; }
+/* 뜯는다: 아래 반쪽은 절취선 오른쪽 끝을 축으로 기울며 떨어지고, 표는 조금 올라가며 사라진다 */
+.entrance.torn .et-stub { transform-origin: 88% 0; animation: etear 1s cubic-bezier(0.45, 0, 0.55, 1) forwards; }
+@keyframes etear { 0% { transform: none; } 22% { transform: rotate(-3deg) translate(-1px, 5px); } 100% { transform: rotate(-17deg) translate(-26px, 280px); opacity: 0; } }
+.entrance.torn .et-main { animation: ekeep 1.1s 0.35s ease forwards; }
+@keyframes ekeep { to { transform: translateY(-22px); opacity: 0; } }
+.entrance.torn .espot { animation: eon 1.5s 2.8s ease forwards, egone 0.9s 0.5s ease forwards; }
+.entrance.torn .efloor { animation: eon 1.6s 3.3s ease forwards, egone 0.7s 0.2s ease forwards; }
+/* 건너뛰면 표가 바로 선다 */
+.entrance.skip .eslit, .entrance.skip .etitle { display: none; }
+.entrance.skip .espot, .entrance.skip .efloor { animation: none; opacity: 1; }
+.entrance.skip .eticket { animation: none; opacity: 1; transform: none; }
+.entrance.skip .efloat { animation: ehover 7s ease-in-out infinite; }
+.entrance.skip.torn .espot, .entrance.skip.torn .efloor { animation: egone 0.8s 0.3s ease forwards; }
+@media (prefers-reduced-motion: reduce) { .efloat, .entrance.skip .efloat { animation: none; } }
 
 /* 미리 보기 — 개봉하기 전에 필름 정보와 오프닝을 들어가는 사람의 화면 그대로 본다 */
 .preview { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; background: #000; }
