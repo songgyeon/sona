@@ -130,7 +130,7 @@ describe('소리와 영상 올리기', () => {
     const kept = new Map<string, ArrayBuffer>();
     const edge = {
       get: async (key: string) => kept.get(key) ?? null,
-      put: (key: string, b: ArrayBuffer | string) => void kept.set(key, typeof b === 'string' ? new TextEncoder().encode(b).buffer : b),
+      put: (key: string, b: ArrayBuffer | string) => void kept.set(key, typeof b === 'string' ? (new TextEncoder().encode(b).buffer as ArrayBuffer) : b),
     };
     const first = await serveMedia(ctx.db, id, `bytes=0-${P * 2 + 98}`, edge);
     expect(Array.from(await body(first))).toEqual(Array.from(sent.slice(0, P * 2)));
