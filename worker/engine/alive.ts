@@ -168,10 +168,13 @@ export async function postMine(ctx: Ctx, playId: string, input: unknown): Promis
   return viewOf(ctx, playId);
 }
 
-/** 피드 글을 지운다. 내 삶의 글만 — 캐스트가 올린 글도, 내가 올린 글도.
+/** 피드 글을 지운다. 그 필름을 만든 사람만, 자기 삶의 글만 — 캐스트가 올린 글도, 자기가 올린 글도(2026-11-12 사용자 지시: 「제작자만」).
+    필름을 지웠으면 만든 사람을 알 수 없어서 아무도 못 지운다.
     그 글을 올린 일(아는 일)도 같이 지운다: 다음 대목부터 캐스트는 그 글을 모른다. 그날은 치른 날로 남는다 — 바로 다른 글이 올라오지 않는다 */
 export async function dropPost(ctx: Ctx, playId: string, postId: string): Promise<PlayView> {
-  await loadPlay(ctx, playId);
+  const play = await loadPlay(ctx, playId);
+  const maker = await ctx.db.first<{ owner: string }>('SELECT owner FROM films WHERE id = ?', play.filmId);
+  if (maker?.owner !== ctx.visitor) throw new Fail(403, 'not_maker', '피드는 필름을 만든 사람만 지울 수 있어요.');
   const post = await ctx.db.first<{ cast_key: string; text: string; at: number }>('SELECT cast_key, text, at FROM posts WHERE id = ? AND play_id = ?', postId, playId);
   if (!post) throw new Fail(404, 'post_missing', '글을 찾을 수 없어요.');
   await ctx.db.batch([

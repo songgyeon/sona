@@ -80,6 +80,20 @@ describe('피드 글 지우기', () => {
   });
 });
 
+describe('피드 글은 만든 사람만 지운다', () => {
+  it('남이 만든 필름에서는 자기 삶의 글이라도 못 지운다. 화면도 만든 사람이 아니라는 것을 안다', async () => {
+    const { ctx, filmId } = await solo();
+    const guest = { ...ctx, visitor: OTHER_VISITOR };
+    const theirs = await enter(guest, filmId, uid());
+    await postMine(guest, theirs.id, { text: '저도 왔어요.' });
+    const v = await viewOf(guest, theirs.id);
+    const post = v.posts.find((p) => p.cast === 'persona')!;
+    expect(v.mine).toBe(false);
+    expect(await failCode(dropPost(guest, theirs.id, post.id))).toBe('not_maker');
+    expect((await viewOf(guest, theirs.id)).posts.some((p) => p.id === post.id)).toBe(true);
+  });
+});
+
 describe('필름 지우기', () => {
   it('만든 사람만 지운다. 지우면 목록과 필름 정보에서 사라지고 새로 들어갈 수 없다', async () => {
     const { ctx, filmId } = await solo();

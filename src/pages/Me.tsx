@@ -142,16 +142,19 @@ export function Me({ playId, go }: { playId: string; go: (to: string) => void })
                   <time>{formatWorld(clock, p.at)}</time>
                   <p>{p.text}</p>
                 </article>
-                <PostDrop
-                  onDrop={async () => {
-                    try {
-                      setView(await api.dropPost(playId, p.id));
-                      return null;
-                    } catch (e) {
-                      return e instanceof ApiFail ? e.message : '지우지 못했어요.';
-                    }
-                  }}
-                />
+                {/* 피드 글은 이 필름을 만든 사람만 지운다 */}
+                {view.mine && (
+                  <PostDrop
+                    onDrop={async () => {
+                      try {
+                        setView(await api.dropPost(playId, p.id));
+                        return null;
+                      } catch (e) {
+                        return e instanceof ApiFail ? e.message : '지우지 못했어요.';
+                      }
+                    }}
+                  />
+                )}
               </div>
             ))}
           </Card>

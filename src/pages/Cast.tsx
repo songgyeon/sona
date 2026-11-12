@@ -12,6 +12,8 @@ interface Loaded {
   /** 살고 있는 삶에서 들어왔을 때만 있다 */
   elapsed: number | null;
   posts: PostView[];
+  /** 이 필름을 만든 사람인가. 피드 글은 만든 사람만 지운다 */
+  maker: boolean;
 }
 
 /** 캐스트의 프로필. 피드는 여기 있다 — 이 사람이 자기 하루에 남긴 것 */
@@ -21,8 +23,8 @@ export function Cast({ filmId, playId, castKey, go }: { filmId?: string; playId?
 
   useEffect(() => {
     const load = playId
-      ? api.openFeed(playId).then((v): Loaded => ({ film: v.film, elapsed: v.elapsed, posts: v.posts.filter((p) => p.cast === castKey) }))
-      : api.film(filmId!).then((d): Loaded => ({ film: d.film, elapsed: null, posts: [] }));
+      ? api.openFeed(playId).then((v): Loaded => ({ film: v.film, elapsed: v.elapsed, posts: v.posts.filter((p) => p.cast === castKey), maker: v.mine }))
+      : api.film(filmId!).then((d): Loaded => ({ film: d.film, elapsed: null, posts: [], maker: d.card.mine }));
     load.then(setData).catch((e) => setErr(e instanceof ApiFail ? e.message : '프로필을 불러오지 못했어요.'));
   }, [filmId, playId, castKey]);
 
@@ -87,7 +89,7 @@ export function Cast({ filmId, playId, castKey, go }: { filmId?: string; playId?
           {posts.map((p) => (
             <div className="postwrap" key={p.id}>
               <FeedItem post={p} clock={clock} no={photoNo.get(p.id) ?? 1} />
-              {playId && <PostDrop onDrop={() => drop(p.id)} />}
+              {playId && data.maker && <PostDrop onDrop={() => drop(p.id)} />}
             </div>
           ))}
         </section>
