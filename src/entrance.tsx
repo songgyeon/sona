@@ -107,7 +107,7 @@ export function Entrance({ name, onEnter }: { name: string; onEnter: () => void 
           </button>
           <p className="estub">
             <span>No. {no}</span>
-            <span>{name ? `${name} 님` : '처음 오셨어요'}</span>
+            {name && <span>{name} 님</span>}
           </p>
         </div>
       )}
