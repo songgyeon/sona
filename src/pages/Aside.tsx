@@ -7,6 +7,7 @@ import { Back } from '../icons';
 import { Face } from '../poster';
 import { TITLE_MS } from './Play';
 import { Tabs } from '../tabs';
+import { goBack } from '../router';
 
 /** 한편. 내가 없는 자리에서 캐스트 둘이 나눈 장면을 읽기만 한다.
     화면에 거는 그림도, 말하는 칸도 없다 — 나는 그 자리에 없다 */
@@ -38,7 +39,7 @@ export function Aside({ playId, asideId, go }: { playId: string; asideId: string
   const castOf = (key: string) => film.casts.find((c) => c.key === key);
   const lines = view.messages.filter((m) => m.room === aside.id);
   const when = formatWorld(clock, aside.at);
-  const back = () => go(`/play/${playId}`);
+  const back = () => goBack(go, `/play/${playId}`);
 
   return (
     <main className="app playing away">

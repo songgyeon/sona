@@ -7,6 +7,7 @@ import { FacePick } from '../crop';
 import { Back } from '../icons';
 import { Card, Field } from './Create';
 import { Tabs } from '../tabs';
+import { goBack } from '../router';
 
 /** 내 배역. 플레이하는 사람이 자기 삶에서 맡은 인물의 사진과 정보를 고친다.
     고친 것은 내 삶에만 적히고, 같은 필름에 다시 들어가도 이어진다. 디렉터의 필름은 그대로다 */
@@ -47,7 +48,7 @@ export function Me({ playId, go }: { playId: string; go: (to: string) => void })
       .catch((e) => setErr(e instanceof ApiFail ? e.message : '내 배역을 불러오지 못했어요.'));
   }, [playId]);
 
-  const back = () => go(`/play/${playId}`);
+  const back = () => goBack(go, `/play/${playId}`);
 
   const save = async () => {
     setBusy(true);

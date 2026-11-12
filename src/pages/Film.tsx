@@ -8,6 +8,7 @@ import { useMe } from '../me';
 import { Face, StillStrip, titleClass } from '../poster';
 import { AsPop, AsSlot } from '../aspop';
 import { Tabs } from '../tabs';
+import { goBack } from '../router';
 
 /** 필름 정보. 그 필름의 한 장면, 제목, 캐스트, 컷, 오프닝을 보고 들어간다 */
 export function Film({ filmId, go }: { filmId: string; go: (to: string) => void }) {
@@ -100,7 +101,7 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
   return (
     <main className="app tabbed info">
       <div className="top">
-        <button className="ico" onClick={() => go('/')} aria-label="홈으로">
+        <button className="ico" onClick={() => goBack(go, '/')} aria-label="돌아가기">
           <Back />
         </button>
       </div>

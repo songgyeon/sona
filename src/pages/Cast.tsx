@@ -5,6 +5,7 @@ import { FeedItem } from '../feed';
 import { Back, Bubble } from '../icons';
 import { Face } from '../poster';
 import { Tabs } from '../tabs';
+import { goBack } from '../router';
 
 interface Loaded {
   film: Film;
@@ -40,7 +41,7 @@ export function Cast({ filmId, playId, castKey, go }: { filmId?: string; playId?
   return (
     <main className="app tabbed">
       <div className="top">
-        <button className="ico" onClick={() => go(back)} aria-label="돌아가기">
+        <button className="ico" onClick={() => goBack(go, back)} aria-label="돌아가기">
           <Back />
         </button>
       </div>

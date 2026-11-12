@@ -9,6 +9,7 @@ import { FacePick } from '../crop';
 import { Back, Plus } from '../icons';
 import { useMe } from '../me';
 import { Face } from '../poster';
+import { goBack } from '../router';
 import { Tabs } from '../tabs';
 import { Card, Field } from './Create';
 
@@ -42,7 +43,7 @@ export function Personas({ go }: { go: (to: string) => void }) {
   }, [me.name]);
 
   /** 돌아갈 곳. 필름 정보에서 왔으면 그 필름으로 */
-  const leave = () => go(ask.back && ask.back.startsWith('/film/') ? ask.back : '/');
+  const leave = () => goBack(go, ask.back && ask.back.startsWith('/film/') ? ask.back : '/');
 
   const open = (p: MyPersona | null) => {
     setEditing(p ? p.id : 'new');

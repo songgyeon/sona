@@ -12,6 +12,7 @@ import { ReelOverlay } from '../reel';
 import { SaveSheet } from '../saves';
 import { Face, titleClass } from '../poster';
 import { Tabs } from '../tabs';
+import { type Go, goBack, replaceUrl } from '../router';
 
 type SkipKind = 'evening' | 'sleep';
 
@@ -107,7 +108,7 @@ function MeCard({ me }: { me: Persona }) {
 }
 
 /** 재생. 위에 지금 장면이 걸리고, 아래로 장면이 흐른다 */
-export function Play({ playId, go }: { playId: string; go: (to: string) => void }) {
+export function Play({ playId, go }: { playId: string; go: Go }) {
   const [view, setView] = useState<PlayView | null>(null);
   /** 쓰고 있는 글. 대사와 지문을 한 칸에 쓴다. 지문은 *별표* 사이에 쓴다 */
   const [draft, setDraft] = useState('');
@@ -155,7 +156,7 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
   // 제목은 잠깐 떴다가 걷힌다. 주소에 남은 표시는 지운다 — 새로 고쳐도 다시 뜨지 않게
   useEffect(() => {
     if (!card) return;
-    window.history.replaceState(null, '', window.location.pathname);
+    replaceUrl(window.location.pathname);
     if (!view || reelOn) return;
     const t = setTimeout(() => setCard(false), TITLE_MS);
     return () => clearTimeout(t);
@@ -192,7 +193,7 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
     setErr('');
     try {
       const fresh = await api.enter(view.filmId, newId());
-      go(`/play/${fresh.id}?open=1`);
+      go(`/play/${fresh.id}?open=1`, { replace: true });
     } catch (e) {
       setErr(e instanceof ApiFail ? e.message : '필름에 들어가지 못했어요.');
       setClosing(false);
@@ -404,7 +405,7 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
   return (
     <main className="app playing">
       <div className="band">
-        <button className="ico" onClick={() => go('/')} aria-label="필름에서 나가기">
+        <button className="ico" onClick={() => goBack(go, view ? `/film/${view.filmId}` : '/')} aria-label="필름에서 나가기">
           <Back />
         </button>
         <div className="right">

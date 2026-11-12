@@ -14,6 +14,7 @@ import { Face } from '../poster';
 import { BgmPick } from '../bgm';
 import { clock, ReelEditor } from '../reel';
 import { Tabs } from '../tabs';
+import { type Go, goBack, replaceUrl } from '../router';
 
 /* 필름 만들기. 디렉터가 채우는 칸이다.
    며칠 치 일정을 쓰는 자리가 아니다 — 이 사람들이 어떤 사이이고 서로를 뭐라고 부르는지를 쓴다.
@@ -33,7 +34,7 @@ const STEPS: { id: Step; label: string; must: boolean }[] = [
 
 const PICTURES = 'image/jpeg,image/png,image/webp';
 
-export function Create({ go, editId, draftId }: { go: (to: string) => void; editId?: string; draftId?: string }) {
+export function Create({ go, editId, draftId }: { go: Go; editId?: string; draftId?: string }) {
   /** 이 필름을 임시저장하는 자리의 표. 새 필름은 여기서 하나 받고, 개봉한 필름은 필름마다 한 자리다 */
   const [slot] = useState(() => (editId ? editSlot(editId) : (draftId ?? newId())));
   const [kept] = useState(() => (draftId ? drafts.load(draftId) : null));
@@ -62,8 +63,8 @@ export function Create({ go, editId, draftId }: { go: (to: string) => void; edit
     last.current = JSON.stringify(d);
     // 남긴 뒤에는 주소가 그 필름을 가리킨다. 새로 고치면 그 필름이 다시 열린다
     const here = window.location.pathname;
-    if (result === 'saved' && here === '/create') window.history.replaceState(null, '', `/create/${slot}`);
-    if (result !== 'saved' && here === `/create/${slot}`) window.history.replaceState(null, '', '/create');
+    if (result === 'saved' && here === '/create') replaceUrl(`/create/${slot}`);
+    if (result !== 'saved' && here === `/create/${slot}`) replaceUrl('/create');
     return result;
   };
 
@@ -210,9 +211,12 @@ export function Create({ go, editId, draftId }: { go: (to: string) => void; edit
       drafts.drop(slot);
       if (thenEnter) {
         const view = await api.enter(id, newId());
-        go(`/play/${view.id}?open=1`);
+        go(`/play/${view.id}?open=1`, { replace: true });
+      } else if (editId) {
+        // 고친 것을 저장했다. 고치러 들어온 화면으로 돌아간다
+        goBack(go, `/film/${id}`);
       } else {
-        go(`/film/${id}`);
+        go(`/film/${id}`, { replace: true });
       }
     } catch (x) {
       setErr(x instanceof ApiFail ? x.message : editId ? '저장하지 못했어요.' : '개봉하지 못했어요.');
@@ -231,7 +235,7 @@ export function Create({ go, editId, draftId }: { go: (to: string) => void; edit
   return (
     <main className="app tabbed make">
       <div className="head">
-        <button className="ico" onClick={() => go(editId ? `/film/${editId}` : '/')} aria-label="닫기">
+        <button className="ico" onClick={() => goBack(go, editId ? `/film/${editId}` : '/mine')} aria-label="닫기">
           <Close />
         </button>
         <b>{editId ? '필름 고치기' : '필름 만들기'}</b>
