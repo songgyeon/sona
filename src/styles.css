@@ -60,7 +60,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .rowhead button, .rowhead span { margin-left: auto; font-size: 12px; font-weight: 500; letter-spacing: 0.02em; color: var(--ink-4); }
 
 /* 제목: 명조를 띄엄띄엄 */
-.title { font-family: var(--serif); font-weight: 700; line-height: 1.15; letter-spacing: 0.22em; text-wrap: balance; }
+.title { font-family: var(--serif); font-weight: 700; line-height: 1.15; letter-spacing: 0.22em; }
 .title.long { letter-spacing: 0.06em; }
 
 /* 단추: 각지게 */
@@ -110,7 +110,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .art.grain::after { z-index: 2; }
 /* 그림이 없는 필름: 검은 판에 제목만 */
 .blank { width: 100%; height: 100%; display: grid; place-items: center; padding: 10%; background: #0c0c0c; box-shadow: inset 0 0 0 1px var(--hair); text-align: center; }
-.blank b { font-family: var(--serif); font-weight: 700; letter-spacing: 0.16em; line-height: 1.5; color: var(--ink-2); text-wrap: balance; }
+.blank b { font-family: var(--serif); font-weight: 700; letter-spacing: 0.16em; line-height: 1.5; color: var(--ink-2); }
 
 /* ── 홈 ── */
 .hero { position: relative; height: calc(100dvh - var(--tabs)); min-height: 560px; max-height: 790px; }
@@ -120,7 +120,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .poster .kicker::after { margin-left: -0.34em; }
 .poster .title { margin-top: 14px; padding-left: 0.3em; font-size: clamp(34px, 14.6vw, 58px); letter-spacing: 0.3em; line-height: 1.12; }
 .poster .title.long { padding-left: 0.06em; font-size: clamp(26px, 9vw, 38px); }
-.line1 { margin-top: 14px; font-family: var(--serif); font-size: 15px; line-height: 1.6; font-weight: 500; letter-spacing: 0.01em; color: var(--ink-2); text-wrap: balance; }
+.line1 { margin-top: 14px; font-family: var(--serif); font-size: 15px; line-height: 1.6; font-weight: 500; letter-spacing: 0.01em; color: var(--ink-2); }
 .poster .acts { margin-top: 24px; display: flex; justify-content: center; gap: 8px; }
 .poster .acts .play { min-width: 154px; }
 /* 포스터 맨 아래의 작은 글씨 */
@@ -188,7 +188,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .castrow strong { display: block; font-size: 16.5px; font-weight: 600; letter-spacing: -0.01em; }
 .castrow small { display: block; margin-top: 3px; font-size: 13px; color: var(--ink-3); }
 .castrow svg { width: 18px; height: 18px; color: var(--ink-4); }
-.prose { margin-top: 14px; font-family: var(--serif); font-size: 15px; line-height: 1.86; font-weight: 400; letter-spacing: 0.005em; color: rgba(255, 255, 255, 0.7); white-space: pre-wrap; text-wrap: pretty; }
+.prose { margin-top: 14px; font-family: var(--serif); font-size: 15px; line-height: 1.86; font-weight: 400; letter-spacing: 0.005em; color: rgba(255, 255, 255, 0.7); white-space: pre-wrap; }
 .info .bill { margin: 40px var(--pad) 0; padding: 16px 0 44px; }
 
 /* ── 캐스트 프로필 ── */
@@ -275,7 +275,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .flow { position: relative; flex: 1; min-height: 0; overflow-y: auto; padding: 24px var(--pad) 46px; scrollbar-width: none; -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 22px); mask-image: linear-gradient(180deg, transparent 0, #000 22px); }
 .flow::-webkit-scrollbar { display: none; }
 /* 지문은 책처럼 짠다: 양쪽을 맞추고, 줄은 글자 단위로 바꾼다. 낱말 단위로 바꾸면 띄어쓰기가 듬성듬성 벌어진다 */
-.tell { font-family: var(--serif); font-size: 15px; line-height: 1.86; font-weight: 400; letter-spacing: 0.005em; color: rgba(255, 255, 255, 0.7); white-space: pre-line; text-align: justify; word-break: normal; text-wrap: pretty; }
+.tell { font-family: var(--serif); font-size: 15px; line-height: 1.86; font-weight: 400; letter-spacing: 0.005em; color: rgba(255, 255, 255, 0.7); white-space: pre-line; text-align: justify; word-break: normal; }
 .tell + .tell { margin-top: 12px; }
 /* 내가 쓴 지문. 지문과 같은 모양이다. 보내는 중에는 흐리다 */
 .tell.byme.sending { opacity: 0.5; }
@@ -284,7 +284,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .introme .face { width: 96px; height: 96px; margin: 0 auto; font-size: 32px; box-shadow: 0 0 0 1px var(--ink-4); }
 .introme .k { margin-top: 18px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.44em; padding-left: 0.44em; color: var(--ink-3); }
 .introme h2 { margin-top: 8px; font-family: var(--serif); font-size: 40px; font-weight: 700; letter-spacing: 0.3em; padding-left: 0.3em; line-height: 1.3; }
-.introme .l { margin: 14px auto 0; max-width: 300px; font-family: var(--serif); font-size: 14.5px; line-height: 1.85; color: var(--ink-2); text-wrap: balance; white-space: pre-line; }
+.introme .l { margin: 14px auto 0; max-width: 300px; font-family: var(--serif); font-size: 14.5px; line-height: 1.85; color: var(--ink-2); white-space: pre-line; }
 .opening + .introme { margin-top: 34px; }
 /* 다음 대목을 쓰는 중 */
 .tell.wait { color: var(--ink-3); letter-spacing: 0.3em; }
@@ -528,7 +528,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .drop.poster { aspect-ratio: 2 / 3; }
 .drop.poster img { object-position: 50% 0; }
 .drop.poster.has::after { content: ''; position: absolute; z-index: 1; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, 0) 52%, rgba(0, 0, 0, 0.86) 100%); }
-.drop.poster .ontitle { position: absolute; z-index: 3; left: 6px; right: 6px; bottom: 14px; font-family: var(--serif); font-size: 19px; font-weight: 700; letter-spacing: 0.2em; line-height: 1.3; text-wrap: balance; }
+.drop.poster .ontitle { position: absolute; z-index: 3; left: 6px; right: 6px; bottom: 14px; font-family: var(--serif); font-size: 19px; font-weight: 700; letter-spacing: 0.2em; line-height: 1.3; }
 .side { display: grid; gap: 10px; }
 .side p { font-size: 12.5px; line-height: 1.65; color: var(--ink-3); }
 /* 캐스트 한 사람 */
