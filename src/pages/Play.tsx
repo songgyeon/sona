@@ -130,6 +130,8 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
   const [waiting, setWaiting] = useState(false);
   const [err, setErr] = useState('');
   const [notice, setNotice] = useState('');
+  /** 시간을 넘긴 사이 새로 올라온 피드: 마지막에 올린 캐스트와 글 수. 누르면 그 캐스트의 피드로 간다 */
+  const [newFeed, setNewFeed] = useState<{ cast: string; count: number } | null>(null);
   /** 「필름에 들어가기」로 막 들어왔고 오프닝 영상이 없으면 기본 오프닝(검은 화면에 제목)이 먼저 뜬다 */
   const [card, setCard] = useState(() => new URLSearchParams(window.location.search).has('open'));
   /** 막 들어왔고 필름에 오프닝 영상이 있으면 그것부터 흐른다. 끝나거나 건너뛰면 바로 첫 장면이다 — 제목을 따로 띄우지 않는다 */
@@ -287,6 +289,7 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
     setWaiting(true);
     setErr('');
     setNotice('');
+    setNewFeed(null);
     try {
       setView(await api.say(playId, o.text, o.requestId));
       setOut(null);
@@ -360,8 +363,9 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
     setWaiting(true);
     setErr('');
     setNotice('');
+    setNewFeed(null);
     const seenMessages = new Set(view.messages.map((m) => m.id));
-    const seenPosts = view.posts.length;
+    const seenPosts = new Set(view.posts.map((p) => p.id));
     try {
       const next = await api.skip(playId, a.kind, a.requestId);
       setView(next);
@@ -370,9 +374,9 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
       // 한편의 줄은 누가 나에게 보낸 것이 아니다
       const from = [...new Set(next.messages.filter((m) => !seenMessages.has(m.id) && m.kind === 'ping').map((m) => m.speaker))];
       const names = from.map((key) => next.film.casts.find((c) => c.key === key)?.name ?? key);
-      const posts = next.posts.length - seenPosts;
-      const bits = [names.length > 0 ? `${names.join(', ')}의 메시지` : '', posts > 0 ? `새 피드 ${posts}개` : ''].filter(Boolean);
-      setNotice(bits.length > 0 ? bits.join(' · ') : '그 사이 온 연락이 없어요.');
+      const fresh = next.posts.filter((p) => !seenPosts.has(p.id));
+      setNotice(names.length > 0 ? `${names.join(', ')}의 메시지` : fresh.length > 0 ? '' : '그 사이 온 연락이 없어요.');
+      setNewFeed(fresh.length > 0 ? { cast: fresh[fresh.length - 1]!.cast, count: fresh.length } : null);
     } catch (e) {
       if (e instanceof ApiFail && e.status !== 0 && e.status < 500) {
         setAway(null);
@@ -447,6 +451,7 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
             setSaving(false);
             setReading(false);
             setErr('');
+            setNewFeed(null);
             setNotice('저장한 장면으로 돌아왔어요.');
           }}
         />
@@ -604,7 +609,17 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
           </div>
         )}
 
-        {notice && <p className="note">{notice}</p>}
+        {(notice || newFeed) && (
+          <p className="note">
+            {notice}
+            {notice && newFeed ? ' · ' : ''}
+            {newFeed && (
+              <button className="feedlink" onClick={() => profile(newFeed.cast)}>
+                새 피드 {newFeed.count}개
+              </button>
+            )}
+          </p>
+        )}
         {view.ended && <p className="cut">{josa(today, '이', '가')} 끝났어요</p>}
       </section>
 

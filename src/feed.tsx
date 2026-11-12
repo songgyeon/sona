@@ -3,7 +3,7 @@
    사진: 35mm 필름 한 칸 / 검색어: 화면을 크게 잡은 한 컷 / 본 영상: 상영 시간표 / 읽은 책: 크레딧의 원작 표기. 한 줄 글은 예전 그대로.
    고칠 수 있는 사람에게는 글마다 연필이 선다. 누르면 「수정」「삭제」(PostTools) */
 
-import { type Clock, formatWorld, worldAt } from '../shared/clock';
+import { type Clock, formatWorld, partOfDay, worldAt } from '../shared/clock';
 import { postLabel } from '../shared/feed';
 import { DOW_NAMES, RULES } from '../shared/rules';
 import type { PostData, PostView } from '../shared/types';
@@ -141,7 +141,7 @@ export function FeedItem({ post, clock, no = 1 }: { post: PostView; clock: Clock
       {d.kind === 'diary' && (
         <div className="intertitle">
           <div className="in">
-            <p className="d">{`${DOW_NAMES[w.dow]} 밤`}</p>
+            <p className="d">{`${DOW_NAMES[w.dow]} ${partOfDay(w.min)}`}</p>
             <p className="body">{d.text}</p>
           </div>
         </div>

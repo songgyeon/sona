@@ -319,6 +319,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .cut { margin: 22px 0; display: flex; align-items: center; gap: 14px; font-family: var(--serif); font-size: 12.5px; letter-spacing: 0.1em; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .cut::before, .cut::after { content: ''; flex: 1; height: 1px; background: var(--hair); }
 .flow .note { margin: 18px 0; text-align: center; }
+.flow .note .feedlink { font: inherit; color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; }
 .stuck { margin: 22px 0; display: grid; justify-items: center; gap: 12px; text-align: center; font-size: 13.5px; color: var(--ink-2); }
 .foot { flex: none; position: relative; z-index: 2; margin-top: -40px; padding-top: 40px; background: linear-gradient(180deg, rgba(0, 0, 0, 0), #000 40px); }
 .skips { padding: 0 var(--pad) 14px; display: flex; flex-wrap: wrap; gap: 8px 22px; }

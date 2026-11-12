@@ -83,9 +83,10 @@ export function Cast({ filmId, playId, castKey, go }: { filmId?: string; playId?
         {cast.intro && <p className="intro">{cast.intro}</p>}
         {playId && (
           <div className="acts">
-            <button className="btn play" onClick={() => go(`/play/${playId}?with=${cast.key}`)}>
+            {/* 채팅은 하나다 — 이 단추는 그 채팅으로 돌아간다(캐스트마다 따로 여는 메시지 창은 없다) */}
+            <button className="btn play" onClick={() => go(`/play/${playId}`)}>
               <Bubble />
-              메시지
+              대화로 돌아가기
             </button>
           </div>
         )}
