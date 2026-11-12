@@ -100,10 +100,11 @@ export interface WriterInput {
   pose: string;
 }
 
-/** 본편: 장면을 쓰는 작가에게 건네는 시나리오 */
+/** 본편: 장면을 쓰는 작가에게 건네는 시나리오.
+    [지금]은 맨 끝에 둔다. 지나간 장면이 길어지면 앞에 적은 것은 멀어진다 —
+    지금이 언제이고 어디이며 누가 어떤 모습인지는 쓰기 바로 앞에서 읽게 한다 */
 export function writerLayer(s: WriterInput): string {
   const out: string[] = [];
-  nowBlock(s.clock, out, s.place, s.pose);
   const opened = openingBlock(s.film, out);
 
   if (s.shared.length > 0) {
@@ -118,7 +119,9 @@ export function writerLayer(s: WriterInput): string {
   }
 
   historyBlock(s.clock, s.history, opened ? 0 : null, out);
-  return out.join('\n');
+  out.push('');
+  nowBlock(s.clock, out, s.place, s.pose);
+  return out.join('\n').trim();
 }
 
 export interface SceneInput {

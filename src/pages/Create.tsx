@@ -336,8 +336,14 @@ export function Create({ go, editId, draftId }: { go: (to: string) => void; edit
                   <Field label={`${josa(me, '을', '를')} 부르는 말`}>
                     <input value={c.callsUser} maxLength={20} placeholder="예) 다온아" onChange={(e) => setCast(i, 'callsUser', e.target.value)} />
                   </Field>
-                  <Field label="말투">
-                    <input value={c.speech} maxLength={RULES.limits.short} placeholder="예) 반말. 짧게 말하고 일 얘기부터 한다" onChange={(e) => setCast(i, 'speech', e.target.value)} />
+                  <Field label="말투" count={[c.speech.length, RULES.limits.speech]}>
+                    <textarea
+                      rows={4}
+                      value={c.speech}
+                      maxLength={RULES.limits.speech}
+                      placeholder={'예) 반말. 짧게 말하고 일 얘기부터 한다.\n기분이 좋으면 말끝을 늘인다.'}
+                      onChange={(e) => setCast(i, 'speech', e.target.value)}
+                    />
                   </Field>
                   <Field label="예시 대사" hint="한 줄에 하나씩, 세 줄까지 적을 수 있어요.">
                     <textarea value={c.samples} rows={3} placeholder={'예) 왔어?\n그건 내가 할게.\n내일 큐시트 봤어?'} onChange={(e) => setCast(i, 'samples', e.target.value)} />

@@ -3,7 +3,7 @@ import { RULES } from '../../shared/rules';
 import { createFilm, parseFilm } from '../../worker/engine/films';
 import { skip } from '../../worker/engine/skip';
 import { viewOf } from '../../worker/engine/store';
-import { lastShapes, parseScene, rhythmFor } from '../../worker/engine/talk';
+import { lastShapes, parseScene, recent, rhythmFor } from '../../worker/engine/talk';
 import { enter, retry, say } from '../../worker/engine/turn';
 import { Fail } from '../../worker/engine/ctx';
 import { FAKE_DEFAULTS } from '../../worker/model/fake';
@@ -332,21 +332,34 @@ describe('본편: 지나간 장면을 얼마나 건네나', () => {
     expect(calls('reply').at(-1)!.layers.scene).toContain('[지금까지의 장면]\n수아: 제 일당은 십일만 원이에요.');
   });
 
-  it('아주 길어지면 오래된 말부터 빠진다. 방금 오간 말은 남는다', async () => {
+  it('길게 살아도 처음에 한 말이 그대로 건네진다. 줄 수로 자르지 않는다', async () => {
     const { send, calls } = await setup(FILM, { reply: `한서: "${'나'.repeat(300)}"` });
     await send('맨 처음 한 말.');
-    // 한 턴에 700자쯤 쌓인다. 스물네 턴이면 건네는 양을 넘긴다
+    // 한 턴에 700자쯤 쌓인다. 스물네 턴이면 만 칠천 자다
     for (let i = 0; i < 24; i++) await send(`${i}번째. ${'가'.repeat(380)}`);
     await send('방금 한 말.');
     const { scene } = calls('reply').at(-1)!.layers;
-    const history = scene.split('[지금까지의 장면]\n')[1]!;
-    expect(history).not.toContain('맨 처음 한 말.');
-    expect(history).not.toContain('수아: 0번째.');
-    expect(history).toContain('수아: 23번째.');
-    expect(history.length).toBeLessThanOrEqual(RULES.history.chars);
-    // 줄 수로 자르지 않는다. 서른 줄보다 많이 실린다
+    const history = scene.split('[지금까지의 장면]\n')[1]!.split('\n\n[지금]\n')[0]!;
+    expect(history.startsWith('수아: 맨 처음 한 말.')).toBe(true);
+    expect(history.length).toBeGreaterThan(17_000);
     expect(history.split('\n').length).toBeGreaterThan(30);
     expect(calls('reply').at(-1)!.user.split('\n')[0]).toBe('수아: 방금 한 말.');
+  });
+
+  it('건네는 양에는 끝이 있다. 넘치면 오래된 말부터 빠지고 방금 오간 말은 남는다', () => {
+    const said = (i: number) => ({ id: `m${i}`, room: 'scene', speaker: i % 2 ? 'c1' : 'persona', text: `${i}번째. ${'가'.repeat(390)}`, at: i, kind: 'chat' as const, turnId: `t${i}` });
+    const all = Array.from({ length: 400 }, (_, i) => said(i));
+    const kept = recent(all);
+    // 뒤에서부터 이어진 한 토막이다. 가운데를 빼지 않는다
+    expect(kept.at(-1)!.id).toBe('m399');
+    expect(kept.map((m) => m.id)).toEqual(all.slice(-kept.length).map((m) => m.id));
+    expect(kept.length).toBeLessThan(all.length);
+    const chars = kept.reduce((n, m) => n + m.text.length, 0);
+    expect(chars).toBeLessThanOrEqual(RULES.history.chars);
+    // 한 줄만 더 실으면 넘친다(줄마다 이름표와 줄바꿈 몫으로 여덟 자를 더 친다)
+    expect(chars + kept.length * 8 + 410).toBeGreaterThan(RULES.history.chars);
+    // 적으면 다 싣는다
+    expect(recent(all.slice(0, 50))).toHaveLength(50);
   });
 
   it('먼저 거는 연락을 쓸 때도 같은 만큼 건넨다', async () => {
@@ -362,6 +375,17 @@ describe('본편: 지나간 장면을 얼마나 건네나', () => {
     const pings = calls('ping');
     expect(pings.length).toBeGreaterThan(0);
     expect(pings[0]!.layers.scene).toContain('[지금까지의 장면]\n수아: 제 일당은 십일만 원이에요.');
+  });
+});
+
+describe('본편: 작가에게 건네는 차례', () => {
+  it('[지금]은 맨 끝에 온다. 지나간 장면이 길어져도 쓰기 바로 앞에서 읽힌다', async () => {
+    const { send, calls } = await setup(FILM, { reply: '장소 | 계산대\n한서: "네."\n모습 | 한서는 계산대 뒤에 서 있다.' });
+    await send('안녕하세요.');
+    await send('뭐 하세요?');
+    const { scene } = calls('reply')[1]!.layers;
+    expect(scene.startsWith('[이야기가 시작된 자리]\n서점 계산대')).toBe(true);
+    expect(scene.endsWith('한서: "네."\n\n[지금]\n금요일 낮.\n바로 앞 대목까지 있던 곳: 계산대\n바로 앞 대목이 끝났을 때의 모습: 한서는 계산대 뒤에 서 있다.')).toBe(true);
   });
 });
 
@@ -470,10 +494,8 @@ describe('본편: 시간을 넘긴 뒤', () => {
     await skip(ctx, playId, { kind: 'sleep', requestId: uid() });
     await send('좋은 아침이에요.');
     const { scene } = calls('reply').at(-1)!.layers;
-    expect(scene).toContain('[지금]\n토요일 아침.');
-    const lines = scene.split('\n');
-    expect(lines.at(-1)).toBe('(시간이 흘렀다. 지금은 토요일 아침.)');
-    expect(lines.at(-2)).toBe('한서: "응, 듣고 있어."');
+    // 지나간 장면 끝에 적히고, 그 뒤에 [지금]이 온다
+    expect(scene.endsWith('한서: "응, 듣고 있어."\n(시간이 흘렀다. 지금은 토요일 아침.)\n\n[지금]\n토요일 아침.')).toBe(true);
   });
 
   it('지나간 장면 사이에서 벌어진 자리에도 적힌다', async () => {

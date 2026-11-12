@@ -95,7 +95,7 @@ export function parseScene(raw: string, film: Film): { pieces: Piece[]; personaS
 export function recent(messages: MessageView[]): MessageView[] {
   let chars = 0;
   let from = messages.length;
-  while (from > 0 && messages.length - from < RULES.history.lines) {
+  while (from > 0) {
     // 줄마다 이름표와 줄바꿈이 붙는다
     const next = messages[from - 1]!.text.length + 8;
     if (chars + next > RULES.history.chars) break;
