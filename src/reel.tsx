@@ -2,7 +2,7 @@
    영상 파일로 굽지 않는다. 앱이 컷을 차례로 틀어 준다: 그림과 영상, 움직임, 전환, 글자, 음악.
    그래서 그림 컷은 올린 그대로 선명하다. 영상 컷은 올릴 때 줄여서 화질이 떨어질 수 있다. */
 
-import { type ChangeEvent, type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from 'react';
+import { type ChangeEvent, type PointerEvent as ReactPointerEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { blankReel, clipAt, fadesOf, layersOf, lengthOf, motionAt, musicVolume, newClip, newText, opacityOf, progressIn, startsOf, textOpacity, underOf } from '../shared/reel';
 import { FONTS, fontOf } from '../shared/fonts';
@@ -11,7 +11,7 @@ import type { Reel, ReelClip, ReelEnter, ReelMotion, ReelRatio, ReelText } from 
 import { ApiFail, imgUrl, uploadImage } from './api';
 import { Next, Pause, PlayFill, Sound, SoundOff } from './icons';
 import { audioType, mediaSeconds, mediaUrl, shrinkVideo, uploadMedia } from './media';
-import { soundEl } from './sound';
+import { pressed, screenEls, soundEl, unlock } from './sound';
 import { loadFonts, readyFonts } from './fonts';
 
 const R = RULES.reel;
@@ -43,7 +43,10 @@ export const clock = (sec: number): string => {
     영상 컷이 보이는 동안은 영상이 실제로 흐른 만큼만 시간을 민다 — 받는 중이라 멈추면 시간도 기다린다.
     틀고 있을 때는 영상과 음악을 저절로 흐르게 둔다. 컷에 들어설 때와 크게 어긋났을 때만 자리를 맞춘다
     (2026-11-12: 화면마다 자리를 맞추느라 받는 중인 영상을 계속 옮겨서, 끊기고 느리고 깨져 보였다).
-    music을 주면 그 소리 칸으로 음악을 낸다(오프닝 — src/sound.ts). onReady를 주면 첫 컷의 영상과 음악을 틀 만큼 받았을 때 부른다 */
+    music을 주면 그 소리 칸으로 음악을 낸다(오프닝 — src/sound.ts). onReady를 주면 첫 컷의 영상과 음악을 틀 만큼 받았을 때 부른다.
+    screens를 주면 영상 컷마다 영상 칸을 새로 만들지 않고 앱에 둔 영상 칸을 돌려 쓴다(오프닝 — 앱을 누를 때 깨워 둔 칸이라 소리를 켜고 튼다).
+    누르지 않아 소리를 켜고 틀지 못한 영상은 소리 없이 틀고, 소리 단추를 누를 때까지 그대로 둔다 — 다시 소리를 켜면 휴대폰이 멈추게 해서,
+    켰다 멈췄다를 되풀이하며 끊겼다(2026-11-12 사용자: 삼성 인터넷에서 「영상 더 끊기고 소리도 안 나고」) */
 export function ReelStage({
   reel,
   t,
@@ -54,6 +57,8 @@ export function ReelStage({
   onReady,
   onBlocked,
   music,
+  screens,
+  again = 0,
   edit,
 }: {
   reel: Reel;
@@ -63,9 +68,13 @@ export function ReelStage({
   onTick: (t: number) => void;
   onEnd?: () => void;
   onReady?: () => void;
-  /** 누르지 않아 소리를 못 냈다(휴대폰). 소리를 끈 것으로 보이게 한다 */
+  /** 누르지 않아 소리를 못 낸 것이 있다(휴대폰). 소리 단추를 꺼짐으로 보이게 한다 — 낼 수 있는 소리는 그대로 낸다 */
   onBlocked?: () => void;
   music?: HTMLAudioElement;
+  /** 앱에 둔 영상 칸(src/sound.ts의 screenEls) */
+  screens?: HTMLVideoElement[];
+  /** 소리 단추로 소리를 다시 켤 때마다 는다. 막혀서 소리 없이 틀던 것을 잊는다 */
+  again?: number;
   /** 만드는 화면: 고른 컷의 글자를 누르면 고르고, 끌면 옮긴다(자리는 화면의 %) */
   edit?: { clip: number; layer: number; onPick: (layer: number) => void; onMove: (layer: number, x: number, y: number) => void };
 }) {
@@ -108,6 +117,10 @@ export function ReelStage({
   /** 음악을 틀어 달라고 한 뒤 아직 답이 없나, 소리가 막혔나 */
   const asking = useRef(false);
   const blocked = useRef(false);
+  /** 누르지 않아 소리를 켜고 틀지 못해 소리 없이 트는 영상 칸 */
+  const hushed = useRef(new WeakSet<HTMLMediaElement>());
+  /** 영상 칸을 돌려 쓸 때 영상 컷마다 칸을 얹는 자리 */
+  const hosts = useRef<Record<number, HTMLDivElement | null>>({});
 
   // 받은 소리 칸에 이 영상의 음악을 건다. 처음 자리(musicFrom)는 다 받기 전에 정해 두면 받은 뒤에 그 자리에서 선다
   useEffect(() => {
@@ -191,6 +204,65 @@ export function ReelStage({
   const i = clipAt(clips, t);
   const under = underOf(clips, i, t);
 
+  // 영상 칸을 돌려 쓴다: 아직 끝나지 않은 영상 컷 가운데 앞에서부터 칸 수만큼 칸을 얹어 미리 받는다.
+  // 끝난 영상 컷의 칸은 그 뒤의 영상 컷으로 옮겨 간다. 나란히 있는 영상 컷은 늘 다른 칸이라 서서히 넘어갈 때 둘 다 보인다
+  useLayoutEffect(() => {
+    if (!screens || screens.length === 0) return;
+    const n = screens.length;
+    const done = under ?? i;
+    const lo = clips.filter((c, k) => c.kind === 'video' && k < done).length;
+    let j = -1;
+    clips.forEach((c, k) => {
+      if (c.kind !== 'video') return;
+      j += 1;
+      const v = screens[j % n]!;
+      const host = hosts.current[k];
+      if (j < lo || j >= lo + n || !host) {
+        videos.current[k] = null;
+        return;
+      }
+      if (v.dataset.clip !== String(k)) {
+        v.pause();
+        v.dataset.clip = String(k);
+        v.muted = true;
+        const url = mediaUrl(c.src);
+        if (v.getAttribute('src') !== url) v.src = url;
+        v.currentTime = c.from;
+        entered.current[k] = false;
+      }
+      if (v.parentElement !== host) host.appendChild(v);
+      videos.current[k] = v;
+    });
+  });
+
+  // 빌린 영상 칸을 돌려준다: 멈추고, 받던 것을 그친다. 다음 오프닝이 같은 칸을 바로 빌릴 수 있게 화면을 바꾸는 그 자리에서 한다
+  useLayoutEffect(() => {
+    if (!screens) return;
+    return () => {
+      for (const v of screens) {
+        v.pause();
+        delete v.dataset.clip;
+        v.removeAttribute('src');
+        v.load();
+        v.remove();
+      }
+    };
+  }, [screens]);
+
+  // 소리를 다시 켜면(누른 그 자리에서 튼다) 막혔던 것을 잊는다
+  useEffect(() => {
+    if (muted) return;
+    blocked.current = false;
+    hushed.current = new WeakSet();
+  }, [muted, again]);
+
+  // 누른 그 자리에서 틀기 시작했으면(만드는 화면의 재생 단추) 이 화면의 영상 칸을 모두 깨운다 — 뒤의 영상 컷도 소리를 켜고 튼다
+  useEffect(() => {
+    if (!playing || !pressed()) return;
+    hushed.current = new WeakSet();
+    for (const v of Object.values(videos.current)) if (v) unlock(v);
+  }, [playing]);
+
   // 영상 컷: 보이는 동안만 튼다. 멈춰 있을 때(만드는 화면에서 고르는 중)는 그 자리를 정확히 보인다
   useEffect(() => {
     clips.forEach((c, k) => {
@@ -204,7 +276,7 @@ export function ReelStage({
       }
       const local = c.from + Math.min(c.dur, Math.max(0, t - starts[k]!));
       const drift = Math.abs(v.currentTime - local);
-      v.muted = muted || !c.sound;
+      v.muted = muted || !c.sound || hushed.current.has(v);
       if (!playing) {
         if (!v.paused) v.pause();
         if (drift > 0.05 && !v.seeking) v.currentTime = local;
@@ -216,18 +288,17 @@ export function ReelStage({
         if (drift > 0.3 && !v.seeking) v.currentTime = local;
       } else if (drift > R.drift && !v.seeking) v.currentTime = local;
       if (v.paused && !v.ended) {
-        v.play().catch(() => {
+        v.play().catch((e: unknown) => {
+          // 누르지 않아 소리를 켜고 틀 수 없다(휴대폰). 이 영상만 소리 없이 튼다
+          if (!(e instanceof DOMException) || e.name !== 'NotAllowedError' || v.muted) return;
+          hushed.current.add(v);
           v.muted = true;
+          onBlocked?.();
           v.play().catch(() => {});
         });
       }
     });
   });
-
-  // 소리를 다시 켜면(누른 그 자리에서 튼다) 막혔던 것을 잊는다
-  useEffect(() => {
-    if (!muted) blocked.current = false;
-  }, [muted]);
 
   // 음악: 영상과 같이 가고, 끝에서 줄어든다. 틀고 있을 때는 크게 어긋날 때만 자리를 맞춘다
   useEffect(() => {
@@ -273,6 +344,17 @@ export function ReelStage({
           visibility: shown ? ('visible' as const) : ('hidden' as const),
         };
         if (c.kind === 'image') return <img key={k} className="layer" src={imgUrl(c.src)} alt="" style={style} />;
+        if (c.kind === 'video' && screens)
+          return (
+            <div
+              key={k}
+              className="layer vbox"
+              ref={(el) => {
+                hosts.current[k] = el;
+              }}
+              style={style}
+            />
+          );
         if (c.kind === 'video')
           return (
             <video
@@ -327,10 +409,17 @@ export function ReelOverlay({ reel, onDone }: { reel: Reel; onDone: () => void }
   const [t, setT] = useState(0);
   const [ready, setReady] = useState(false);
   const [muted, setMuted] = useState(soundOff);
+  /** 누르지 않아 소리를 못 낸 것이 있다(휴대폰). 소리 단추가 꺼짐으로 보이고, 누르면 그 자리에서 소리를 켜고 튼다 */
+  const [quiet, setQuiet] = useState(false);
+  /** 소리 단추로 소리를 켠 횟수 */
+  const [again, setAgain] = useState(0);
   const [leaving, setLeaving] = useState(false);
   const box = useRef<HTMLDivElement>(null);
-  // 음악은 앱을 처음 누를 때 깨워 둔 소리 칸으로 낸다 — 휴대폰에서도 바로 나온다
+  // 음악은 앱을 누를 때 깨워 둔 소리 칸으로 낸다 — 휴대폰에서도 바로 나온다
   const [music] = useState(() => (reel.music ? soundEl('reel') : undefined));
+  // 영상 컷도 앱을 누를 때 깨워 둔 영상 칸으로 튼다 — 소리를 켠 영상 컷도 휴대폰에서 바로 소리가 난다
+  const [screens] = useState(screenEls);
+  const off = muted || quiet;
 
   const end = () => {
     if (leaving) return;
@@ -338,18 +427,22 @@ export function ReelOverlay({ reel, onDone }: { reel: Reel; onDone: () => void }
     setTimeout(onDone, 600);
   };
 
-  // 소리를 켜는 것은 누른 그 자리에서 튼다 — 휴대폰은 누르지 않으면 소리를 못 낸다
+  // 소리를 켜는 것은 누른 그 자리에서 칸들을 깨운다 — 휴대폰은 누르지 않으면 소리를 못 낸다
   const toggle = () => {
-    const next = !muted;
-    setMuted(next);
-    setSoundOff(next);
-    if (!next) {
-      if (music) {
-        music.muted = false;
-        void music.play().catch(() => {});
-      }
-      box.current?.querySelectorAll<HTMLMediaElement>('audio, video').forEach((el) => void el.play().catch(() => {}));
+    if (!off) {
+      setMuted(true);
+      setSoundOff(true);
+      return;
     }
+    if (music) {
+      music.muted = false;
+      unlock(music);
+    }
+    box.current?.querySelectorAll<HTMLMediaElement>('audio, video').forEach((el) => unlock(el));
+    setMuted(false);
+    setSoundOff(false);
+    setQuiet(false);
+    setAgain((n) => n + 1);
   };
 
   return createPortal(
@@ -362,12 +455,14 @@ export function ReelOverlay({ reel, onDone }: { reel: Reel; onDone: () => void }
         onTick={setT}
         onEnd={end}
         onReady={() => setReady(true)}
-        onBlocked={() => setMuted(true)}
+        onBlocked={() => setQuiet(true)}
         music={music}
+        screens={screens}
+        again={again}
       />
       <div className="ctl">
-        <button className="snd" onClick={toggle} aria-label={muted ? '소리 켜기' : '소리 끄기'}>
-          {muted ? <SoundOff /> : <Sound />}
+        <button className="snd" onClick={toggle} aria-label={off ? '소리 켜기' : '소리 끄기'}>
+          {off ? <SoundOff /> : <Sound />}
         </button>
         <button className="skip" onClick={end}>
           건너뛰기
