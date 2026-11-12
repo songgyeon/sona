@@ -99,6 +99,27 @@ export const SCHEMA: string[] = [
     PRIMARY KEY (visitor, film_id)
   )`,
 
+  // 내 이름. 처음 들어올 때 입장권에 적는다. 이 기기(방문자)마다 하나
+  `CREATE TABLE IF NOT EXISTS visitors (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  )`,
+
+  // 저장한 장면. 그때의 삶을 통째로 담아 둔다(snapshot). auto는 돌아가기 전에 저절로 남긴 것(삶마다 한 자리)
+  `CREATE TABLE IF NOT EXISTS saves (
+    id TEXT PRIMARY KEY,
+    play_id TEXT NOT NULL,
+    at INTEGER NOT NULL,
+    place TEXT NOT NULL DEFAULT '',
+    line TEXT NOT NULL DEFAULT '',
+    auto INTEGER NOT NULL DEFAULT 0,
+    snapshot TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS saves_play ON saves(play_id, created_at)`,
+
   // 일어난 일. 추가만 한다. known_by는 아는 사람 목록(JSON 배열)
   `CREATE TABLE IF NOT EXISTS events (
     id TEXT PRIMARY KEY,

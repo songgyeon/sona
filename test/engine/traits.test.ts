@@ -226,3 +226,43 @@ describe('캐스트의 성격·습관·트라우마·결핍·비밀', () => {
     expect(kept.casts[0]).toMatchObject({ name: '한서', speech: '존댓말', ...EMPTY });
   });
 });
+
+describe('캐스트의 소개 — 프로필에 보여 주기만 하는 글', () => {
+  const INTRO = '서점 주인의 조카. 무뚝뚝해 보여도 단골의 취향은 다 외운다.';
+  const WITH_INTRO = { ...DEV_FILM, casts: [{ ...DEV_FILM.casts[0], intro: INTRO }, DEV_FILM.casts[1]] };
+
+  it('적지 않아도 개봉된다. 적으면 그대로 남고, 누구에게나 보인다', async () => {
+    const ctx = testCtx();
+    expect(parseFilm(DEV_FILM).casts[0]!.intro).toBe('');
+    const { id } = await createFilm(ctx, WITH_INTRO);
+    expect((await getFilm({ ...ctx, visitor: OTHER_VISITOR }, id)).film.casts[0]!.intro).toBe(INTRO);
+    expect(await (async () => {
+      try {
+        parseFilm({ ...DEV_FILM, casts: [{ ...DEV_FILM.casts[0], intro: '가'.repeat(RULES.limits.intro + 1) }] });
+        return null;
+      } catch (e) {
+        return (e as Fail).message;
+      }
+    })()).toContain('소개');
+  });
+
+  it('대사 모델에게는 건네지 않는다', async () => {
+    const ctx = testCtx();
+    const { id } = await createFilm(ctx, { ...WITH_INTRO, opens: { feed: true, ping: true, aside: true } });
+    const v = await enter(ctx, id, uid());
+    await say(ctx, v.id, { text: '안녕하세요.', requestId: uid() });
+    await skip(ctx, v.id, { kind: 'sleep', requestId: uid() });
+    const all = ctx.model.calls.map((c) => JSON.stringify(c));
+    expect(all.length).toBeGreaterThan(2);
+    expect(all.some((c) => c.includes('단골의 취향'))).toBe(false);
+  });
+
+  it('필름을 칸으로 되돌려도 남는다. 소개가 없던 때의 필름은 빈 소개로 읽힌다', () => {
+    const film = parseFilm(WITH_INTRO);
+    expect(fromFilm(film).casts[0]!.intro).toBe(INTRO);
+    expect((toFilm(fromFilm(film)) as { casts: { intro: string }[] }).casts[0]!.intro).toBe(INTRO);
+    const old = JSON.parse(JSON.stringify(film)) as Film;
+    delete (old.casts[0] as Partial<Film['casts'][0]>).intro;
+    expect(readFilm(old).casts[0]!.intro).toBe('');
+  });
+});

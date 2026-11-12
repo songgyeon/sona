@@ -193,6 +193,8 @@ button:disabled { opacity: 0.4; cursor: default; }
 .who .face { width: 92px; height: 92px; font-size: 34px; box-shadow: 0 0 0 3px #000; }
 .who .title { margin-top: 18px; font-size: 32px; letter-spacing: 0.2em; line-height: 1.2; }
 .who .role { margin-top: 8px; font-size: 14.5px; color: var(--ink-2); letter-spacing: -0.01em; }
+/* 캐스트 소개 — 디렉터가 보여 주려고 쓴 글 */
+.who .intro { margin-top: 14px; font-family: var(--serif); font-size: 14.5px; line-height: 1.85; color: var(--ink-2); white-space: pre-line; }
 .who .acts { margin-top: 22px; }
 .who .acts .btn { width: 100%; height: 46px; }
 .btn .bubble { width: 17px; height: 17px; fill: #000; }
@@ -266,6 +268,13 @@ button:disabled { opacity: 0.4; cursor: default; }
 .tell + .tell { margin-top: 12px; }
 /* 내가 쓴 지문. 지문과 같은 모양이다. 보내는 중에는 흐리다 */
 .tell.byme.sending { opacity: 0.5; }
+/* 오프닝이 끝나면 서는 내 배역 소개 */
+.introme { margin: 34px 0 10px; padding: 30px 6px; text-align: center; border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
+.introme .face { width: 74px; height: 74px; margin: 0 auto; font-size: 26px; box-shadow: 0 0 0 1px var(--ink-4); }
+.introme .k { margin-top: 18px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.44em; padding-left: 0.44em; color: var(--ink-3); }
+.introme h2 { margin-top: 8px; font-family: var(--serif); font-size: 34px; font-weight: 700; letter-spacing: 0.3em; padding-left: 0.3em; line-height: 1.3; }
+.introme .l { margin: 14px auto 0; max-width: 300px; font-family: var(--serif); font-size: 14.5px; line-height: 1.85; color: var(--ink-2); text-wrap: balance; white-space: pre-line; }
+.opening + .introme { margin-top: 34px; }
 /* 다음 대목을 쓰는 중 */
 .tell.wait { color: var(--ink-3); letter-spacing: 0.3em; }
 .say { margin: 24px 0; display: grid; grid-template-columns: 38px 1fr; column-gap: 14px; align-items: center; text-align: left; width: 100%; }
@@ -564,3 +573,83 @@ button:disabled { opacity: 0.4; cursor: default; }
   .btn, .tab, .cell, .castrow, .filmrow { transition: opacity 120ms ease; }
   .btn:active, .cell:active, .castrow:active, .filmrow:active { opacity: 0.7; }
 }
+
+/* ── 내 이름: 입장권 ── 처음 들어오면 뜬다. 종이는 흰색 쪽 회색, 글은 검정. 아래쪽은 뜯는 자리다 */
+.namepop { position: fixed; inset: 0; z-index: 90; overflow-y: auto; display: grid; place-items: center; padding: 28px; background: rgba(0, 0, 0, 0.74); -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px); }
+.ticket { width: 100%; max-width: 330px; color: #111; animation: tkin 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes tkin { from { transform: translateY(26px) rotate(-1.5deg); opacity: 0; } to { transform: none; opacity: 1; } }
+.tk-main, .tk-stub { position: relative; background: #f1f1ef; background-image: radial-gradient(rgba(0, 0, 0, 0.035) 1px, transparent 1px); background-size: 3px 3px; transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.45s; }
+.tk-main { padding: 22px 24px 26px; border-radius: 6px 6px 0 0;
+  -webkit-mask: radial-gradient(circle 12px at 0 100%, #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle 12px at 100% 100%, #0000 97%, #000) right / 51% 100% no-repeat;
+  mask: radial-gradient(circle 12px at 0 100%, #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle 12px at 100% 100%, #0000 97%, #000) right / 51% 100% no-repeat; }
+.tk-stub { padding: 20px 24px; border-radius: 0 0 6px 6px;
+  -webkit-mask: radial-gradient(circle 12px at 0 0, #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle 12px at 100% 0, #0000 97%, #000) right / 51% 100% no-repeat;
+  mask: radial-gradient(circle 12px at 0 0, #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle 12px at 100% 0, #0000 97%, #000) right / 51% 100% no-repeat; }
+.tk-stub::before { content: ''; position: absolute; left: 18px; right: 18px; top: 0; border-top: 2px dashed rgba(0, 0, 0, 0.22); }
+/* 입장하기: 아래쪽이 뜯겨 떨어지고 위쪽은 날아간다 */
+.ticket.out .tk-stub { transform: translateY(46px) rotate(5deg); opacity: 0; }
+.ticket.out .tk-main { transform: translateY(-16px); opacity: 0; transition-delay: 0.08s; }
+.tk-top { display: flex; align-items: center; gap: 12px; }
+.tk-logo { font-family: var(--serif); font-size: 15px; font-weight: 700; letter-spacing: 0.32em; }
+.tk-no { margin-left: auto; font-size: 10.5px; font-weight: 600; letter-spacing: 0.14em; color: #6a6a6a; font-variant-numeric: tabular-nums; }
+.tk-x { width: 28px; height: 28px; margin-right: -6px; display: grid; place-items: center; color: #333; }
+.tk-x svg { width: 16px; height: 16px; }
+.tk-strip { margin: 16px -24px 0; height: 14px; background: #111; background-image: linear-gradient(90deg, #f1f1ef 0 6px, transparent 6px); background-size: 14px 6px; background-repeat: repeat-x; background-position: 4px 4px; }
+.tk-kicker { margin-top: 22px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.4em; color: #777; }
+.tk-ask { margin-top: 8px; font-family: var(--serif); font-size: 25px; font-weight: 700; letter-spacing: 0.02em; line-height: 1.35; }
+.tk-field { display: block; margin-top: 22px; }
+.tk-field span { font-size: 10.5px; font-weight: 700; letter-spacing: 0.3em; color: #777; }
+.tk-field input { display: block; width: 100%; margin-top: 4px; padding: 4px 0 8px; border: 0; border-bottom: 1.5px solid #111; border-radius: 0; background: transparent; font-family: var(--serif); font-size: 30px; font-weight: 700; letter-spacing: 0.08em; color: #111; outline: none; }
+.tk-field input::placeholder { color: #b5b5b2; font-weight: 400; }
+.tk-hint { margin-top: 12px; font-size: 12.5px; line-height: 1.6; color: #555; }
+.tk-err { margin-top: 8px; font-size: 12.5px; font-weight: 600; color: #111; }
+.tk-go { display: block; width: 100%; height: 52px; background: #111; color: #f1f1ef; font-size: 15px; font-weight: 700; letter-spacing: 0.2em; }
+.tk-go:disabled { opacity: 0.35; }
+.tk-date { display: flex; justify-content: space-between; margin-top: 12px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.14em; color: #777; font-variant-numeric: tabular-nums; }
+/* 홈 위쪽 내 이름. 누르면 입장권으로 고친다 */
+.namechip { height: 30px; padding: 0 11px; margin-right: 4px; border: 1px solid var(--ink-4); font-size: 12.5px; font-weight: 600; letter-spacing: 0.02em; color: var(--ink-2); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── 필름 정보: 들어가는 이름, 저장한 장면, 캐스트 맨 위의 나 ── */
+.asme { width: 100%; margin-bottom: 14px; }
+.asme > p { margin-bottom: 10px; font-size: 11px; font-weight: 600; letter-spacing: 0.3em; color: var(--ink-3); }
+.asme .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.asme button { min-height: 58px; padding: 6px 8px; border: 1px solid var(--ink-4); display: grid; align-content: center; justify-items: center; gap: 2px; color: var(--ink-3); }
+.asme button b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; font-weight: 700; letter-spacing: 0.02em; color: var(--ink-2); }
+.asme button small { font-size: 11px; letter-spacing: 0.06em; }
+.asme button.on { background: var(--ink); border-color: var(--ink); color: #555; }
+.asme button.on b { color: #000; }
+.savedrow { width: 100%; margin-top: 4px; display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); font-size: 13.5px; color: var(--ink-2); }
+.savedrow b { font-weight: 600; }
+.savedrow span { font-size: 12.5px; color: var(--ink-3); }
+.castrow.me { cursor: default; }
+.metag { margin-left: 8px; padding: 1px 6px; border: 1px solid var(--ink-3); font-size: 10.5px; font-style: normal; font-weight: 700; letter-spacing: 0.1em; color: var(--ink-2); vertical-align: 2px; }
+
+/* ── 재생: 위 띠 오른쪽의 책갈피와 내 얼굴 ── */
+.band .right { display: flex; align-items: center; }
+.keepbtn { color: var(--ink-2); }
+.keepbtn svg { width: 21px; height: 21px; }
+
+/* ── 장면 저장 시트 ── */
+.savedim { position: fixed; inset: 0; z-index: 80; background: rgba(0, 0, 0, 0.6); }
+.savesheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 81; max-height: 86dvh; overflow-y: auto; padding: 10px 24px 0; background: #0d0d0d; border-top: 1px solid var(--ink-4); animation: sheetin 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes sheetin { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.savesheet .grab { width: 36px; height: 3px; margin: 0 auto 16px; background: var(--ink-4); }
+.savesheet h3 { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 700; }
+.savesheet h3 span { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.savesheet h3 .ico { margin-right: -10px; color: var(--ink-3); }
+.savesheet .btn { margin-top: 14px; }
+.savesheet .note, .savesheet .warn { margin-top: 10px; }
+.savesheet .k { margin-top: 24px; font-size: 11px; font-weight: 600; letter-spacing: 0.3em; color: var(--ink-3); }
+.savelist li { padding: 15px 0; border-bottom: 1px solid var(--hair); }
+.savelist .what b { font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.savelist li.auto .what b::after { content: '자동'; margin-left: 8px; padding: 1px 5px; border: 1px solid var(--ink-4); font-size: 10px; font-weight: 600; color: var(--ink-3); vertical-align: 1px; }
+.savelist .what p { margin-top: 4px; font-family: var(--serif); font-size: 13.5px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.savelist .what small { display: block; margin-top: 4px; font-size: 11.5px; color: var(--ink-3); }
+.savelist .acts { margin-top: 10px; display: flex; align-items: center; gap: 16px; }
+.savelist .again { padding: 8px 12px; border: 1px solid var(--ink-4); font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+.savelist .acts .textbtn { margin-left: auto; font-size: 12px; color: var(--ink-4); }
+.savelist .ask { margin-top: 10px; padding: 12px; border: 1px solid var(--hair); background: #141414; }
+.savelist .ask p { font-size: 12.5px; line-height: 1.6; color: var(--ink-2); }
+.savelist .ask div { margin-top: 10px; display: flex; align-items: center; gap: 14px; }
+.savelist .ask .btn { margin: 0; height: 38px; padding: 0 16px; font-size: 13px; }
+.savesheet .safe { height: max(24px, env(safe-area-inset-bottom)); }

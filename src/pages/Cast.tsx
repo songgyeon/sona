@@ -48,6 +48,8 @@ export function Cast({ filmId, playId, castKey, go }: { filmId?: string; playId?
         <Face id={cast.face ?? ''} name={cast.name} />
         <h1 className="title">{cast.name}</h1>
         {cast.role && <p className="role">{cast.role}</p>}
+        {/* 디렉터가 프로필에 보여 주려고 쓴 소개. 대사 모델은 읽지 않는다 */}
+        {cast.intro && <p className="intro">{cast.intro}</p>}
         {playId && (
           <div className="acts">
             <button className="btn play" onClick={() => go(`/play/${playId}?with=${cast.key}`)}>

@@ -5,10 +5,12 @@ import type { FilmCard, PlayCard } from '../../shared/types';
 import { ApiFail, api } from '../api';
 import { PlayFill, Search } from '../icons';
 import { Art, PosterStrip, titleClass } from '../poster';
+import { useMe } from '../me';
 import { Tabs } from '../tabs';
 
 /** 홈. 맨 위는 영화 포스터 한 장이고, 내리면 필름이 한 줄로 흐른다 */
 export function Home({ go, fake, modelReady }: { go: (to: string) => void; fake: boolean; modelReady: boolean }) {
+  const me = useMe();
   const [films, setFilms] = useState<FilmCard[] | null>(null);
   const [plays, setPlays] = useState<PlayCard[]>([]);
   const [busy, setBusy] = useState(false);
@@ -54,6 +56,12 @@ export function Home({ go, fake, modelReady }: { go: (to: string) => void; fake:
       <header className="bar">
         <span className="logo">소나</span>
         <div className="right">
+          {/* 내 이름. 누르면 입장권을 다시 띄워 고친다 */}
+          {me.name && (
+            <button className="namechip" onClick={me.rename} aria-label={`내 이름 ${me.name} 고치기`}>
+              {me.name}
+            </button>
+          )}
           <button className="ico" onClick={() => go('/find')} aria-label="디깅">
             <Search />
           </button>

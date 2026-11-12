@@ -19,6 +19,7 @@ export function readFilm(saved: Film): Film {
     casts: saved.casts.map((c) => ({
       ...c,
       nature: c.nature ?? '',
+      intro: c.intro ?? '',
       habit: c.habit ?? '',
       trauma: c.trauma ?? '',
       lack: c.lack ?? '',

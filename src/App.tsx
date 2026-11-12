@@ -7,6 +7,7 @@ import { Film } from './pages/Film';
 import { Home } from './pages/Home';
 import { Me } from './pages/Me';
 import { Find, Living, Mine } from './pages/Lists';
+import { MeCtx, NamePop } from './me';
 import { Play } from './pages/Play';
 import { useRoute } from './router';
 
@@ -31,6 +32,10 @@ export function App() {
   const [why, setWhy] = useState('');
   const [fake, setFake] = useState(false);
   const [modelReady, setModelReady] = useState(true);
+  /** 내 이름. 아직 정하지 않았으면 빈 글자 — 입장권이 뜬다 */
+  const [name, setName] = useState('');
+  /** 입장권을 띄우고 있나 */
+  const [naming, setNaming] = useState(false);
 
   const check = async () => {
     setGate('checking');
@@ -38,6 +43,10 @@ export function App() {
       const r = await api.key();
       setFake(r.fake);
       setModelReady(r.modelReady);
+      // 내 이름을 아직 안 정했으면 입장권부터 띄운다. 못 읽었으면 묻지 않고 그냥 들어간다
+      const me = await api.me().catch(() => null);
+      setName(me?.name ?? '');
+      setNaming(me !== null && !me.name);
       setGate('open');
     } catch (e) {
       if (e instanceof ApiFail && e.code === 'bad_key') {
@@ -70,6 +79,25 @@ export function App() {
       </main>
     );
 
+  return (
+    <MeCtx.Provider value={{ name, rename: () => setNaming(true) }}>
+      <Page path={path} go={go} fake={fake} modelReady={modelReady} />
+      {naming && (
+        <NamePop
+          name={name}
+          onDone={(next) => {
+            setName(next);
+            setNaming(false);
+          }}
+          onClose={name ? () => setNaming(false) : undefined}
+        />
+      )}
+    </MeCtx.Provider>
+  );
+}
+
+/** 주소에 맞는 화면 */
+function Page({ path, go, fake, modelReady }: { path: string; go: (to: string) => void; fake: boolean; modelReady: boolean }) {
   let m: RegExpExecArray | null;
   if ((m = new RegExp(`^/play/${ID}/cast/(c[1-9])$`).exec(path))) return <Cast playId={m[1]!} castKey={m[2]!} go={go} />;
   if ((m = new RegExp(`^/play/${ID}/aside/${ID}$`).exec(path))) return <Aside key={m[2]} playId={m[1]!} asideId={m[2]!} go={go} />;

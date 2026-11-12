@@ -44,6 +44,8 @@ export interface Cast {
   aliases: string[];
   /** 나(유저의 인물)에게 누구인가 */
   role: string;
+  /** 소개 — 프로필에 보여 주기만 하는 글. 대사 모델은 읽지 않는다 */
+  intro: string;
   /** 이 사람이 나를 부르는 말 */
   callsUser: string;
   /** 말높이와 말버릇 한 줄 */
@@ -162,6 +164,30 @@ export interface PlayView {
   asides: AsideView[];
   /** 답을 못 받은 턴이 있으면 그 턴. 화면은 '다시 받기'를 보여준다 */
   stuck: TurnView | null;
+}
+
+/** 필름 정보 화면에서 보는 내 배역 — 이 필름에 들어가면 이 사람이 된다.
+    as: 내 이름으로 들어가나(me), 디렉터가 정한 배역 이름으로 들어가나(role), 내가 따로 고친 이름인가(custom) */
+export interface FilmMine {
+  name: string;
+  line: string;
+  face: string;
+  as: 'me' | 'role' | 'custom';
+}
+
+/** 저장한 장면 한 자리 */
+export interface SaveView {
+  id: string;
+  /** 그때의 작중 시각(흐른 분) */
+  at: number;
+  /** 그때 장면이 벌어지던 곳 */
+  place: string;
+  /** 그때 마지막으로 오간 말. 없으면 빈 글자 */
+  line: string;
+  /** 돌아가기 전에 저절로 남긴 자리 */
+  auto: boolean;
+  /** 저장한 때(진짜 시각, 밀리초) */
+  savedAt: number;
 }
 
 export interface FilmCard {

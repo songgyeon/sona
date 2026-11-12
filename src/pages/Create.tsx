@@ -357,6 +357,15 @@ export function Create({ go, editId, draftId }: { go: (to: string) => void; edit
                     </Field>
                   </div>
 
+                  <Field label="소개" optional count={[c.intro.length, RULES.limits.intro]} hint="프로필에만 보이고, 캐스트의 말과 행동에는 쓰이지 않아요.">
+                    <textarea
+                      rows={3}
+                      value={c.intro}
+                      maxLength={RULES.limits.intro}
+                      placeholder="예) 방송부 부장. 무뚝뚝해 보여도 부원들의 생일은 다 외운다."
+                      onChange={(e) => setCast(i, 'intro', e.target.value)}
+                    />
+                  </Field>
                   <Field label={`${josa(me, '과', '와')}의 관계`}>
                     <input value={c.role} maxLength={RULES.limits.short} placeholder="예) 방송부 부장. 같이 입학한 동기" onChange={(e) => setCast(i, 'role', e.target.value)} />
                   </Field>

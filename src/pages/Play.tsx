@@ -4,9 +4,10 @@ import { josa } from '../../shared/ko';
 import { splitLine } from '../../shared/line';
 import { cutsOf, hasLines } from '../../shared/opening';
 import { RULES } from '../../shared/rules';
-import type { AsideView, Film, MessageView, PlayView } from '../../shared/types';
+import type { AsideView, Film, MessageView, Persona, PlayView } from '../../shared/types';
 import { ApiFail, api, imgUrl, newId } from '../api';
-import { Arrow, Back, Down, PlayFill, SkipFill } from '../icons';
+import { Arrow, Back, Bookmark, Down, PlayFill, SkipFill } from '../icons';
+import { SaveSheet } from '../saves';
 import { Face, titleClass } from '../poster';
 
 type SkipKind = 'evening' | 'sleep';
@@ -81,6 +82,19 @@ function Opening({ film }: { film: Film }) {
   return <div className="opening">{out}</div>;
 }
 
+/** 오프닝이 끝나면 서는 내 배역 소개. 이 필름에서 내가 누구인지 — 사진, 이름, 소개.
+    고른 이름(내 이름이나 배역 이름)과 내가 고친 사진·소개가 그대로 나온다 */
+function MeCard({ me }: { me: Persona }) {
+  return (
+    <div className="introme">
+      <Face id={me.face} name={me.name} />
+      <p className="k">내 배역</p>
+      <h2>{me.name}</h2>
+      {me.line && <p className="l">{me.line}</p>}
+    </div>
+  );
+}
+
 /** 재생. 위에 지금 장면이 걸리고, 아래로 장면이 흐른다 */
 export function Play({ playId, go }: { playId: string; go: (to: string) => void }) {
   const [view, setView] = useState<PlayView | null>(null);
@@ -98,6 +112,8 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
   const [card, setCard] = useState(() => new URLSearchParams(window.location.search).has('open'));
   /** 오프닝을 읽는 중. 끝에 닿으면 말하는 칸이 선다 */
   const [reading, setReading] = useState(false);
+  /** 장면 저장 시트를 열어 두었나. 필름 정보의 「저장한 장면」에서 오면 열린 채로 온다(?saves) */
+  const [saving, setSaving] = useState(() => new URLSearchParams(window.location.search).has('saves'));
   /** 지금 화면에 걸린 컷과, 그 밑에 깔린 바로 앞 컷 */
   const [shot, setShot] = useState('');
   const [under, setUnder] = useState('');
@@ -374,11 +390,32 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
         <button className="ico" onClick={() => go('/')} aria-label="필름에서 나가기">
           <Back />
         </button>
-        {/* 내 배역. 사진과 정보를 고치러 간다 */}
-        <button className="mine" onClick={() => go(`/play/${playId}/me`)} aria-label="내 배역">
-          <Face id={me.face ?? ''} name={me.name} />
-        </button>
+        <div className="right">
+          {/* 장면 저장. 지금 장면을 남기고, 남긴 장면에서 다시 산다 */}
+          <button className="ico keepbtn" onClick={() => setSaving(true)} aria-label="장면 저장">
+            <Bookmark />
+          </button>
+          {/* 내 배역. 사진과 정보를 고치러 간다 */}
+          <button className="mine" onClick={() => go(`/play/${playId}/me`)} aria-label="내 배역">
+            <Face id={me.face ?? ''} name={me.name} />
+          </button>
+        </div>
       </div>
+      {saving && (
+        <SaveSheet
+          playId={playId}
+          clock={clock}
+          locked={waiting || !!out || !!away}
+          onClose={() => setSaving(false)}
+          onLoaded={(next) => {
+            setView(next);
+            setSaving(false);
+            setReading(false);
+            setErr('');
+            setNotice('저장한 장면으로 돌아왔어요.');
+          }}
+        />
+      )}
 
       {/* 그림은 오프닝을 읽는 동안에만 걸린다. 다 읽으면 치우고, 그 뒤로는 화면 전체가 오가는 말이다 */}
       {onScreen && reading && (
@@ -402,6 +439,7 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
 
       <section className="flow" aria-live="polite" ref={flow} onScroll={onScroll}>
         {fs.beats.length > 0 && <Opening film={film} />}
+        <MeCard me={film.persona} />
 
         {items.map(({ m, a }, i) =>
           a ? (

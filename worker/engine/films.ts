@@ -61,6 +61,7 @@ export function parseFilm(input: unknown): Film {
       face: image(c.face, '캐스트'),
       aliases: list(c.aliases, 6, 20, '불리는 이름'),
       role: text(c.role, L.short, '캐스트와의 관계'),
+      intro: text(c.intro, L.intro, '소개'),
       callsUser: text(c.callsUser, 20, '나를 부르는 말'),
       speech: text(c.speech, L.speech, '말투'),
       nature: text(c.nature, L.trait, '성격'),

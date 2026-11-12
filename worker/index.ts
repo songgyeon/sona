@@ -2,7 +2,10 @@
 
 import { d1 } from './db';
 import { type Ctx, Fail } from './engine/ctx';
-import { createFilm, getFilm, listFilms, updateFilm } from './engine/films';
+import { chooseAs, filmView } from './engine/entry';
+import { createFilm, listFilms, updateFilm } from './engine/films';
+import { getMe, setMe } from './engine/me';
+import { dropSave, listSaves, loadSave, makeSave } from './engine/saves';
 import { loadImage, saveImage } from './engine/images';
 import { skip } from './engine/skip';
 import { listPlays, viewOf } from './engine/store';
@@ -49,7 +52,10 @@ type Handler = (ctx: Ctx, p: string[], body: Record<string, unknown>) => Promise
 const ROUTES: [string, RegExp, Handler][] = [
   ['GET', /^\/api\/films$/, (ctx) => listFilms(ctx)],
   ['POST', /^\/api\/films$/, (ctx, _p, body) => createFilm(ctx, body)],
-  ['GET', /^\/api\/films\/([^/]+)$/, (ctx, p) => getFilm(ctx, p[0]!)],
+  ['GET', /^\/api\/me$/, (ctx) => getMe(ctx)],
+  ['PUT', /^\/api\/me$/, (ctx, _p, body) => setMe(ctx, body)],
+  ['GET', /^\/api\/films\/([^/]+)$/, (ctx, p) => filmView(ctx, p[0]!)],
+  ['PUT', /^\/api\/films\/([^/]+)\/as$/, (ctx, p, body) => chooseAs(ctx, p[0]!, body)],
   ['PUT', /^\/api\/films\/([^/]+)$/, (ctx, p, body) => updateFilm(ctx, p[0]!, body)],
   ['POST', /^\/api\/films\/([^/]+)\/enter$/, (ctx, p, body) => enter(ctx, p[0]!, body.playId)],
   ['GET', /^\/api\/plays$/, (ctx) => listPlays(ctx)],
@@ -65,6 +71,10 @@ const ROUTES: [string, RegExp, Handler][] = [
     (ctx, p, body) => skip(ctx, p[0]!, { kind: body.kind, requestId: body.requestId }),
   ],
   ['POST', /^\/api\/plays\/([^/]+)\/retry$/, (ctx, p) => retry(ctx, p[0]!)],
+  ['GET', /^\/api\/plays\/([^/]+)\/saves$/, (ctx, p) => listSaves(ctx, p[0]!)],
+  ['POST', /^\/api\/plays\/([^/]+)\/saves$/, (ctx, p) => makeSave(ctx, p[0]!)],
+  ['POST', /^\/api\/plays\/([^/]+)\/saves\/([^/]+)\/load$/, (ctx, p) => loadSave(ctx, p[0]!, p[1]!)],
+  ['POST', /^\/api\/plays\/([^/]+)\/saves\/([^/]+)\/drop$/, (ctx, p) => dropSave(ctx, p[0]!, p[1]!)],
   ['POST', /^\/api\/plays\/([^/]+)\/next$/, (ctx, p) => nextDay(ctx, p[0]!)],
   ['POST', /^\/api\/plays\/([^/]+)\/persona$/, (ctx, p, body) => setMine(ctx, p[0]!, body)],
 ];

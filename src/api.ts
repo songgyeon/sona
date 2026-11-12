@@ -2,7 +2,7 @@
 
 import { type Box, outSide } from '../shared/crop';
 import { RULES } from '../shared/rules';
-import type { ApiError, Film, FilmCard, PlayCard, PlayView } from '../shared/types';
+import type { ApiError, Film, FilmCard, FilmMine, PlayCard, PlayView, SaveView } from '../shared/types';
 
 const KEY = 'sona.key';
 const VISITOR = 'sona.visitor';
@@ -128,7 +128,17 @@ async function send(canvas: HTMLCanvasElement): Promise<string> {
 export const api = {
   key: () => call<{ ok: true; fake: boolean; modelReady: boolean }>('GET', '/api/key'),
   films: () => call<FilmCard[]>('GET', '/api/films'),
-  film: (id: string) => call<{ card: FilmCard; film: Film }>('GET', `/api/films/${id}`),
+  film: (id: string) => call<{ card: FilmCard; film: Film; mine: FilmMine }>('GET', `/api/films/${id}`),
+  /** 들어가는 이름 고르기: 내 이름(me)이나 배역 이름(role) */
+  chooseAs: (id: string, as: 'me' | 'role') => call<{ card: FilmCard; film: Film; mine: FilmMine }>('PUT', `/api/films/${id}/as`, { as }),
+  /** 내 이름 */
+  me: () => call<{ name: string }>('GET', '/api/me'),
+  setMe: (name: string) => call<{ name: string }>('PUT', '/api/me', { name }),
+  /** 장면 저장 */
+  saves: (playId: string) => call<SaveView[]>('GET', `/api/plays/${playId}/saves`),
+  makeSave: (playId: string) => call<SaveView[]>('POST', `/api/plays/${playId}/saves`, {}),
+  loadSave: (playId: string, saveId: string) => call<PlayView>('POST', `/api/plays/${playId}/saves/${saveId}/load`, {}),
+  dropSave: (playId: string, saveId: string) => call<SaveView[]>('POST', `/api/plays/${playId}/saves/${saveId}/drop`, {}),
   createFilm: (film: unknown) => call<{ id: string }>('POST', '/api/films', film),
   updateFilm: (id: string, film: unknown) => call<{ id: string }>('PUT', `/api/films/${id}`, film),
   enter: (filmId: string, playId: string) => call<PlayView>('POST', `/api/films/${filmId}/enter`, { playId }),

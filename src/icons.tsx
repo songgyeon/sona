@@ -44,6 +44,12 @@ export const HomeIcon = () => (
     <path d="M4 10.8 12 4l8 6.8V20h-5.4v-5.6H9.4V20H4z" />
   </Line>
 );
+/** 책갈피 — 장면 저장 */
+export const Bookmark = () => (
+  <Line>
+    <path d="M6.5 4h11v16l-5.5-4-5.5 4z" />
+  </Line>
+);
 /** 촬영기. 릴 둘을 얹은 몸통과 렌즈 — 「크랭크인」 */
 export const Camera = () => (
   <Line>

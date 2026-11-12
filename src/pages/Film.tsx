@@ -1,15 +1,21 @@
 import { useEffect, useState } from 'react';
 import { formatMin } from '../../shared/clock';
 import { DOW_NAMES } from '../../shared/rules';
-import type { Film as FilmData, FilmCard, PlayCard } from '../../shared/types';
+import type { Film as FilmData, FilmCard, FilmMine, PlayCard } from '../../shared/types';
 import { ApiFail, api, imgUrl, newId } from '../api';
 import { Back, LinkIcon, Next, Pen, PlayFill } from '../icons';
+import { useMe } from '../me';
 import { Face, StillStrip, titleClass } from '../poster';
 
 /** 필름 정보. 그 필름의 한 장면, 제목, 캐스트, 컷, 오프닝을 보고 들어간다 */
 export function Film({ filmId, go }: { filmId: string; go: (to: string) => void }) {
-  const [data, setData] = useState<{ card: FilmCard; film: FilmData } | null>(null);
+  const [data, setData] = useState<{ card: FilmCard; film: FilmData; mine: FilmMine } | null>(null);
   const [living, setLiving] = useState<PlayCard | null>(null);
+  /** 살고 있는 삶에 저장한 장면 수 */
+  const [saved, setSaved] = useState(0);
+  /** 들어가는 이름을 바꾸는 중 */
+  const [choosing, setChoosing] = useState(false);
+  const me = useMe();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [toast, setToast] = useState('');
@@ -18,7 +24,13 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
     Promise.all([api.film(filmId), api.plays()])
       .then(([d, plays]) => {
         setData(d);
-        setLiving(plays.find((p) => p.filmId === filmId && !p.ended) ?? null);
+        const now = plays.find((p) => p.filmId === filmId && !p.ended) ?? null;
+        setLiving(now);
+        if (now)
+          api
+            .saves(now.id)
+            .then((list) => setSaved(list.length))
+            .catch(() => setSaved(0));
       })
       .catch((e) => setErr(e instanceof ApiFail ? e.message : '필름을 불러오지 못했어요.'));
   }, [filmId]);
@@ -41,6 +53,19 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
     }
   };
 
+  /** 들어가는 이름을 고른다. 이 필름에서 살던 삶에도 적힌다 */
+  const choose = async (as: 'me' | 'role') => {
+    if (!data || choosing || data.mine.as === as) return;
+    setChoosing(true);
+    setErr('');
+    try {
+      setData(await api.chooseAs(filmId, as));
+    } catch (e) {
+      setErr(e instanceof ApiFail ? e.message : '이름을 바꾸지 못했어요.');
+    }
+    setChoosing(false);
+  };
+
   const enter = async () => {
     setBusy(true);
     setErr('');
@@ -54,7 +79,7 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
   };
 
   if (!data) return <p className="center">{err || '불러오는 중'}</p>;
-  const { film, card } = data;
+  const { film, card, mine } = data;
   const fs = film.firstScene;
   const stills = film.stills ?? [];
   /** 오프닝의 첫 지문. 필름이 어떻게 시작하는지 미리 보인다 */
@@ -78,6 +103,22 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
         <h1 className={titleClass(film.title)}>{film.title}</h1>
         {film.logline && <p className="line1">{film.logline}</p>}
         <div className="go">
+          {/* 들어가는 이름: 내 이름이나, 디렉터가 정한 배역 이름 */}
+          {me.name && (
+            <div className="asme" role="group" aria-label="들어가는 이름">
+              <p>들어가는 이름</p>
+              <div className="two">
+                <button className={mine.as === 'me' ? 'on' : ''} aria-pressed={mine.as === 'me'} disabled={choosing} onClick={() => void choose('me')}>
+                  <b>{me.name}</b>
+                  <small>내 이름</small>
+                </button>
+                <button className={mine.as === 'role' ? 'on' : ''} aria-pressed={mine.as === 'role'} disabled={choosing} onClick={() => void choose('role')}>
+                  <b>{film.persona.name}</b>
+                  <small>배역 이름</small>
+                </button>
+              </div>
+            </div>
+          )}
           {living ? (
             <>
               <button className="btn play wide" onClick={() => go(`/play/${living.id}`)}>
@@ -92,6 +133,12 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
             <button className="btn play wide" disabled={busy} onClick={enter}>
               <PlayFill />
               {busy ? '들어가는 중' : '필름에 들어가기'}
+            </button>
+          )}
+          {living && saved > 0 && (
+            <button className="savedrow" onClick={() => go(`/play/${living.id}?saves=1`)}>
+              <b>저장한 장면 {saved}개</b>
+              <span>여기서 다시 살기 ›</span>
             </button>
           )}
           {card.mine && (
@@ -116,6 +163,20 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
       <section className="block first">
         <p className="kicker">캐스트</p>
         <ul className="casts">
+          {/* 나. 이 필름에 들어가면 이 사람이 된다 */}
+          <li>
+            <div className="castrow me">
+              <Face id={mine.face} name={mine.name} />
+              <span>
+                <strong>
+                  {mine.name}
+                  <em className="metag">나</em>
+                </strong>
+                {mine.line && <small>{mine.line}</small>}
+              </span>
+              <span />
+            </div>
+          </li>
           {film.casts.map((c) => (
             <li key={c.key}>
               <button className="castrow" onClick={() => go(castPath(c.key))}>

@@ -8,6 +8,8 @@ export interface DraftCast {
   face: string;
   aliases: string;
   role: string;
+  /** 소개 — 프로필에 보여 주기만 한다 */
+  intro: string;
   callsUser: string;
   speech: string;
   nature: string;
@@ -69,6 +71,7 @@ export const blankCast = (): DraftCast => ({
   callsUser: '',
   speech: '',
   nature: '',
+  intro: '',
   habit: '',
   trauma: '',
   lack: '',
@@ -140,6 +143,7 @@ export function toFilm(d: Draft): unknown {
       callsUser: c.callsUser,
       speech: c.speech,
       nature: c.nature,
+      intro: c.intro,
       habit: c.habit,
       trauma: c.trauma,
       lack: c.lack,
@@ -220,6 +224,7 @@ export function fromFilm(f: Film): Draft {
       callsUser: c.callsUser,
       speech: c.speech,
       nature: c.nature ?? '',
+      intro: c.intro ?? '',
       habit: c.habit ?? '',
       trauma: c.trauma ?? '',
       lack: c.lack ?? '',
@@ -303,7 +308,7 @@ export function isBlank(d: Draft): boolean {
     d.personaLine,
     d.personaFace,
     d.place,
-    ...d.casts.flatMap((c) => [c.name, c.face, c.aliases, c.role, c.callsUser, c.speech, c.nature, c.habit, c.trauma, c.lack, c.secret, c.samples, c.dayPlace]),
+    ...d.casts.flatMap((c) => [c.name, c.face, c.aliases, c.role, c.intro, c.callsUser, c.speech, c.nature, c.habit, c.trauma, c.lack, c.secret, c.samples, c.dayPlace]),
     ...Object.values(d.ties).flatMap((t) => [t.relation, t.calls]),
   ];
   return d.casts.length <= 1 && d.beats.length === 0 && written.every((v) => v.trim().length === 0);
