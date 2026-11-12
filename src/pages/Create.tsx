@@ -1,8 +1,10 @@
 import { type ChangeEvent, cloneElement, type ReactElement, type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { blankCast, blankDraft, type Draft, type DraftBeat, type DraftCast, type DraftExtra, editSlot, fromFilm, isBlank, toFilm } from '../../shared/draft';
+import { FEED_KINDS, FEED_LABEL } from '../../shared/feed';
 import { openingLength } from '../../shared/opening';
 import { josa } from '../../shared/ko';
 import { DOW_NAMES, RULES } from '../../shared/rules';
+import type { FeedKind, FeedPhoto } from '../../shared/types';
 import { ApiFail, api, imgUrl, newId, uploadImage } from '../api';
 import { FacePick } from '../crop';
 import { drafts } from '../drafts';
@@ -110,6 +112,8 @@ export function Create({ go, editId, draftId }: { go: (to: string) => void; edit
   };
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setD((x) => ({ ...x, [k]: v }));
+  const setCastFeed = (i: number, v: FeedKind[]) => setD((x) => ({ ...x, casts: x.casts.map((c, j) => (j === i ? { ...c, feed: v } : c)) }));
+  const setCastPhotos = (i: number, v: FeedPhoto[]) => setD((x) => ({ ...x, casts: x.casts.map((c, j) => (j === i ? { ...c, photos: v } : c)) }));
   const setCastExtras = (i: number, v: DraftExtra[]) => setD((x) => ({ ...x, casts: x.casts.map((c, j) => (j === i ? { ...c, extras: v } : c)) }));
   const setCast = (i: number, k: Exclude<keyof DraftCast, 'extras'>, v: string) =>
     setD((x) => ({ ...x, casts: x.casts.map((c, j) => (j === i ? { ...c, [k]: v } : c)) }));
@@ -427,6 +431,17 @@ export function Create({ go, editId, draftId }: { go: (to: string) => void; edit
                       </div>
                       <p className="hint">자는 동안에는 먼저 연락하지 않아요.</p>
                     </>
+                  )}
+
+                  {d.feed && (
+                    <CastFeed
+                      feed={c.feed}
+                      photos={c.photos}
+                      busy={busy}
+                      onFeed={(v) => setCastFeed(i, v)}
+                      onPhotos={(v) => setCastPhotos(i, v)}
+                      onPick={(e) => pick(e, 1280, (id) => setCastPhotos(i, [...c.photos, { id, about: '' }]))}
+                    />
                   )}
 
                   {d.casts.length > 1 && (
@@ -834,6 +849,87 @@ export function Field({
         <p className="hint" id={`${id}-hint`}>
           {hint}
         </p>
+      )}
+    </div>
+  );
+}
+
+/** 캐스트의 피드: 켜고 끄는 여섯 가지와 올릴 사진. 하루에 하나만, 그날에 맞는 것을 대사 모델이 고른다.
+    사진은 여기 붙인 것만 올라간다. 무슨 사진인지 적어 두면 그날에 맞는 사진을 고른다 */
+function CastFeed({
+  feed,
+  photos,
+  busy,
+  onFeed,
+  onPhotos,
+  onPick,
+}: {
+  feed: FeedKind[];
+  photos: FeedPhoto[];
+  busy: boolean;
+  onFeed: (v: FeedKind[]) => void;
+  onPhotos: (v: FeedPhoto[]) => void;
+  onPick: (e: ChangeEvent<HTMLInputElement>) => void;
+}) {
+  const [sel, setSel] = useState(0);
+  const toggle = (k: FeedKind) => onFeed(feed.includes(k) ? feed.filter((x) => x !== k) : FEED_KINDS.filter((x) => x === k || feed.includes(x)));
+  const cur = photos[Math.min(sel, photos.length - 1)];
+  const at = Math.min(sel, photos.length - 1);
+  return (
+    <div className="fdset">
+      <p className="exhead">피드</p>
+      <p className="hint">켜 둔 것 가운데 그날에 맞는 것 하나만 올라와요. 안 올리는 날도 있어요.</p>
+      <div className="toggles" role="group" aria-label="피드에 올라오는 것">
+        {FEED_KINDS.map((k) => (
+          <button key={k} className={feed.includes(k) ? 'on' : ''} aria-pressed={feed.includes(k)} onClick={() => toggle(k)}>
+            <i aria-hidden="true">{feed.includes(k) ? '✓' : ''}</i>
+            <span>{FEED_LABEL[k]}</span>
+          </button>
+        ))}
+      </div>
+      {feed.includes('photo') && (
+        <>
+          <div className="photos">
+            {photos.map((p, i) => (
+              <button key={p.id} className={i === at ? 'ph on' : 'ph'} aria-pressed={i === at} aria-label={`피드 사진 ${i + 1}`} onClick={() => setSel(i)}>
+                <img src={imgUrl(p.id)} alt="" />
+              </button>
+            ))}
+            {photos.length < RULES.feed.photos && (
+              <label className={busy ? 'phadd off' : 'phadd'}>
+                <Plus />
+                <span>
+                  사진 추가
+                  <br />
+                  {photos.length} / {RULES.feed.photos}
+                </span>
+                <input type="file" accept={PICTURES} disabled={busy} aria-label="피드에 올릴 사진 고르기" onChange={onPick} />
+              </label>
+            )}
+          </div>
+          {cur && (
+            <>
+              <Field label="무슨 사진" count={[cur.about.length, RULES.feed.about]}>
+                <input
+                  value={cur.about}
+                  maxLength={RULES.feed.about}
+                  placeholder="예) 셔터를 내린 뒤 가게 앞에서 본 하늘"
+                  onChange={(e) => onPhotos(photos.map((p, i) => (i === at ? { ...p, about: e.target.value } : p)))}
+                />
+              </Field>
+              <button
+                className="textbtn exdel"
+                onClick={() => {
+                  onPhotos(photos.filter((_, i) => i !== at));
+                  setSel(0);
+                }}
+              >
+                이 사진 빼기
+              </button>
+            </>
+          )}
+          <p className="hint">사진은 여기 붙인 것만 올라와요.</p>
+        </>
       )}
     </div>
   );

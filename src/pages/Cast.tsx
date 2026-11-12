@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { formatWorld } from '../../shared/clock';
 import type { Film, PostView } from '../../shared/types';
 import { ApiFail, api, imgUrl } from '../api';
+import { FeedItem } from '../feed';
 import { Back, Bubble } from '../icons';
 import { Face } from '../poster';
 import { Tabs } from '../tabs';
@@ -33,6 +33,8 @@ export function Cast({ filmId, playId, castKey, go }: { filmId?: string; playId?
   const cover = (film.stills ?? [])[0] ?? film.poster ?? '';
   const clock = { startDow: film.startDow, startMin: film.startMin, elapsed: data.elapsed ?? 0 };
   const posts = [...data.posts].reverse();
+  /** 사진마다 필름 번호: 이 사람이 올린 사진 가운데 몇째인가 */
+  const photoNo = new Map(data.posts.filter((p) => p.data.kind === 'photo').map((p, i) => [p.id, i + 1]));
   const back = playId ? `/play/${playId}` : `/film/${filmId}`;
 
   return (
@@ -70,10 +72,7 @@ export function Cast({ filmId, playId, castKey, go }: { filmId?: string; playId?
             </p>
           )}
           {posts.map((p) => (
-            <article className="post" key={p.id}>
-              <time>{formatWorld(clock, p.at)}</time>
-              <p>{p.text}</p>
-            </article>
+            <FeedItem key={p.id} post={p} clock={clock} no={photoNo.get(p.id) ?? 1} />
           ))}
         </section>
       )}
