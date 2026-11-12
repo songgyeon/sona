@@ -134,6 +134,10 @@ export const api = {
   /** 내 이름 */
   me: () => call<{ name: string }>('GET', '/api/me'),
   setMe: (name: string) => call<{ name: string }>('PUT', '/api/me', { name }),
+  /** 피드를 연다. 이야기 전에 올려 둔 글이 없던 삶이면 그때 적는다 */
+  openFeed: (playId: string) => call<PlayView>('POST', `/api/plays/${playId}/feed`, {}),
+  /** 내 피드에 글을 올린다 */
+  postMine: (playId: string, text: string) => call<PlayView>('POST', `/api/plays/${playId}/posts`, { text }),
   /** 장면 저장 */
   saves: (playId: string) => call<SaveView[]>('GET', `/api/plays/${playId}/saves`),
   makeSave: (playId: string) => call<SaveView[]>('POST', `/api/plays/${playId}/saves`, {}),

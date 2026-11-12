@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { formatWorld } from '../../shared/clock';
 import { RULES } from '../../shared/rules';
+import type { PlayView } from '../../shared/types';
 import { ApiFail, api } from '../api';
 import { FacePick } from '../crop';
 import { Back } from '../icons';
@@ -15,11 +17,18 @@ export function Me({ playId, go }: { playId: string; go: (to: string) => void })
   const [face, setFace] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  /** 이 삶. 내 피드를 그린다 */
+  const [view, setView] = useState<PlayView | null>(null);
+  /** 쓰고 있는 피드 글 */
+  const [post, setPost] = useState('');
+  const [posting, setPosting] = useState(false);
+  const [postErr, setPostErr] = useState('');
 
   useEffect(() => {
     api
       .play(playId)
       .then((v) => {
+        setView(v);
         setName(v.film.persona.name);
         setLine(v.film.persona.line);
         setFace(v.film.persona.face ?? '');
@@ -42,7 +51,24 @@ export function Me({ playId, go }: { playId: string; go: (to: string) => void })
     }
   };
 
+  /** 내 피드에 올린다. 캐스트도 본다 */
+  const share = async () => {
+    const text = post.trim();
+    if (!text || posting) return;
+    setPosting(true);
+    setPostErr('');
+    try {
+      setView(await api.postMine(playId, text));
+      setPost('');
+    } catch (x) {
+      setPostErr(x instanceof ApiFail ? x.message : '올리지 못했어요.');
+    }
+    setPosting(false);
+  };
+
   if (!ready) return <p className="center">{err || '불러오는 중'}</p>;
+  const clock = view ? { startDow: view.film.startDow, startMin: view.film.startMin, elapsed: view.elapsed } : null;
+  const mine = view ? [...view.posts.filter((p) => p.cast === 'persona')].reverse() : [];
 
   return (
     <main className="app tabbed make">
@@ -86,6 +112,24 @@ export function Me({ playId, go }: { playId: string; go: (to: string) => void })
           <p className="warn" style={{ marginTop: 20 }}>
             {err}
           </p>
+        )}
+
+        {view?.film.opens.feed && clock && (
+          <Card title="내 피드" sub="올린 글은 캐스트도 봐요.">
+            <Field label="새 글" count={[post.length, RULES.feed.length]}>
+              <textarea rows={3} value={post} maxLength={RULES.feed.length} placeholder="예) 비 그친 줄 알았는데." onChange={(e) => setPost(e.target.value)} />
+            </Field>
+            {postErr && <p className="warn">{postErr}</p>}
+            <button className="btn more wide" disabled={posting || !post.trim()} onClick={() => void share()}>
+              {posting ? '올리는 중' : '피드에 올리기'}
+            </button>
+            {mine.map((p) => (
+              <article className="post" key={p.id}>
+                <time>{formatWorld(clock, p.at)}</time>
+                <p>{p.text}</p>
+              </article>
+            ))}
+          </Card>
         )}
 
         <div className="next">

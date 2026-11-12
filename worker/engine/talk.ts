@@ -155,7 +155,7 @@ export async function eventsFor(ctx: Ctx, play: Play, castKey: string, upTo = In
     'SELECT at, kind, actor, text, known_by FROM events WHERE play_id = ? ORDER BY at, rowid',
     play.id,
   );
-  const nameOf = (key: string) => play.film.casts.find((c) => c.key === key)?.name ?? key;
+  const nameOf = (key: string) => (key === 'persona' ? play.film.persona.name : (play.film.casts.find((c) => c.key === key)?.name ?? key));
   const now = asNow(play.film);
   return rows
     .filter((r) => withScene || r.kind !== 'scene')
@@ -177,7 +177,7 @@ export async function knownTo(ctx: Ctx, play: Play): Promise<{ shared: SceneEven
     'SELECT at, kind, actor, text, known_by FROM events WHERE play_id = ? ORDER BY at, rowid',
     play.id,
   );
-  const nameOf = (key: string) => film.casts.find((c) => c.key === key)?.name ?? key;
+  const nameOf = (key: string) => (key === 'persona' ? film.persona.name : (film.casts.find((c) => c.key === key)?.name ?? key));
   const now = asNow(film);
   const shared: SceneEvent[] = [];
   const groups = new Map<string, { who: string[]; events: SceneEvent[] }>();

@@ -2,6 +2,7 @@
 
 import { d1 } from './db';
 import { type Ctx, Fail } from './engine/ctx';
+import { openFeed, postMine } from './engine/alive';
 import { chooseAs, filmView } from './engine/entry';
 import { createFilm, listFilms, updateFilm } from './engine/films';
 import { getMe, setMe } from './engine/me';
@@ -71,6 +72,8 @@ const ROUTES: [string, RegExp, Handler][] = [
     (ctx, p, body) => skip(ctx, p[0]!, { kind: body.kind, requestId: body.requestId }),
   ],
   ['POST', /^\/api\/plays\/([^/]+)\/retry$/, (ctx, p) => retry(ctx, p[0]!)],
+  ['POST', /^\/api\/plays\/([^/]+)\/feed$/, (ctx, p) => openFeed(ctx, p[0]!)],
+  ['POST', /^\/api\/plays\/([^/]+)\/posts$/, (ctx, p, body) => postMine(ctx, p[0]!, body)],
   ['GET', /^\/api\/plays\/([^/]+)\/saves$/, (ctx, p) => listSaves(ctx, p[0]!)],
   ['POST', /^\/api\/plays\/([^/]+)\/saves$/, (ctx, p) => makeSave(ctx, p[0]!)],
   ['POST', /^\/api\/plays\/([^/]+)\/saves\/([^/]+)\/load$/, (ctx, p) => loadSave(ctx, p[0]!, p[1]!)],

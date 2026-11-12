@@ -9,14 +9,14 @@ import { inSpan, worldAt } from '../../shared/clock';
 import { josa } from '../../shared/ko';
 import { wasThere } from '../../shared/opening';
 import { RULES } from '../../shared/rules';
-import type { Cast, MessageView } from '../../shared/types';
+import type { Cast, MessageView, PlayView } from '../../shared/types';
 import { newId, q, type Stmt } from '../db';
 import type { ModelCall } from '../model/index';
 import { castLayer } from '../prompt/cast';
 import { sceneLayer, when } from '../prompt/scene';
 import { PAST_SYSTEM, PING_SYSTEM, POST_SYSTEM } from '../prompt/system';
-import type { Ctx } from './ctx';
-import type { Play } from './store';
+import { type Ctx, Fail } from './ctx';
+import { lastTurn, loadPlay, type Play, viewOf } from './store';
 import { ask, bubbles, errText, eventsFor, logStmt, recent, toLines } from './talk';
 
 /** 이 사람이 그때 깨어 있나 */
@@ -229,4 +229,42 @@ export async function lifeWork(ctx: Ctx, play: Play, turnId: string, before: Mes
     return keep(got);
   };
   return (appeared) => [...pastStmts, ...settle(post, who, appeared), ...settle(ping, caller, appeared)];
+}
+
+/** 피드를 열 때. 이 기능이 생기기 전에 들어간 삶은 이야기 전에 올려 둔 글이 없다 — 그때 적는다 */
+export async function openFeed(ctx: Ctx, playId: string): Promise<PlayView> {
+  const play = await loadPlay(ctx, playId);
+  if (play.film.opens.feed && !play.past) {
+    const turn = await lastTurn(ctx.db, playId);
+    await ctx.db.batch(await pastPosts(ctx, play, turn?.id ?? playId));
+  }
+  return viewOf(ctx, playId);
+}
+
+/** 내 피드에 글을 올린다. 캐스트도 본다 — 다음 대목부터 「모두 아는 일」로 건네진다. 시간은 흐르지 않는다 */
+export async function postMine(ctx: Ctx, playId: string, input: unknown): Promise<PlayView> {
+  const play = await loadPlay(ctx, playId);
+  if (!play.film.opens.feed) throw new Fail(400, 'feed_closed', '이 필름은 피드를 열지 않았어요.');
+  const raw = input && typeof input === 'object' ? (input as { text?: unknown }).text : undefined;
+  const text = typeof raw === 'string' ? raw.trim() : '';
+  if (!text) throw new Fail(400, 'empty_post', '올릴 글을 써 주세요.');
+  if (text.length > RULES.feed.length) throw new Fail(400, 'long_post', `피드 글은 ${RULES.feed.length}자까지 쓸 수 있어요.`);
+  const turn = await lastTurn(ctx.db, playId);
+  const everyone = ['persona', ...play.film.casts.map((c) => c.key)];
+  await ctx.db.batch([
+    q('INSERT INTO posts (id, play_id, turn_id, cast_key, text, at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)', newId(), playId, turn?.id ?? playId, 'persona', text, play.elapsed, ctx.now()),
+    q(
+      'INSERT INTO events (id, play_id, turn_id, at, kind, actor, text, known_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      newId(),
+      playId,
+      turn?.id ?? playId,
+      play.elapsed,
+      'post',
+      'persona',
+      text,
+      JSON.stringify(everyone),
+      ctx.now(),
+    ),
+  ]);
+  return viewOf(ctx, playId);
 }

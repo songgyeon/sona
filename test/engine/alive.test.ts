@@ -194,3 +194,36 @@ describe('같이 사는 느낌: 채팅하는 동안 먼저 오는 메시지', ()
     expect(calls('ping')).toHaveLength(0);
   });
 });
+
+describe('같이 사는 느낌: 피드를 열 때와 내 피드', () => {
+  it('이야기 전 글이 없던 삶은 피드를 열 때 적는다. 두 번 적지 않는다', async () => {
+    const { ctx, playId, calls } = await setup();
+    await ctx.db.run('DELETE FROM posts');
+    await ctx.db.run('UPDATE plays SET past = 0');
+    const { openFeed } = await import('../../worker/engine/alive');
+    const v = await openFeed(ctx, playId);
+    expect(v.posts.filter((p) => p.at < 0)).toHaveLength(4);
+    await openFeed(ctx, playId);
+    expect(calls('past')).toHaveLength(4);
+  });
+
+  it('내 피드에 올린 글은 캐스트도 안다. 시간은 흐르지 않는다', async () => {
+    const { ctx, playId, send, calls } = await setup();
+    const { postMine } = await import('../../worker/engine/alive');
+    const v = await postMine(ctx, playId, { text: '  비 그친 줄 알았는데.  ' });
+    expect(v.elapsed).toBe(0);
+    expect(v.posts.filter((p) => p.cast === 'persona').map((p) => p.text)).toEqual(['비 그친 줄 알았는데.']);
+    await send('안녕하세요.');
+    expect(calls('reply').at(-1)!.layers.scene).toContain('[모두 아는 일]\n- (금요일 낮) 수아의 피드에 올라온 글: 「비 그친 줄 알았는데.」');
+  });
+
+  it('비었거나 너무 길거나, 피드를 열지 않은 필름이면 받지 않는다', async () => {
+    const { ctx, playId } = await setup();
+    const { postMine } = await import('../../worker/engine/alive');
+    const code = async (p: Promise<unknown>) => p.then(() => null, (e: { code?: string }) => e.code ?? null);
+    expect(await code(postMine(ctx, playId, { text: '  ' }))).toBe('empty_post');
+    expect(await code(postMine(ctx, playId, { text: '가'.repeat(RULES.feed.length + 1) }))).toBe('long_post');
+    const closed = await setup({}, { ...DEV_FILM, opens: { feed: false, ping: false, aside: false } });
+    expect(await code(postMine(closed.ctx, closed.playId, { text: '안녕' }))).toBe('feed_closed');
+  });
+});

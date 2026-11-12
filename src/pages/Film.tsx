@@ -166,7 +166,8 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
         <ul className="casts">
           {/* 나. 이 필름에 들어가면 이 사람이 된다 */}
           <li>
-            <div className="castrow me">
+            {/* 살고 있는 삶이 있으면 내 배역으로 간다 — 프로필을 고치고 내 피드에 글을 올린다 */}
+            <button className="castrow me" disabled={!living} onClick={() => living && go(`/play/${living.id}/me`)}>
               <Face id={mine.face} name={mine.name} />
               <span>
                 <strong>
@@ -175,8 +176,8 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
                 </strong>
                 {mine.line && <small>{mine.line}</small>}
               </span>
-              <span />
-            </div>
+              {living ? <Next /> : <span />}
+            </button>
           </li>
           {film.casts.map((c) => (
             <li key={c.key}>

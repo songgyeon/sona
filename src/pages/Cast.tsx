@@ -20,7 +20,7 @@ export function Cast({ filmId, playId, castKey, go }: { filmId?: string; playId?
 
   useEffect(() => {
     const load = playId
-      ? api.play(playId).then((v): Loaded => ({ film: v.film, elapsed: v.elapsed, posts: v.posts.filter((p) => p.cast === castKey) }))
+      ? api.openFeed(playId).then((v): Loaded => ({ film: v.film, elapsed: v.elapsed, posts: v.posts.filter((p) => p.cast === castKey) }))
       : api.film(filmId!).then((d): Loaded => ({ film: d.film, elapsed: null, posts: [] }));
     load.then(setData).catch((e) => setErr(e instanceof ApiFail ? e.message : '프로필을 불러오지 못했어요.'));
   }, [filmId, playId, castKey]);
