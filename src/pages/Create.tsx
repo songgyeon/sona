@@ -1,5 +1,5 @@
 import { type ChangeEvent, cloneElement, type ReactElement, type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import { blankCast, blankDraft, type Draft, type DraftBeat, type DraftCast, fromFilm, isBlank, toFilm } from '../../shared/draft';
+import { blankCast, blankDraft, type Draft, type DraftBeat, type DraftCast, editSlot, fromFilm, isBlank, toFilm } from '../../shared/draft';
 import { openingLength } from '../../shared/opening';
 import { josa } from '../../shared/ko';
 import { DOW_NAMES, RULES } from '../../shared/rules';
@@ -28,8 +28,8 @@ const STEPS: { id: Step; label: string; must: boolean }[] = [
 const PICTURES = 'image/jpeg,image/png,image/webp';
 
 export function Create({ go, editId, draftId }: { go: (to: string) => void; editId?: string; draftId?: string }) {
-  /** 이 필름을 임시저장하는 자리의 표. 새 필름은 여기서 하나 받는다 */
-  const [slot] = useState(() => draftId ?? newId());
+  /** 이 필름을 임시저장하는 자리의 표. 새 필름은 여기서 하나 받고, 개봉한 필름은 필름마다 한 자리다 */
+  const [slot] = useState(() => (editId ? editSlot(editId) : (draftId ?? newId())));
   const [kept] = useState(() => (draftId ? drafts.load(draftId) : null));
   const [d, setD] = useState<Draft>(() => kept?.draft ?? blankDraft());
   /** 새 필름을 열었을 때, 전에 임시저장해 둔 필름이 몇 편 있었나 */
@@ -42,13 +42,17 @@ export function Create({ go, editId, draftId }: { go: (to: string) => void; edit
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [toast, setToast] = useState('');
+  /** 고치는 필름: 서버에 저장돼 있는 내용. 임시저장한 것을 버리고 되돌릴 때 쓴다 */
+  const stored = useRef<Draft | null>(null);
+  /** 고치는 필름을 임시저장해 둔 데서 이어 열었나 */
+  const [resumed, setResumed] = useState(false);
 
   /** 마지막으로 남긴 내용. 달라졌을 때만 다시 남긴다 — 열어만 본 필름의 저장한 때가 바뀌지 않게 */
   const last = useRef(JSON.stringify(d));
 
   /** 만들던 필름을 이 기기에 남긴다. 아무것도 적지 않았으면 남기지 않는다 */
   const keep = () => {
-    const result = drafts.save(slot, d);
+    const result = drafts.save(slot, d, editId);
     last.current = JSON.stringify(d);
     // 남긴 뒤에는 주소가 그 필름을 가리킨다. 새로 고치면 그 필름이 다시 열린다
     const here = window.location.pathname;
@@ -57,9 +61,9 @@ export function Create({ go, editId, draftId }: { go: (to: string) => void; edit
     return result;
   };
 
-  // 새 필름은 쓰는 대로 남긴다 — 새로 고쳐도, 나갔다 와도 이어진다. 고치는 중인 필름은 남기지 않는다(저장된 필름이 원본이다)
+  // 쓰는 대로 남긴다 — 새로 고쳐도, 나갔다 와도 이어진다. 고치는 필름도 같다. 저장하면 그 자리는 비운다
   useEffect(() => {
-    if (editId || loadErr || JSON.stringify(d) === last.current) return;
+    if (loading || loadErr || JSON.stringify(d) === last.current) return;
     keep();
   }, [d]);
 
@@ -68,8 +72,15 @@ export function Create({ go, editId, draftId }: { go: (to: string) => void; edit
     api
       .film(editId)
       .then(({ card, film }) => {
-        if (card.mine) setD(fromFilm(film));
-        else setLoadErr('만든 사람만 고칠 수 있어요.');
+        if (!card.mine) return setLoadErr('만든 사람만 고칠 수 있어요.');
+        const saved: Draft = { ...fromFilm(film), private: card.private };
+        stored.current = saved;
+        // 고치다 임시저장해 둔 것이 있으면 거기서 잇는다
+        const kept = drafts.load(slot);
+        const start = kept?.draft ?? saved;
+        last.current = JSON.stringify(start);
+        setD(start);
+        setResumed(!!kept);
       })
       .catch((e) => setLoadErr(e instanceof ApiFail ? e.message : '필름을 불러오지 못했어요.'))
       .finally(() => setLoading(false));
@@ -80,6 +91,16 @@ export function Create({ go, editId, draftId }: { go: (to: string) => void; edit
     const t = setTimeout(() => setToast(''), 1800);
     return () => clearTimeout(t);
   }, [toast]);
+
+  /** 고치다 임시저장한 것을 버리고, 저장돼 있는 내용으로 되돌린다 */
+  const revert = () => {
+    if (!stored.current) return;
+    drafts.drop(slot);
+    last.current = JSON.stringify(stored.current);
+    setD(stored.current);
+    setResumed(false);
+    setToast('저장된 내용으로 되돌렸어요');
+  };
 
   const move = (to: Step) => {
     setStep(to);
@@ -176,8 +197,8 @@ export function Create({ go, editId, draftId }: { go: (to: string) => void; edit
     setErr('');
     try {
       const { id } = editId ? await api.updateFilm(editId, toFilm(d)) : await api.createFilm(toFilm(d));
-      // 개봉했으니 임시저장해 둔 자리는 비운다
-      if (!editId) drafts.drop(slot);
+      // 개봉했으니(고친 것은 저장했으니) 임시저장해 둔 자리는 비운다
+      drafts.drop(slot);
       if (thenEnter) {
         const view = await api.enter(id, newId());
         go(`/play/${view.id}?open=1`);
@@ -206,17 +227,15 @@ export function Create({ go, editId, draftId }: { go: (to: string) => void; edit
         </button>
         <b>{editId ? '필름 고치기' : '필름 만들기'}</b>
         <div className="right">
-          {!editId && (
-            <button
-              className="mini keep"
-              onClick={() => {
-                const result = keep();
-                setToast(result === 'saved' ? '내 필름에 임시저장했어요' : result === 'blank' ? '아직 적은 내용이 없어요' : '저장하지 못했어요');
-              }}
-            >
-              임시저장
-            </button>
-          )}
+          <button
+            className="mini keep"
+            onClick={() => {
+              const result = keep();
+              setToast(result === 'saved' ? '내 필름에 임시저장했어요' : result === 'blank' ? '아직 적은 내용이 없어요' : '저장하지 못했어요');
+            }}
+          >
+            임시저장
+          </button>
           <button className="mini open" disabled={busy} onClick={() => release(false)}>
             {editId ? '저장' : '개봉'}
           </button>
@@ -239,6 +258,14 @@ export function Create({ go, editId, draftId }: { go: (to: string) => void; edit
       </nav>
 
       <section className="body">
+        {resumed && (
+          <p className="sub resume">
+            임시저장한 내용을 불러왔어요.
+            <button className="textbtn" onClick={revert}>
+              저장된 내용으로 되돌리기
+            </button>
+          </p>
+        )}
         {step === 'plan' && (
           <>
             <p className="lead">필름의 제목과 포스터를 정해 주세요.</p>
@@ -646,11 +673,21 @@ export function Create({ go, editId, draftId }: { go: (to: string) => void; edit
                 <p className="sub">고친 내용은 새로 들어갈 때부터 반영돼요.</p>
               </>
             ) : (
-              <>
-                <p className="lead">{ready ? '개봉할 준비가 됐어요.' : '개봉 전에 채워야 할 항목이 있어요.'}</p>
-                <p className="sub">개봉한 필름은 모두에게 보여요.</p>
-              </>
+              <p className="lead">{ready ? '개봉할 준비가 됐어요.' : '개봉 전에 채워야 할 항목이 있어요.'}</p>
             )}
+
+            <Card title="공개 범위">
+              <Chips
+                label=""
+                name="공개 범위"
+                value={d.private ? 'private' : 'public'}
+                options={[
+                  { value: 'public', label: '공개', desc: '모두의 목록에 보여요.' },
+                  { value: 'private', label: '비공개', desc: '나만 보고 들어갈 수 있어요.' },
+                ]}
+                onChange={(v) => set('private', v === 'private')}
+              />
+            </Card>
 
             <Card title="필수 항목">
               <ul className="checklist">
@@ -787,12 +824,16 @@ export function Field({
 /** 눌러서 고르는 단추. 고른 것에 설명이 있으면 아래에 한 줄로 알려 준다 */
 function Chips<T extends string | number>({
   label,
+  name,
   value,
   options,
   onChange,
   week,
 }: {
+  /** 보이는 이름표. 묶음 제목이 이미 같은 말이면 비우고 name만 준다 */
   label: string;
+  /** 읽어 주는 이름. 없으면 이름표와 같다 */
+  name?: string;
   value: T;
   options: { value: T; label: string; desc?: string }[];
   onChange: (v: T) => void;
@@ -800,8 +841,8 @@ function Chips<T extends string | number>({
 }) {
   const picked = options.find((o) => o.value === value);
   return (
-    <div className="field" role="group" aria-label={label}>
-      <label>{label}</label>
+    <div className="field" role="group" aria-label={name ?? label}>
+      {label && <label>{label}</label>}
       <div className={week ? 'chips week' : 'chips'}>
         {options.map((o) => (
           <button key={String(o.value)} className={o.value === value ? 'chip on' : 'chip'} aria-pressed={o.value === value} onClick={() => onChange(o.value)}>

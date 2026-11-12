@@ -5,7 +5,7 @@ import { createFilm } from '../../worker/engine/films';
 import { enter, say } from '../../worker/engine/turn';
 import type { ModelCall } from '../../worker/model/index';
 import { ModelError, openRouter, readOut } from '../../worker/model/openrouter';
-import { addColumns, ensureSchema, SCHEMA } from '../../worker/schema';
+import { addColumns, ensureSchema, SCHEMA, TEST_FILM } from '../../worker/schema';
 import { memoryDb } from '../helpers/db';
 import { DEV_FILM, testCtx, uid } from '../helpers/film';
 
@@ -116,5 +116,20 @@ describe('저장소의 표', () => {
     await addColumns(db);
     await addColumns(db); // 두 번 불러도 같다
     expect(await db.first<{ days: number }>("SELECT days FROM plays WHERE id = 'p'")).toEqual({ days: 1 });
+  });
+
+  it('비공개 칸을 붙일 때 초반에 만든 시험 필름만 비공개로 돌린다. 다른 필름은 공개 그대로다', async () => {
+    const db = memoryDb();
+    db.raw.exec('DROP TABLE films');
+    db.raw.exec(
+      'CREATE TABLE films (id TEXT PRIMARY KEY, owner TEXT NOT NULL, title TEXT NOT NULL, logline TEXT NOT NULL, featured INTEGER NOT NULL DEFAULT 0, data TEXT NOT NULL, created_at INTEGER NOT NULL)',
+    );
+    db.raw.exec(`INSERT INTO films (id, owner, title, logline, data, created_at) VALUES ('${TEST_FILM}', 'o', '시험 인물', '', '{}', 1), ('mine', 'o', '수몰지구', '', '{}', 2)`);
+    await addColumns(db);
+    await addColumns(db); // 두 번 불러도 같다
+    expect(await db.all<{ id: string; private: number }>('SELECT id, private FROM films ORDER BY created_at')).toEqual([
+      { id: TEST_FILM, private: 1 },
+      { id: 'mine', private: 0 },
+    ]);
   });
 });

@@ -174,6 +174,8 @@ export interface FilmCard {
   personaLine: string;
   mine: boolean;
   featured: boolean;
+  /** 비공개 필름. 만든 사람에게만 온다 */
+  private: boolean;
 }
 
 export interface PlayCard {

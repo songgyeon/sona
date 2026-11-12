@@ -84,6 +84,49 @@ describe('필름을 링크로 보여 주기', () => {
     expect((await getFilm({ ...ctx, visitor: OTHER_VISITOR }, filmId)).film.title).toBe(DEV_FILM.title);
   });
 
+  it('비공개 필름은 만든 사람만 목록에서 보고 들어간다. 링크로 와도 없는 필름이다', async () => {
+    const { ctx } = await setup();
+    const { id } = await createFilm(ctx, { ...DEV_FILM, title: '동네 서점', private: true });
+    const other = { ...ctx, visitor: OTHER_VISITOR };
+    const mine = (await listFilms(ctx)).find((f) => f.id === id)!;
+    expect([mine.title, mine.private]).toEqual(['동네 서점', true]);
+    expect((await listFilms(other)).some((f) => f.id === id)).toBe(false);
+    expect(await failCode(getFilm(other, id))).toBe('film_missing');
+    expect(await failCode(enter(other, id, uid()))).toBe('film_missing');
+    // 만든 사람은 그대로 들어간다
+    expect((await enter(ctx, id, uid())).film.title).toBe('동네 서점');
+    // 공개하지 않고 만든 필름은 공개다
+    const { id: open } = await createFilm(ctx, { ...DEV_FILM, title: '골목 식당' });
+    expect((await listFilms(other)).find((f) => f.id === open)?.private).toBe(false);
+  });
+
+  it('공개 범위는 고칠 때 바꿀 수 있다. 그 칸을 보내지 않으면 그대로다', async () => {
+    const { ctx } = await setup();
+    const { id } = await createFilm(ctx, { ...DEV_FILM, title: '동네 서점' });
+    const other = { ...ctx, visitor: OTHER_VISITOR };
+    // 공개했다가 비공개로
+    await updateFilm(ctx, id, { ...DEV_FILM, title: '동네 서점', private: true });
+    expect((await listFilms(other)).some((f) => f.id === id)).toBe(false);
+    // 그 칸이 없던 때의 화면이 고쳐도 비공개 그대로다
+    await updateFilm(ctx, id, { ...DEV_FILM, title: '동네 서점 2' });
+    expect((await getFilm(ctx, id)).card).toMatchObject({ title: '동네 서점 2', private: true });
+    expect((await listFilms(other)).some((f) => f.id === id)).toBe(false);
+    // 다시 공개로
+    await updateFilm(ctx, id, { ...DEV_FILM, title: '동네 서점 2', private: false });
+    expect((await listFilms(other)).find((f) => f.id === id)?.title).toBe('동네 서점 2');
+  });
+
+  it('비공개가 되기 전에 들어가 살던 삶은 이어진다. 새로 들어가지만 못한다', async () => {
+    const { ctx } = await setup();
+    const { id } = await createFilm(ctx, { ...DEV_FILM, title: '동네 서점' });
+    const other = { ...ctx, visitor: OTHER_VISITOR };
+    const theirs = await enter(other, id, uid());
+    await updateFilm(ctx, id, { ...DEV_FILM, title: '동네 서점', private: true });
+    const v = await say(other, theirs.id, { text: '아직 여기 있어요.', requestId: uid() });
+    expect(v.messages.some((m) => m.text === '아직 여기 있어요.')).toBe(true);
+    expect(await failCode(enter(other, id, uid()))).toBe('film_missing');
+  });
+
   it('남이 개봉한 필름에 들어가도 삶은 저마다 따로다. 서로의 삶을 읽지 못한다', async () => {
     const { ctx } = await setup();
     const { id } = await createFilm(ctx, { ...DEV_FILM, title: '동네 서점' });

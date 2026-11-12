@@ -169,19 +169,27 @@ interface FilmRow {
   logline: string;
   featured: number;
   data: string;
+  /** 1이면 비공개 — 만든 사람만 목록에서 보고 들어간다 */
+  private: number;
 }
+
+/** 비공개로 개봉하는가. 필름의 내용이 아니라 목록에 거는 방식이라, 필름(삶이 들고 가는 것)에는 넣지 않는다 */
+const privateOf = (input: unknown): boolean => !!input && typeof input === 'object' && (input as { private?: unknown }).private === true;
+
+const COLS = 'id, owner, title, logline, featured, data, private';
 
 export async function createFilm(ctx: Ctx, input: unknown): Promise<{ id: string }> {
   const film = parseFilm(input);
   const id = newId();
   await ctx.db.run(
-    'INSERT INTO films (id, owner, title, logline, featured, data, created_at) VALUES (?, ?, ?, ?, 0, ?, ?)',
+    'INSERT INTO films (id, owner, title, logline, featured, data, created_at, private) VALUES (?, ?, ?, ?, 0, ?, ?, ?)',
     id,
     ctx.visitor,
     film.title,
     film.logline,
     JSON.stringify(film),
     ctx.now(),
+    privateOf(input) ? 1 : 0,
   );
   return { id };
 }
@@ -194,6 +202,9 @@ export async function updateFilm(ctx: Ctx, id: string, input: unknown): Promise<
   if (row.owner !== ctx.visitor) throw new Fail(403, 'not_owner', '만든 사람만 고칠 수 있어요.');
   const film = parseFilm(input);
   await ctx.db.run('UPDATE films SET title = ?, logline = ?, data = ? WHERE id = ?', film.title, film.logline, JSON.stringify(film), id);
+  // 공개 범위는 보냈을 때만 바꾼다. 그 칸이 없던 때의 화면이 고치면 그대로 둔다
+  const reach = input && typeof input === 'object' ? (input as { private?: unknown }).private : undefined;
+  if (typeof reach === 'boolean') await ctx.db.run('UPDATE films SET private = ? WHERE id = ?', reach ? 1 : 0, id);
   return { id };
 }
 
@@ -209,6 +220,7 @@ function card(row: FilmRow, visitor: string): FilmCard {
     personaLine: film.persona.line,
     mine: row.owner === visitor,
     featured: row.featured === 1,
+    private: row.private === 1,
   };
 }
 
@@ -219,13 +231,11 @@ export function forScreen(film: Film): Film {
 }
 
 /** 개봉한 필름들. 누구에게나 보인다 — 어느 기기, 어느 길로 들어와도 같은 목록이다.
-    시험하느라 만든 필름(제목으로 가린다)만 만든 사람에게만 보인다. 최근에 개봉한 것부터 */
+    비공개 필름과 시험하느라 만든 필름(제목으로 가린다)만 만든 사람에게만 보인다. 최근에 개봉한 것부터 */
 export async function listFilms(ctx: Ctx): Promise<FilmCard[]> {
-  const rows = await ctx.db.all<FilmRow>(
-    'SELECT id, owner, title, logline, featured, data FROM films ORDER BY featured DESC, created_at DESC LIMIT 300',
-  );
+  const rows = await ctx.db.all<FilmRow>(`SELECT ${COLS} FROM films ORDER BY featured DESC, created_at DESC LIMIT 300`);
   const unlisted = (title: string) => RULES.unlisted.some((head) => title.startsWith(head));
-  return rows.filter((r) => r.owner === ctx.visitor || !unlisted(r.title)).map((r) => card(r, ctx.visitor));
+  return rows.filter((r) => r.owner === ctx.visitor || (r.private !== 1 && !unlisted(r.title))).map((r) => card(r, ctx.visitor));
 }
 
 /** 필름 하나. 누구나 읽는다 */
@@ -235,9 +245,10 @@ export async function getFilm(ctx: Ctx, id: string): Promise<{ card: FilmCard; f
   return { card: card(row, ctx.visitor), film: row.owner === ctx.visitor ? film : forScreen(film) };
 }
 
-/** 서버가 쓰는 필름. 디렉터가 쓴 그대로다 — 삶은 이것을 들고 간다. 화면으로 보내지 않는다 */
+/** 서버가 쓰는 필름. 디렉터가 쓴 그대로다 — 삶은 이것을 들고 간다. 화면으로 보내지 않는다.
+    비공개 필름은 만든 사람이 아니면 없는 필름이다. 링크로 와도 보이지 않고 들어가지도 못한다 */
 export async function loadFilm(ctx: Ctx, id: string): Promise<{ row: FilmRow; film: Film }> {
-  const row = await ctx.db.first<FilmRow>('SELECT id, owner, title, logline, featured, data FROM films WHERE id = ?', id);
-  if (!row) throw new Fail(404, 'film_missing', '필름을 찾을 수 없어요.');
+  const row = await ctx.db.first<FilmRow>(`SELECT ${COLS} FROM films WHERE id = ?`, id);
+  if (!row || (row.private === 1 && row.owner !== ctx.visitor)) throw new Fail(404, 'film_missing', '필름을 찾을 수 없어요.');
   return { row, film: readFilm(JSON.parse(row.data) as Film) };
 }

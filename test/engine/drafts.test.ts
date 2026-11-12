@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { blankCast, blankDraft, draftTitle, isBlank, shelf, type Draft, type Store } from '../../shared/draft';
+import { blankCast, blankDraft, draftTitle, editSlot, isBlank, readDraft, shelf, toFilm, type Draft, type Store } from '../../shared/draft';
 
 /* 임시저장 — 만들던 필름을 이 기기에 남겨 두는 선반.
    브라우저의 저장소 자리에 같은 모양의 것을 세우고 돌린다. */
@@ -142,6 +142,37 @@ describe('임시저장: 선반', () => {
     expect(none.list()).toEqual([]);
     expect(none.load('a')).toBeNull();
     expect(() => none.drop('a')).not.toThrow();
+  });
+});
+
+describe('임시저장: 개봉한 필름을 고치다 남긴 것', () => {
+  it('필름 한 편에 한 자리다. 어느 필름을 고치던 것인지 함께 남는다', () => {
+    const { drafts } = setup();
+    drafts.save(editSlot('f1'), titled('고치는 중'), 'f1');
+    drafts.save(editSlot('f1'), titled('고치는 중, 더 고침'), 'f1');
+    drafts.save('a', titled('새 필름'));
+    expect(drafts.list().map((s) => [s.id, s.draft.title, s.filmId])).toEqual([
+      ['a', '새 필름', undefined],
+      ['edit-f1', '고치는 중, 더 고침', 'f1'],
+    ]);
+    expect(drafts.load(editSlot('f1'))?.filmId).toBe('f1');
+    // 저장하면 그 자리를 비운다
+    drafts.drop(editSlot('f1'));
+    expect(drafts.load(editSlot('f1'))).toBeNull();
+  });
+});
+
+describe('임시저장: 공개 범위', () => {
+  it('비공개로 고른 것도 남고, 필름으로 보낼 때 함께 간다', () => {
+    const { drafts } = setup();
+    drafts.save('a', { ...titled('서점'), private: true });
+    expect(drafts.load('a')!.draft.private).toBe(true);
+    expect(toFilm({ ...titled('서점'), private: true })).toMatchObject({ title: '서점', private: true });
+  });
+
+  it('공개 범위가 없던 때에 남긴 것은 공개로 읽힌다. 비공개만 고른 필름은 빈 필름이다', () => {
+    expect(readDraft({ title: '예전 것' }).private).toBe(false);
+    expect(isBlank({ ...blankDraft(), private: true })).toBe(true);
   });
 });
 

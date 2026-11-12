@@ -96,10 +96,13 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
           )}
           {card.mine && (
             <div className="own">
-              <button className="textbtn" onClick={copyLink}>
-                <LinkIcon />
-                링크 복사
-              </button>
+              {/* 비공개 필름은 링크로 와도 보이지 않는다 */}
+              {!card.private && (
+                <button className="textbtn" onClick={copyLink}>
+                  <LinkIcon />
+                  링크 복사
+                </button>
+              )}
               <button className="textbtn" onClick={() => go(`/film/${filmId}/edit`)}>
                 <Pen />
                 고치기
@@ -148,6 +151,11 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
         {card.mine && (
           <span>
             디렉터<b>나</b>
+          </span>
+        )}
+        {card.private && (
+          <span>
+            공개 범위<b>비공개</b>
           </span>
         )}
         <span>

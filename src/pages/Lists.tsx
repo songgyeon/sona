@@ -162,14 +162,17 @@ export function Mine({ go }: { go: (to: string) => void }) {
               const title = draftTitle(s.draft);
               return (
                 <li key={s.id} className="draft">
-                  <button className="filmrow" onClick={() => go(`/create/${s.id}`)}>
+                  <button className="filmrow" onClick={() => go(s.filmId ? `/film/${s.filmId}/edit` : `/create/${s.id}`)}>
                     <span className="thumb">
                       <Art id={s.draft.poster} title={title} />
                     </span>
                     <span className="text">
                       <strong>{title}</strong>
                       {s.draft.logline.trim() && <span>{s.draft.logline}</span>}
-                      <em>{savedWhen(s.savedAt)}</em>
+                      <em>
+                        {s.filmId ? '고치는 중 · ' : ''}
+                        {savedWhen(s.savedAt)}
+                      </em>
                     </span>
                   </button>
                   {asking === s.id ? (
@@ -198,7 +201,10 @@ export function Mine({ go }: { go: (to: string) => void }) {
         {mine.map((f) => (
           <Row key={f.id} poster={f.poster} title={f.title} onClick={() => go(`/film/${f.id}`)}>
             {f.logline && <span>{f.logline}</span>}
-            <em>{f.castNames.join(' · ')}</em>
+            <em>
+              {f.private ? '비공개 · ' : ''}
+              {f.castNames.join(' · ')}
+            </em>
           </Row>
         ))}
       </ul>

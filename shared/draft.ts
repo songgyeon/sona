@@ -57,6 +57,8 @@ export interface Draft {
   beats: DraftBeat[];
   room: number;
   speaker: 'persona' | 'cast';
+  /** 비공개로 개봉한다. 만든 사람만 목록에서 보고 들어간다 */
+  private: boolean;
 }
 
 export const blankCast = (): DraftCast => ({
@@ -96,6 +98,7 @@ export const blankDraft = (): Draft => ({
   beats: [],
   room: 0,
   speaker: 'cast',
+  private: false,
 });
 
 const cut = (id: string, image: string): DraftBeat => ({ id, kind: 'cut', image, text: '', cast: 0 });
@@ -120,6 +123,7 @@ const key = (i: number) => `c${i + 1}`;
 /** 화면의 칸을 서버가 받는 필름 모양으로 바꾼다 */
 export function toFilm(d: Draft): unknown {
   return {
+    private: d.private,
     title: d.title,
     logline: d.logline,
     poster: d.poster,
@@ -230,6 +234,8 @@ export function fromFilm(f: Film): Draft {
     beats,
     room,
     speaker,
+    // 공개 범위는 필름의 내용이 아니다. 고치는 화면이 필름 카드에서 읽어 채운다
+    private: false,
   };
 }
 
@@ -273,7 +279,12 @@ export interface SavedDraft {
   draft: Draft;
   /** 마지막으로 남긴 때(진짜 시각, 밀리초) */
   savedAt: number;
+  /** 개봉한 필름을 고치다 남긴 것이면 그 필름. 새 필름이면 없다 */
+  filmId?: string;
 }
+
+/** 개봉한 필름을 고치다 남기는 자리. 필름 한 편에 한 자리다 */
+export const editSlot = (filmId: string): string => `edit-${filmId}`;
 
 /** 한 편의 자리. 뒤에 그 필름의 표가 붙는다 */
 const SLOT = 'sona.draft.';
@@ -304,9 +315,11 @@ export const draftTitle = (d: Draft): string => d.title.trim() || '제목 없는
 function readSaved(id: string, raw: string | null): SavedDraft | null {
   if (!raw) return null;
   try {
-    const o = JSON.parse(raw) as { draft?: unknown; savedAt?: unknown } | null;
+    const o = JSON.parse(raw) as { draft?: unknown; savedAt?: unknown; filmId?: unknown } | null;
     if (!o || typeof o !== 'object' || !o.draft) return null;
-    return { id, draft: readDraft(o.draft), savedAt: Number(o.savedAt) || 0 };
+    const one: SavedDraft = { id, draft: readDraft(o.draft), savedAt: Number(o.savedAt) || 0 };
+    if (typeof o.filmId === 'string' && o.filmId) one.filmId = o.filmId;
+    return one;
   } catch {
     return null;
   }
@@ -365,8 +378,9 @@ export function shelf(store: () => Store, newId: () => string, now: () => number
       }
     },
 
-    /** 남긴다. 아무것도 적지 않은 필름은 남기지 않고, 남아 있던 자리도 비운다 */
-    save(id: string, draft: Draft): 'saved' | 'blank' | 'blocked' {
+    /** 남긴다. 아무것도 적지 않은 필름은 남기지 않고, 남아 있던 자리도 비운다.
+        filmId는 개봉한 필름을 고치다 남길 때 그 필름이다 */
+    save(id: string, draft: Draft, filmId?: string): 'saved' | 'blank' | 'blocked' {
       const s = open();
       if (!s) return 'blocked';
       try {
@@ -374,7 +388,7 @@ export function shelf(store: () => Store, newId: () => string, now: () => number
           s.removeItem(SLOT + id);
           return 'blank';
         }
-        s.setItem(SLOT + id, JSON.stringify({ draft, savedAt: now() }));
+        s.setItem(SLOT + id, JSON.stringify(filmId ? { draft, savedAt: now(), filmId } : { draft, savedAt: now() }));
         return 'saved';
       } catch {
         return 'blocked';

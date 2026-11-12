@@ -398,6 +398,8 @@ button:disabled { opacity: 0.4; cursor: default; }
 /* 새 필름을 열었는데 임시저장해 둔 필름이 있을 때 */
 .resume { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
 .resume .textbtn { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+/* 고치던 필름을 이어 열었을 때 맨 위에 서는 알림. 아래 제목과 붙지 않게 띄운다 */
+.body > .resume:first-child { margin-bottom: 20px; }
 .sub { font-size: 13.5px; line-height: 1.6; color: var(--ink-3); }
 
 /* 한 장에 묶은 칸들 */

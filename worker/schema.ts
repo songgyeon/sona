@@ -12,7 +12,8 @@ export const SCHEMA: string[] = [
     logline TEXT NOT NULL,
     featured INTEGER NOT NULL DEFAULT 0,
     data TEXT NOT NULL,
-    created_at INTEGER NOT NULL
+    created_at INTEGER NOT NULL,
+    private INTEGER NOT NULL DEFAULT 0
   )`,
   `CREATE INDEX IF NOT EXISTS films_owner ON films(owner, created_at)`,
 
@@ -150,14 +151,25 @@ export const SCHEMA: string[] = [
   )`,
 ];
 
+/** 배포판을 확인하느라 초반에 만든 시험 필름. 비공개 칸을 붙일 때 비공개로 돌린다 */
+export const TEST_FILM = 'dd036821-dac4-44d8-b35f-e29761d3d5fc';
+
 /** 이미 있는 표에 나중에 붙인 칸. 없을 때만 붙인다 — 먼저 만들어진 저장소도 그대로 이어 쓴다 */
-const ADDED: { table: string; column: string; sql: string }[] = [
+const ADDED: { table: string; column: string; sql: string; then?: { sql: string; args: unknown[] }[] }[] = [
   // 삶이 지금까지 열어 둔 날 수. 하루가 끝난 뒤 다음 날로 이으면 는다
   { table: 'plays', column: 'days', sql: 'ALTER TABLE plays ADD COLUMN days INTEGER NOT NULL DEFAULT 1' },
   // 지금 장면이 벌어지는 곳. 장면을 쓰는 작가가 대목마다 알려 준다. 모르면 빈 글자
   { table: 'plays', column: 'place', sql: "ALTER TABLE plays ADD COLUMN place TEXT NOT NULL DEFAULT ''" },
   // 바로 앞 대목이 끝났을 때 사람들의 모습(자리, 자세, 손에 든 것). 작가가 대목마다 적어 준다. 화면에는 나오지 않는다
   { table: 'plays', column: 'pose', sql: "ALTER TABLE plays ADD COLUMN pose TEXT NOT NULL DEFAULT ''" },
+  // 비공개 필름. 만든 사람만 목록에서 보고 들어간다
+  {
+    table: 'films',
+    column: 'private',
+    sql: 'ALTER TABLE films ADD COLUMN private INTEGER NOT NULL DEFAULT 0',
+    // 배포판을 확인하느라 만든 시험 필름이 시험용 머리말 없이 공개 목록에 떠 있었다. 비공개로 돌린다(2026-11-12 사용자 지시)
+    then: [{ sql: 'UPDATE films SET private = 1 WHERE id = ?', args: [TEST_FILM] }],
+  },
 ];
 
 export async function addColumns(db: Db): Promise<void> {
@@ -167,9 +179,11 @@ export async function addColumns(db: Db): Promise<void> {
     try {
       await db.run(a.sql);
     } catch (e) {
-      // 다른 요청이 한발 먼저 붙였다. 그러면 된 것이다
+      // 다른 요청이 한발 먼저 붙였다. 그러면 된 것이다 — 칸을 붙이며 할 일도 그 요청이 한다
       if (!/duplicate column/i.test(String((e as Error)?.message ?? e))) throw e;
+      continue;
     }
+    for (const t of a.then ?? []) await db.run(t.sql, ...t.args);
   }
 }
 
