@@ -44,6 +44,15 @@ export const HomeIcon = () => (
     <path d="M4 10.8 12 4l8 6.8V20h-5.4v-5.6H9.4V20H4z" />
   </Line>
 );
+/** 촬영기. 릴 둘을 얹은 몸통과 렌즈 — 「크랭크인」 */
+export const Camera = () => (
+  <Line>
+    <circle cx="7.6" cy="6.4" r="2.6" />
+    <circle cx="13.6" cy="6.4" r="2.6" />
+    <rect x="3.5" y="10" width="12.5" height="9" rx="1" />
+    <path d="M16 13.2 20.5 10.8v7.4L16 15.8" />
+  </Line>
+);
 export const Plus = () => (
   <Line>
     <path d="M12 5v14M5 12h14" />

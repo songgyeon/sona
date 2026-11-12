@@ -54,7 +54,7 @@ export function Home({ go, fake, modelReady }: { go: (to: string) => void; fake:
       <header className="bar">
         <span className="logo">소나</span>
         <div className="right">
-          <button className="ico" onClick={() => go('/find')} aria-label="찾기">
+          <button className="ico" onClick={() => go('/find')} aria-label="디깅">
             <Search />
           </button>
         </div>
