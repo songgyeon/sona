@@ -13,6 +13,8 @@ export const FAKE_DEFAULTS: Record<ModelCall['purpose'], string> = {
   gap: '',
   check: '판정: 없음',
   aside: '',
+  post: '오늘따라 하루가 길다.',
+  past: '2일 전 13:40 | 점심은 또 편의점 샌드위치.\n1일 전 22:10 | 비 오는 날은 일찍 자고 싶다.',
 };
 
 /** 건네받은 인물 카드에 적힌 이름들. 차례대로 */

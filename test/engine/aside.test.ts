@@ -183,7 +183,7 @@ describe('한편: 자리를 비운 사이', () => {
 
     // 장면을 쓰는 작가에게는 두 사람만 아는 일로 건네진다
     await send('어제 팀장님이랑 무슨 얘기 했어요?');
-    const scene = ctx.model.calls.at(-1)!.layers.scene;
+    const scene = calls('reply').at(-1)!.layers.scene;
     expect(scene).toContain('[민아, 이도현만 아는 일 — 다른 사람은 듣기 전에는 모른다]');
     expect(scene).toContain('민아와 이도현이 사무실에서 둘이 나눈 이야기');
 

@@ -229,7 +229,8 @@ describe('입장', () => {
     expect(view.messages).toHaveLength(1);
     expect(view.messages[0]).toMatchObject({ room: 'scene', speaker: 'c1', kind: 'first', at: 0 });
     expect(view.messages[0]!.text).toBe(DEV_FILM.firstScene.firstLine);
-    expect(ctx.model.calls).toHaveLength(0);
+    // 장면은 부르지 않는다. 캐스트마다 이야기 전에 올려 둔 피드 글만 받는다
+    expect(ctx.model.calls.filter((c) => c.purpose !== 'past')).toHaveLength(0);
   });
 
   it('같은 입장 표로 두 번 들어와도 삶은 하나다', async () => {
@@ -244,7 +245,7 @@ describe('입장', () => {
     const film = { ...DEV_FILM, firstScene: { ...DEV_FILM.firstScene, firstLine: '' } };
     const { ctx, view } = await setup(() => '어, 왔어요?', film);
     expect(view.messages.map((m) => m.text)).toEqual(['어, 왔어요?']);
-    expect(ctx.model.calls.map((c) => c.purpose)).toEqual(['first']);
+    expect(ctx.model.calls.map((c) => c.purpose).filter((x) => x !== 'past')).toEqual(['first']);
   });
 
   it('남의 플레이는 안 읽힌다', async () => {
@@ -397,7 +398,7 @@ describe('다음 날로 이어 살기', () => {
     const said = await send(ctx, playId, '좋은 아침');
     expect(said.elapsed).toBe(RULES.trialMinutes + RULES.minutesPerSend);
     expect(said.ended).toBe(false);
-    expect(said.messages.at(-1)).toMatchObject({ speaker: 'c1' });
+    expect(said.messages.filter((m) => m.kind === 'chat').at(-1)).toMatchObject({ speaker: 'c1' });
   });
 
   it('둘째 날도 하루가 차면 끝난다', async () => {

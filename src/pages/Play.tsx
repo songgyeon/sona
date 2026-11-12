@@ -4,9 +4,9 @@ import { josa } from '../../shared/ko';
 import { splitLine } from '../../shared/line';
 import { cutsOf, hasLines } from '../../shared/opening';
 import { RULES } from '../../shared/rules';
-import type { AsideView, Film, MessageView, Persona, PlayView } from '../../shared/types';
+import type { AsideView, Film, MessageView, Persona, PlayView, PostView } from '../../shared/types';
 import { ApiFail, api, imgUrl, newId } from '../api';
-import { Arrow, Back, Bookmark, Down, PlayFill, SkipFill } from '../icons';
+import { Arrow, Back, Bookmark, Down, Next, PlayFill, SkipFill } from '../icons';
 import { SaveSheet } from '../saves';
 import { Face, titleClass } from '../poster';
 
@@ -366,10 +366,16 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
   /** 대사를 못 받고 멈춘 턴. 시간을 넘기다 멈춘 것은 따로 알린다 */
   const stuckHere = view.stuck && view.stuck.kind !== 'skip';
   const locked = waiting || view.ended || !!view.stuck || !!out || !!away;
-  /** 흐름에 놓이는 것들: 이 사람과 오간 말, 그리고 그 사이사이에 있었던 한편. 작중 시각 순 */
-  const items: ({ at: number; m: MessageView; a?: undefined } | { at: number; a: AsideView; m?: undefined })[] = [
+  /** 흐름에 놓이는 것들: 오간 말, 그 사이사이에 있었던 한편, 그리고 캐스트가 피드에 올린 글의 알림. 작중 시각 순.
+      이야기 전에 올려 둔 글은 프로필에만 있다. 같은 때면 말이 먼저다 */
+  const items: (
+    | { at: number; m: MessageView; a?: undefined; p?: undefined }
+    | { at: number; a: AsideView; m?: undefined; p?: undefined }
+    | { at: number; p: PostView; m?: undefined; a?: undefined }
+  )[] = [
     ...messages.map((m) => ({ at: m.at, m })),
     ...view.asides.map((a) => ({ at: a.at, a })),
+    ...view.posts.filter((p) => p.at >= 0).map((p) => ({ at: p.at, p })),
   ].sort((x, y) => x.at - y.at);
   const cuts = (i: number) => i > 0 && items[i]!.at - items[i - 1]!.at >= CUT_AFTER;
   const castOf = (key: string) => film.casts.find((c) => c.key === key);
@@ -441,8 +447,18 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
         {fs.beats.length > 0 && <Opening film={film} />}
         <MeCard me={film.persona} />
 
-        {items.map(({ m, a }, i) =>
-          a ? (
+        {items.map(({ m, a, p }, i) =>
+          p ? (
+            // 캐스트가 피드에 올린 글. 그 자리에 없는 사람만 올린다. 누르면 그 사람의 피드로 간다
+            <button className="feednote" key={p.id} onClick={() => profile(p.cast)}>
+              <Face id={castOf(p.cast)?.face ?? ''} name={castOf(p.cast)?.name ?? ''} />
+              <span className="t">
+                {josa(castOf(p.cast)?.name ?? '', '이', '가')} 피드에 글을 올렸어요.
+                <small>「{p.text}」</small>
+              </span>
+              <Next />
+            </button>
+          ) : a ? (
             // 한편: 내가 없는 자리에서 두 사람이 나눈 장면. 누르면 읽기만 하는 화면이 열린다
             <button className="aside" key={a.id} onClick={() => go(`/play/${playId}/aside/${a.id}`)}>
               <span className="duo">

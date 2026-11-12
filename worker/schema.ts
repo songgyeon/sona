@@ -30,7 +30,8 @@ export const SCHEMA: string[] = [
     created_at INTEGER NOT NULL,
     days INTEGER NOT NULL DEFAULT 1,
     place TEXT NOT NULL DEFAULT '',
-    pose TEXT NOT NULL DEFAULT ''
+    pose TEXT NOT NULL DEFAULT '',
+    past INTEGER NOT NULL DEFAULT 0
   )`,
   `CREATE INDEX IF NOT EXISTS plays_owner ON plays(owner, created_at)`,
 
@@ -183,6 +184,8 @@ const ADDED: { table: string; column: string; sql: string; then?: { sql: string;
   { table: 'plays', column: 'place', sql: "ALTER TABLE plays ADD COLUMN place TEXT NOT NULL DEFAULT ''" },
   // 바로 앞 대목이 끝났을 때 사람들의 모습(자리, 자세, 손에 든 것). 작가가 대목마다 적어 준다. 화면에는 나오지 않는다
   { table: 'plays', column: 'pose', sql: "ALTER TABLE plays ADD COLUMN pose TEXT NOT NULL DEFAULT ''" },
+  // 이야기 전에 올려 둔 피드 글을 이미 적었나. 들어갈 때 적는다. 그 전에 들어간 삶은 다음 대목 때 적는다
+  { table: 'plays', column: 'past', sql: 'ALTER TABLE plays ADD COLUMN past INTEGER NOT NULL DEFAULT 0' },
   // 비공개 필름. 만든 사람만 목록에서 보고 들어간다
   {
     table: 'films',

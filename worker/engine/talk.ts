@@ -14,6 +14,7 @@ import { castsLayer } from '../prompt/cast';
 import { lineOf, type SceneEvent, type SceneLine, writerLayer } from '../prompt/scene';
 import { SCENE_SYSTEM } from '../prompt/system';
 import { type Ctx, Fail } from './ctx';
+import { inPassage, lifeWork } from './alive';
 import { overused } from './echo';
 import { asNow } from './persona';
 import { type Play, SCENE, sceneMessages } from './store';
@@ -320,6 +321,8 @@ export async function answer(ctx: Ctx, play: Play, turn: TurnView): Promise<void
     }),
   };
   const call: ModelCall = { purpose, layers, user, temperature: 0.8, maxTokens: 700 };
+  // 같이 사는 느낌: 자리에 없는 캐스트의 피드 글과 메시지. 답이 늦어지지 않게 답과 같이 부르고, 답을 받으면 함께 적는다
+  const life = turn.kind === 'say' ? lifeWork(ctx, play, turn.id, before).catch(() => () => [] as Stmt[]) : Promise.resolve(() => [] as Stmt[]);
 
   const fail = async (reason: string, out: ModelOut | null, note: string) => {
     await ctx.db.batch([
@@ -366,6 +369,7 @@ export async function answer(ctx: Ctx, play: Play, turn: TurnView): Promise<void
   if (read.place !== null) stmts.push(q('UPDATE plays SET place = ? WHERE id = ?', read.place, play.id));
   // 대목이 끝났을 때의 모습. 작가가 적지 않았으면 비운다 — 묵은 모습을 다음 대목에 건네면 틀린 자세를 잇게 된다
   stmts.push(q('UPDATE plays SET pose = ? WHERE id = ?', read.pose ?? '', play.id));
+  stmts.push(...(await life)(inPassage(play, read.pieces, read.pose ?? '')));
   stmts.push(q("UPDATE turns SET status = 'done', fail_reason = NULL WHERE id = ?", turn.id));
   stmts.push(logStmt(ctx, play.id, turn.id, call, out, true, read.personaSpoke ? '유저의 인물이 말한 줄은 받지 않음' : null));
   if (trialOver(play.elapsed, play.days)) stmts.push(q('UPDATE plays SET ended = 1 WHERE id = ?', play.id));

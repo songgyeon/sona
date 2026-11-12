@@ -653,3 +653,10 @@ button:disabled { opacity: 0.4; cursor: default; }
 .savelist .ask div { margin-top: 10px; display: flex; align-items: center; gap: 14px; }
 .savelist .ask .btn { margin: 0; height: 38px; padding: 0 16px; font-size: 13px; }
 .savesheet .safe { height: max(24px, env(safe-area-inset-bottom)); }
+
+/* ── 재생: 캐스트가 피드에 올린 글의 알림 한 줄 ── */
+.feednote { display: flex; align-items: center; gap: 10px; width: 100%; margin: 22px 0; padding: 11px 12px; border: 1px solid var(--hair); background: #0b0b0b; text-align: left; }
+.feednote .face { flex: none; width: 26px; height: 26px; font-size: 11px; }
+.feednote .t { flex: 1; min-width: 0; font-size: 13px; line-height: 1.5; color: var(--ink-2); }
+.feednote .t small { display: block; margin-top: 2px; font-size: 12px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.feednote > svg { flex: none; width: 16px; height: 16px; color: var(--ink-4); }

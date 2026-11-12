@@ -93,7 +93,8 @@ describe('자리 비우기와 시계', () => {
     const v = await away('sleep');
     expect(at(v.elapsed)).toBe('토요일 오전 7:00');
     expect(v.stuck).toBeNull();
-    expect(v.posts).toHaveLength(0);
+    // 이야기 전에 올려 둔 글(at < 0) 말고는 없다
+    expect(v.posts.filter((p) => p.at >= 0)).toHaveLength(0);
   });
 
   it('잠깐 비운 동안에는 아무 일도 만들지 않는다', async () => {
@@ -127,7 +128,7 @@ describe('그 사이의 하루', () => {
     const { send, away, calls } = await setup({ gap: forMina(MINA_DAY) });
     await send('먼저 갈게.');
     const v = await away('sleep');
-    expect(v.posts.map((p) => [p.cast, p.text, at(p.at)])).toEqual([['c1', '오늘은 일찍 잔다', '금요일 오후 10:40']]);
+    expect(v.posts.filter((p) => p.at >= 0).map((p) => [p.cast, p.text, at(p.at)])).toEqual([['c1', '오늘은 일찍 잔다', '금요일 오후 10:40']]);
 
     // 장면을 쓰는 작가에게는 누가 아는 일인지 갈라서 건넨다
     await send('좋은 아침.');
@@ -229,7 +230,7 @@ describe('먼저 오는 연락', () => {
     await send('먼저 갈게.');
     const v = await away('sleep');
     expect(v.messages.filter((m) => m.kind === 'ping')).toHaveLength(0);
-    expect(v.posts).toHaveLength(1);
+    expect(v.posts.filter((p) => p.at >= 0)).toHaveLength(1);
     expect(calls('ping')).toHaveLength(0);
   });
 });
