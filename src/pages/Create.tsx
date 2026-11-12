@@ -2,6 +2,7 @@ import { type ChangeEvent, cloneElement, type ReactElement, type ReactNode, useE
 import { blankCast, blankDraft, type Draft, type DraftBeat, type DraftCast, type DraftExtra, editSlot, fromFilm, isBlank, toFilm } from '../../shared/draft';
 import { FEED_KINDS, FEED_LABEL } from '../../shared/feed';
 import { openingLength } from '../../shared/opening';
+import { lengthOf } from '../../shared/reel';
 import { josa } from '../../shared/ko';
 import { DOW_NAMES, RULES } from '../../shared/rules';
 import type { FeedKind, FeedPhoto } from '../../shared/types';
@@ -10,6 +11,8 @@ import { FacePick } from '../crop';
 import { drafts } from '../drafts';
 import { Arrow, Close, Down, Plus, Up, Upload } from '../icons';
 import { Face } from '../poster';
+import { BgmPick } from '../bgm';
+import { clock, ReelEditor } from '../reel';
 import { Tabs } from '../tabs';
 
 /* 필름 만들기. 디렉터가 채우는 칸이다.
@@ -541,6 +544,14 @@ export function Create({ go, editId, draftId }: { go: (to: string) => void; edit
           <>
             <p className="lead">오프닝을 순서대로 쌓아 주세요.</p>
             <p className="sub">필름에 들어가면 이 순서대로 흘러요.</p>
+
+            <Card title="오프닝 영상" count={d.reel ? clock(lengthOf(d.reel)) : undefined} sub="들어가면 맨 먼저 흘러요. 컷을 이어 붙여 만들어요.">
+              <ReelEditor reel={d.reel} onChange={(v) => set('reel', v)} onError={setErr} />
+            </Card>
+
+            <Card title="배경 음악" sub="필름 안에서 처음부터 끝까지 이어서 흘러요.">
+              <BgmPick id={d.bgm} name={d.bgmName} onChange={(id, name) => setD((x) => ({ ...x, bgm: id, bgmName: name }))} onError={setErr} />
+            </Card>
 
             <div className="boardhead">
               <span className="kicker">오프닝</span>

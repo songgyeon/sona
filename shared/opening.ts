@@ -16,6 +16,10 @@ export function readFilm(saved: Film): Film {
     ...saved,
     opens: { ...saved.opens, aside: saved.opens?.aside === true },
     extras: saved.extras ?? [],
+    // 배경 음악과 오프닝 영상이 생기기 전의 필름. 없는 것으로 읽는다
+    bgm: saved.bgm ?? '',
+    bgmName: saved.bgmName ?? '',
+    reel: saved.reel ?? null,
     persona: { ...saved.persona, face: saved.persona?.face ?? '', extras: saved.persona?.extras ?? [] },
     // 성격부터 비밀까지의 칸이 생기기 전의 캐스트. 비어 있는 것으로 읽는다
     casts: saved.casts.map((c) => ({

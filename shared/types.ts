@@ -24,6 +24,54 @@ export interface Film {
   /** 캐스트끼리의 사이. 방향이 있다(from이 to를 어떻게 부르는가) */
   ties: Tie[];
   firstScene: FirstScene;
+  /** 배경 음악. 필름 안에서 처음부터 끝까지 반복해 흐른다. 올린 음악의 표. 없으면 빈 글자 */
+  bgm?: string;
+  /** 배경 음악 파일의 이름. 만드는 화면에 보인다 */
+  bgmName?: string;
+  /** 오프닝 영상. 들어가면 맨 먼저 흐른다. 없으면 null */
+  reel?: Reel | null;
+}
+
+/** 오프닝 영상의 화면비: 세로(9:16), 가로(16:9), 시네마(2.39:1) */
+export type ReelRatio = 'tall' | 'wide' | 'cine';
+/** 컷의 움직임: 없음, 다가가기, 물러나기, 왼쪽으로, 오른쪽으로 */
+export type ReelMotion = 'none' | 'in' | 'out' | 'left' | 'right';
+/** 앞 컷에서 넘어오는 법: 바로, 서서히, 검은 화면 거쳐 */
+export type ReelEnter = 'cut' | 'fade' | 'black';
+/** 글자 모양: 제목(가운데 크게), 자막(아래), 크레딧(아래 작게) */
+export type ReelStyle = 'title' | 'sub' | 'credit';
+
+/** 오프닝 영상의 컷 하나 */
+export interface ReelClip {
+  kind: 'image' | 'video' | 'black';
+  /** 그림이나 영상의 표. 검은 화면은 빈 글자 */
+  src: string;
+  /** 길이(초) */
+  dur: number;
+  /** 영상: 틀기 시작하는 지점(초) */
+  from: number;
+  motion: ReelMotion;
+  enter: ReelEnter;
+  /** 컷 위에 얹는 글자. 없으면 빈 글자 */
+  text: string;
+  style: ReelStyle;
+  /** 영상의 소리를 내는가 */
+  sound: boolean;
+  /** 영상 파일 전체의 길이(초). 시작 지점과 길이를 고를 때 쓴다 */
+  len?: number;
+}
+
+/** 오프닝 영상. 디렉터가 컷을 이어 붙여 만든다. 영상 파일로 굽지 않고, 앱이 컷을 차례로 틀어 준다 */
+export interface Reel {
+  ratio: ReelRatio;
+  clips: ReelClip[];
+  /** 음악의 표. 없으면 빈 글자 */
+  music: string;
+  musicName: string;
+  /** 음악을 틀기 시작하는 지점(초) */
+  musicFrom: number;
+  /** 음악 파일 전체의 길이(초) */
+  musicLen?: number;
 }
 
 /** 디렉터가 이름을 붙여 더 적은 칸 — 항목과 내용. 대사 모델에게 그대로 건넨다 */

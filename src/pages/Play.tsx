@@ -6,7 +6,9 @@ import { cutsOf, hasLines } from '../../shared/opening';
 import { RULES } from '../../shared/rules';
 import type { AsideView, Film, MessageView, Persona, PlayView } from '../../shared/types';
 import { ApiFail, api, imgUrl, newId } from '../api';
-import { Arrow, Back, Bookmark, Down, PlayFill, SkipFill } from '../icons';
+import { useBgm } from '../bgm';
+import { Arrow, Back, Bookmark, Down, PlayFill, SkipFill, Sound, SoundOff } from '../icons';
+import { ReelOverlay } from '../reel';
 import { SaveSheet } from '../saves';
 import { Face, titleClass } from '../poster';
 import { Tabs } from '../tabs';
@@ -119,6 +121,8 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
   const [notice, setNotice] = useState('');
   /** 「필름에 들어가기」로 막 들어왔으면 제목이 먼저 뜬다 */
   const [card, setCard] = useState(() => new URLSearchParams(window.location.search).has('open'));
+  /** 막 들어왔고 필름에 오프닝 영상이 있으면 그것부터 흐른다. 끝나거나 건너뛰면 제목이 뜬다 */
+  const [reelOn, setReelOn] = useState(() => new URLSearchParams(window.location.search).has('open'));
   /** 오프닝을 읽는 중. 끝에 닿으면 말하는 칸이 선다 */
   const [reading, setReading] = useState(false);
   /** 장면 저장 시트를 열어 두었나. 필름 정보의 「저장한 장면」에서 오면 열린 채로 온다(?saves) */
@@ -130,6 +134,8 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
   /** 하루의 끝에 오르는 크레딧 */
   const [credits, setCredits] = useState(false);
   const [closing, setClosing] = useState(false);
+  /** 배경 음악. 오프닝 영상과 제목이 걷힌 뒤부터 흐른다 */
+  const bgm = useBgm(view?.film.bgm ?? '', !!view && !reelOn && !card);
   const wasEnded = useRef<boolean | null>(null);
   const tick = useRef(0);
   const still = useRef(0);
@@ -139,6 +145,7 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
       .play(playId)
       .then((v) => {
         setView(v);
+        setReelOn((on) => on && (v.film.reel?.clips.length ?? 0) > 0);
         // 아직 한마디도 안 했으면 오프닝을 처음부터 읽는다
         setReading(hasLines(v.film) && v.elapsed === 0 && !v.messages.some((m) => m.speaker === 'persona'));
       })
@@ -149,10 +156,10 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
   useEffect(() => {
     if (!card) return;
     window.history.replaceState(null, '', window.location.pathname);
-    if (!view) return;
+    if (!view || reelOn) return;
     const t = setTimeout(() => setCard(false), TITLE_MS);
     return () => clearTimeout(t);
-  }, [card, view !== null]);
+  }, [card, view !== null, reelOn]);
 
   // 하루가 끝나는 것을 지켜본 자리에서는 크레딧이 저절로 오른다. 끝난 삶을 다시 열었을 때는 오르지 않는다
   const ended = view?.ended ?? null;
@@ -401,6 +408,11 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
           <Back />
         </button>
         <div className="right">
+          {bgm.has && (
+            <button className="ico" onClick={bgm.toggle} aria-label={bgm.on ? '배경 음악 끄기' : '배경 음악 켜기'} aria-pressed={bgm.on}>
+              {bgm.on ? <Sound /> : <SoundOff />}
+            </button>
+          )}
           {/* 장면 저장. 지금 장면을 남기고, 남긴 장면에서 다시 산다 */}
           <button className="ico keepbtn" onClick={() => setSaving(true)} aria-label="장면 저장">
             <Bookmark />
@@ -709,6 +721,7 @@ export function Play({ playId, go }: { playId: string; go: (to: string) => void 
         </div>
       )}
 
+      {reelOn && film.reel && <ReelOverlay reel={film.reel} onDone={() => setReelOn(false)} />}
       {card && (
         <div className="titlecard" aria-hidden="true">
           <h1 className={titleClass(film.title)}>{film.title}</h1>

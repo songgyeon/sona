@@ -814,3 +814,89 @@ button:disabled { opacity: 0.4; cursor: default; }
 .phadd svg { width: 16px; height: 16px; }
 .phadd input[type='file'] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .phadd.off { opacity: 0.4; cursor: default; }
+
+/* ── 오프닝 영상: 화면 ── */
+.reelstage { position: relative; width: 100%; overflow: hidden; background: #000; aspect-ratio: 9 / 16; }
+.reelstage.wide { aspect-ratio: 16 / 9; }
+.reelstage.cine { aspect-ratio: 2.39 / 1; }
+.reelstage .layer { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; will-change: transform, opacity; }
+.reelstage .layer.black { background: #000; }
+.reelstage .rtext { position: absolute; z-index: 4; left: 8%; right: 8%; margin: 0; color: #fff; text-shadow: 0 1px 10px rgba(0, 0, 0, 0.65); white-space: pre-line; text-align: center; text-align-last: center; word-break: keep-all; }
+.reelstage .rtext.title { top: 50%; transform: translateY(-50%); font-family: var(--serif); font-size: clamp(20px, 7vw, 34px); font-weight: 700; letter-spacing: 0.3em; padding-left: 0.3em; line-height: 1.5; }
+.reelstage .rtext.sub { bottom: 9%; font-size: clamp(13px, 4vw, 17px); font-weight: 500; line-height: 1.6; }
+.reelstage .rtext.credit { bottom: 12%; font-size: clamp(10px, 3vw, 12.5px); font-weight: 600; letter-spacing: 0.42em; padding-left: 0.42em; line-height: 2; color: rgba(255, 255, 255, 0.86); }
+
+/* ── 오프닝 영상: 들어가면 맨 먼저 ── */
+.opener { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; background: #000; animation: reelin 0.5s ease both; }
+.opener.out { animation: reelout 0.6s ease forwards; }
+@keyframes reelin { from { opacity: 0; } }
+@keyframes reelout { to { opacity: 0; } }
+.opener .reelstage { max-height: 100dvh; width: auto; height: auto; max-width: 100vw; }
+.opener .reelstage.tall { height: 100dvh; max-width: 100vw; }
+.opener .reelstage.wide, .opener .reelstage.cine { width: 100vw; }
+.opener .prog { position: absolute; z-index: 6; left: 0; right: 0; top: 0; height: 2px; background: rgba(255, 255, 255, 0.18); }
+.opener .prog i { display: block; height: 100%; background: #fff; }
+.opener .ctl { position: absolute; z-index: 6; left: 0; right: 0; bottom: calc(26px + env(safe-area-inset-bottom)); padding: 0 22px; display: flex; align-items: center; justify-content: space-between; }
+.opener .ctl button { display: flex; align-items: center; gap: 6px; padding: 9px 14px; border: 1px solid rgba(255, 255, 255, 0.45); background: rgba(0, 0, 0, 0.3); font-size: 13px; letter-spacing: 0.08em; color: #fff; }
+.opener .ctl .snd { width: 42px; height: 42px; padding: 0; justify-content: center; border-radius: 50%; }
+.opener .ctl svg { width: 18px; height: 18px; }
+
+/* ── 오프닝 영상: 편집기 ── */
+.ed .reelstage { max-height: 440px; width: auto; margin: 4px auto 0; outline: 1px solid var(--hair); }
+.ed .reelstage.wide, .ed .reelstage.cine { width: 100%; }
+.ed .transport { margin-top: 12px; display: flex; align-items: center; gap: 12px; }
+.ed .transport .pl { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--ink); color: #000; }
+.ed .transport .pl svg { width: 15px; height: 15px; }
+.ed .transport .t { font-size: 12.5px; font-weight: 600; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.ed .transport .ratio { margin-left: auto; display: flex; gap: 4px; }
+.ed .transport .ratio button { padding: 6px 8px; border: 1px solid var(--ink-4); font-size: 11.5px; color: var(--ink-3); }
+.ed .transport .ratio button.on { border-color: var(--ink); color: var(--ink); }
+.ed .scrub { width: 100%; margin-top: 10px; accent-color: #fff; }
+.ed input[type='range'] { accent-color: #fff; }
+.ed .tl { margin-top: 12px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
+.ed .tl .film { position: relative; min-width: 100%; padding: 12px 12px; background: #050505; border: 1px solid #1c1c1c; }
+.ed .tl .film::before, .ed .tl .film::after { content: ''; position: absolute; left: 0; right: 0; height: 6px; background-image: linear-gradient(90deg, #2b2b2b 0 7px, transparent 7px); background-size: 12px 6px; background-position: 3px 0; }
+.ed .tl .film::before { top: 3px; }
+.ed .tl .film::after { bottom: 3px; }
+.ed .tl .clips { display: flex; gap: 2px; height: 58px; }
+.ed .tl .clip { position: relative; flex: none; height: 100%; overflow: visible; background: #111; }
+.ed .tl .clip img { width: 100%; height: 100%; object-fit: cover; opacity: 0.9; }
+.ed .tl .clip.black { background: #000; outline: 1px solid #222; outline-offset: -1px; }
+.ed .tl .clip.video { background: repeating-linear-gradient(90deg, #1a1a1a 0 6px, #111 6px 12px); }
+.ed .tl .clip b { position: absolute; left: 4px; bottom: 3px; font-size: 9.5px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px #000; font-variant-numeric: tabular-nums; }
+.ed .tl .clip .vid { position: absolute; right: 3px; top: 3px; padding: 0 3px; background: #fff; font-size: 8.5px; font-weight: 800; letter-spacing: 0.1em; color: #000; }
+.ed .tl .clip .tx { position: absolute; left: 4px; top: 3px; font-family: var(--serif); font-size: 10px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px #000; }
+.ed .tl .clip.on { outline: 2px solid #fff; outline-offset: -2px; z-index: 2; }
+.ed .tl .clip .tr { position: absolute; z-index: 3; left: -7px; top: 50%; width: 12px; height: 12px; transform: translateY(-50%) rotate(45deg); border: 1px solid var(--ink-2); background: #000; }
+.ed .tl .clip .tr.black { background: var(--ink-2); }
+.ed .tl .phead { position: absolute; z-index: 5; top: 4px; bottom: 4px; width: 2px; margin-left: -1px; background: #fff; box-shadow: 0 0 0 1px #000; pointer-events: none; }
+.ed .tl .music { margin-top: 6px; height: 28px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border: 1px solid #262626; background: #0b0b0b; font-size: 11px; color: var(--ink-3); }
+.ed .tl .music b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--ink-2); }
+.ed .adds { margin-top: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.ed .adds .add { height: 44px; font-size: 12.5px; }
+.selbox { margin-top: 16px; padding: 16px 14px; border: 1px solid var(--ink-4); }
+.selbox .h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 13px; font-weight: 700; }
+.selbox .h span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; font-weight: 500; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.row2 { margin-top: 14px; }
+.row2 .lbl { font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em; color: var(--ink-3); }
+.row2 .chips2 { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 6px; }
+.row2 .chips2 button { padding: 7px 11px; border: 1px solid var(--ink-4); font-size: 13px; color: var(--ink-3); }
+.row2 .chips2 button.on { background: var(--ink); border-color: var(--ink); color: #000; font-weight: 600; }
+.row2 .slider { margin-top: 6px; display: flex; align-items: center; gap: 12px; }
+.row2 .slider input { flex: 1; }
+.row2 .slider b { min-width: 46px; text-align: right; font-size: 13px; font-variant-numeric: tabular-nums; }
+.row2 > input { width: 100%; margin-top: 7px; }
+.acts2 { margin-top: 16px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.acts2 button { height: 38px; border: 1px solid var(--ink-4); font-size: 12px; color: var(--ink-2); }
+.acts2 button:disabled { opacity: 0.35; }
+
+/* ── 배경 음악 ── */
+.bgm { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--ink-4); }
+.bgm .disc { width: 40px; height: 40px; flex: none; border-radius: 50%; background: radial-gradient(circle, #000 0 4px, #333 4.5px 6px, #111 6.5px 100%); box-shadow: inset 0 0 0 1px #2a2a2a; }
+.bgm .disc.spin { animation: spin 2.4s linear infinite; background: radial-gradient(circle, #000 0 4px, #333 4.5px 6px, #111 6.5px 100%), conic-gradient(#222 0 25%, #111 0 50%, #222 0 75%, #111 0); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.bgm > div { flex: 1; min-width: 0; }
+.bgm b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.bgm small { display: block; margin-top: 2px; font-size: 12px; color: var(--ink-3); }
+.bgm button { flex: none; padding: 7px 10px; border: 1px solid var(--ink-4); font-size: 12px; color: var(--ink-2); }
+@media (prefers-reduced-motion: reduce) { .bgm .disc.spin, .opener, .opener.out { animation: none; } }

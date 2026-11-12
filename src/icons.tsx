@@ -112,3 +112,25 @@ export const Bubble = () => (
     <path d="M4.5 5.5h15v10.5h-8.2L7 19.6V16H4.5z" />
   </svg>
 );
+
+/** 소리 켜짐 */
+export const Sound = () => (
+  <Line>
+    <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" />
+    <path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" />
+  </Line>
+);
+/** 소리 꺼짐 */
+export const SoundOff = () => (
+  <Line>
+    <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" />
+    <path d="m16 9.5 5 5M21 9.5l-5 5" />
+  </Line>
+);
+/** 멈춤 */
+export const Pause = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+    <rect x="6.5" y="5" width="4" height="14" />
+    <rect x="13.5" y="5" width="4" height="14" />
+  </svg>
+);

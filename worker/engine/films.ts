@@ -3,10 +3,11 @@
 import { RULES } from '../../shared/rules';
 import { readFilm } from '../../shared/opening';
 import { FEED_KINDS } from '../../shared/feed';
-import type { Beat, Cast, Extra, FeedKind, FeedPhoto, Film, FilmCard, Tie } from '../../shared/types';
+import type { Beat, Cast, Extra, FeedKind, FeedPhoto, Film, FilmCard, Reel, ReelClip, Tie } from '../../shared/types';
 import { newId } from '../db';
 import { isUuid } from '../guard';
 import { type Ctx, Fail } from './ctx';
+import { type MediaType, mediaType } from './media';
 
 const L = RULES.limits;
 
@@ -56,6 +57,70 @@ function extras(v: unknown, where: string): Extra[] {
   }
   if (out.length > RULES.extras.max) throw new Fail(400, 'film_invalid', `${where}에 덧붙이는 칸은 ${RULES.extras.max}개까지예요.`);
   return out;
+}
+
+/** 올려 둔 소리나 영상을 가리키는 값. 비어 있어도 된다 */
+function media(v: unknown, name: string): string {
+  if (v == null || v === '') return '';
+  if (!isUuid(v)) throw new Fail(400, 'film_invalid', `${name} 파일이 올바르지 않아요.`);
+  return v;
+}
+
+/** 소수도 되는 수. 0.1 단위로 둔다 */
+function num(v: unknown, min: number, max: number, name: string): number {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < min || n > max) throw new Fail(400, 'film_invalid', `${name} 값이 올바르지 않아요.`);
+  return Math.round(n * 10) / 10;
+}
+
+const pickOf = <T extends string>(v: unknown, all: readonly T[], or: T): T => (all.includes(v as T) ? (v as T) : or);
+
+/** 오프닝 영상. 컷이 없으면 없는 것이다 */
+function reelOf(v: unknown): Reel | null {
+  if (v == null) return null;
+  const o = obj(v);
+  const R = RULES.reel;
+  const raw = Array.isArray(o.clips) ? o.clips : [];
+  if (raw.length > R.clips) throw new Fail(400, 'film_invalid', `오프닝 영상의 컷은 ${R.clips}개까지예요.`);
+  const clips: ReelClip[] = raw.map((x) => {
+    const c = obj(x);
+    const kind = pickOf(c.kind, ['image', 'video', 'black'] as const, 'black');
+    const src = kind === 'image' ? image(c.src, '오프닝 영상의') : kind === 'video' ? media(c.src, '오프닝 영상의 영상') : '';
+    if (kind !== 'black' && !src) throw new Fail(400, 'film_invalid', '오프닝 영상의 컷에 그림이나 영상이 없어요.');
+    return {
+      kind,
+      src,
+      dur: num(c.dur, R.minDur, R.maxDur, '컷의 길이'),
+      from: kind === 'video' ? num(c.from ?? 0, 0, 3600, '영상의 시작 지점') : 0,
+      motion: pickOf(c.motion, ['none', 'in', 'out', 'left', 'right'] as const, 'none'),
+      enter: pickOf(c.enter, ['cut', 'fade', 'black'] as const, 'cut'),
+      text: text(c.text, R.text, '컷의 글자'),
+      style: pickOf(c.style, ['title', 'sub', 'credit'] as const, 'title'),
+      sound: kind === 'video' && c.sound !== false,
+      ...(kind === 'video' && c.len != null ? { len: num(c.len, 0, 3600, '영상의 길이') } : {}),
+    };
+  });
+  if (clips.length === 0) return null;
+  if (clips.reduce((n, c) => n + c.dur, 0) > R.total) throw new Fail(400, 'film_invalid', `오프닝 영상은 ${R.total / 60}분까지예요.`);
+  return {
+    ratio: pickOf(o.ratio, ['tall', 'wide', 'cine'] as const, 'tall'),
+    clips,
+    music: media(o.music, '오프닝 영상의 음악'),
+    musicName: text(o.musicName, 80, '음악 이름'),
+    musicFrom: num(o.musicFrom ?? 0, 0, 3600, '음악의 시작 지점'),
+    ...(o.musicLen != null ? { musicLen: num(o.musicLen, 0, 3600, '음악의 길이') } : {}),
+  };
+}
+
+/** 필름에 건 소리와 영상이 정말 다 올라가 있는가, 종류가 맞는가 */
+async function checkMedia(ctx: Ctx, film: Film): Promise<void> {
+  const want: [string, MediaType, string][] = [];
+  if (film.bgm) want.push([film.bgm, 'audio', '배경 음악']);
+  if (film.reel?.music) want.push([film.reel.music, 'audio', '오프닝 영상의 음악']);
+  for (const c of film.reel?.clips ?? []) if (c.kind === 'video') want.push([c.src, 'video', '오프닝 영상의 영상']);
+  for (const [id, type, name] of want) {
+    if ((await mediaType(ctx.db, id)) !== type) throw new Fail(400, 'film_invalid', `${name}을 다시 올려 주세요.`);
+  }
 }
 
 /** 피드에 남기는 것 가운데 켜 둔 것. 안 보냈으면 다 켠 것이다. 모르는 종류는 버린다 */
@@ -194,6 +259,9 @@ export function parseFilm(input: unknown): Film {
     },
     casts,
     ties,
+    bgm: media(f.bgm, '배경 음악'),
+    bgmName: text(f.bgmName, 80, '배경 음악 이름'),
+    reel: reelOf(f.reel),
     firstScene: {
       place: text(fs.place, 40, '첫 장면의 장소'),
       beats,
@@ -222,6 +290,7 @@ const COLS = 'id, owner, title, logline, featured, data, private';
 
 export async function createFilm(ctx: Ctx, input: unknown): Promise<{ id: string }> {
   const film = parseFilm(input);
+  await checkMedia(ctx, film);
   const id = newId();
   await ctx.db.run(
     'INSERT INTO films (id, owner, title, logline, featured, data, created_at, private) VALUES (?, ?, ?, ?, 0, ?, ?, ?)',
@@ -243,6 +312,7 @@ export async function updateFilm(ctx: Ctx, id: string, input: unknown): Promise<
   if (!row) throw new Fail(404, 'film_missing', '필름을 찾을 수 없어요.');
   if (row.owner !== ctx.visitor) throw new Fail(403, 'not_owner', '만든 사람만 고칠 수 있어요.');
   const film = parseFilm(input);
+  await checkMedia(ctx, film);
   await ctx.db.run('UPDATE films SET title = ?, logline = ?, data = ? WHERE id = ?', film.title, film.logline, JSON.stringify(film), id);
   // 공개 범위는 보냈을 때만 바꾼다. 그 칸이 없던 때의 화면이 고치면 그대로 둔다
   const reach = input && typeof input === 'object' ? (input as { private?: unknown }).private : undefined;

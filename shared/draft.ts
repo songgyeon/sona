@@ -3,7 +3,7 @@
 
 import { FEED_KINDS } from './feed';
 import { RULES } from './rules';
-import type { Extra, FeedKind, FeedPhoto, Film } from './types';
+import type { Extra, FeedKind, FeedPhoto, Film, Reel } from './types';
 
 /** 덧붙이는 칸 하나(항목과 내용) */
 export type DraftExtra = Extra;
@@ -85,6 +85,11 @@ export interface Draft {
   extras: DraftExtra[];
   /** 내 배역에 덧붙이는 칸 */
   personaExtras: DraftExtra[];
+  /** 배경 음악(올린 음악의 표)과 그 파일 이름 */
+  bgm: string;
+  bgmName: string;
+  /** 오프닝 영상. 없으면 null */
+  reel: Reel | null;
 }
 
 export const blankCast = (): DraftCast => ({
@@ -131,6 +136,9 @@ export const blankDraft = (): Draft => ({
   private: false,
   extras: blankExtras(),
   personaExtras: blankExtras(),
+  bgm: '',
+  bgmName: '',
+  reel: null,
 });
 
 const cut = (id: string, image: string): DraftBeat => ({ id, kind: 'cut', image, text: '', cast: 0 });
@@ -163,6 +171,9 @@ export function toFilm(d: Draft): unknown {
     startDow: d.startDow,
     startMin: toMin(d.startTime),
     opens: { feed: d.feed, ping: d.ping, aside: d.aside },
+    bgm: d.bgm,
+    bgmName: d.bgmName,
+    reel: d.reel && d.reel.clips.length > 0 ? d.reel : null,
     extras: filled(d.extras),
     persona: { name: d.personaName, line: d.personaLine, face: d.personaFace, extras: filled(d.personaExtras) },
     casts: d.casts.map((c) => ({
@@ -251,6 +262,9 @@ export function fromFilm(f: Film): Draft {
     personaFace: f.persona.face ?? '',
     extras: padded(f.extras),
     personaExtras: padded(f.persona.extras),
+    bgm: f.bgm ?? '',
+    bgmName: f.bgmName ?? '',
+    reel: f.reel ?? null,
     casts: f.casts.map((c) => ({
       name: c.name,
       face: c.face ?? '',
@@ -350,6 +364,8 @@ export function isBlank(d: Draft): boolean {
     ...Object.values(d.ties).flatMap((t) => [t.relation, t.calls]),
     ...[...(d.extras ?? []), ...(d.personaExtras ?? []), ...d.casts.flatMap((c) => c.extras ?? [])].flatMap((e) => [e.label, e.text]),
     ...d.casts.flatMap((c) => (c.photos ?? []).map((ph) => ph.id)),
+    d.bgm ?? '',
+    ...(d.reel?.clips ?? []).map((c) => c.kind),
   ];
   return d.casts.length <= 1 && d.beats.length === 0 && written.every((v) => v.trim().length === 0);
 }
