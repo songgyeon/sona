@@ -108,6 +108,18 @@ export const SCHEMA: string[] = [
     updated_at INTEGER NOT NULL
   )`,
 
+  // 내 페르소나. 필름마다 이 가운데 하나로 들어갈 수 있다. 이 기기(방문자)에 묶인다
+  `CREATE TABLE IF NOT EXISTS mypersonas (
+    id TEXT PRIMARY KEY,
+    visitor TEXT NOT NULL,
+    name TEXT NOT NULL,
+    line TEXT NOT NULL DEFAULT '',
+    face TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS mypersonas_visitor ON mypersonas(visitor, created_at)`,
+
   // 저장한 장면. 그때의 삶을 통째로 담아 둔다(snapshot). auto는 돌아가기 전에 저절로 남긴 것(삶마다 한 자리)
   `CREATE TABLE IF NOT EXISTS saves (
     id TEXT PRIMARY KEY,

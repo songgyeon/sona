@@ -56,9 +56,9 @@ export function Home({ go, fake, modelReady }: { go: (to: string) => void; fake:
       <header className="bar">
         <span className="logo">SONA</span>
         <div className="right">
-          {/* 내 이름. 누르면 입장권을 다시 띄워 고친다 */}
+          {/* 내 이름. 누르면 내 페르소나 — 이름을 고치고 페르소나를 만든다 */}
           {me.name && (
-            <button className="namechip" onClick={me.rename} aria-label={`내 이름 ${me.name} 고치기`}>
+            <button className="namechip" onClick={() => go('/personas')} aria-label={`내 이름 ${me.name}, 내 페르소나 보기`}>
               {me.name}
             </button>
           )}

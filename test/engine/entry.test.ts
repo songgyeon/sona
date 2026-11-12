@@ -3,6 +3,7 @@ import { Fail } from '../../worker/engine/ctx';
 import { chooseAs, filmView } from '../../worker/engine/entry';
 import { createFilm } from '../../worker/engine/films';
 import { getMe, setMe } from '../../worker/engine/me';
+import { addPersona, dropPersona, editPersona, listPersonas } from '../../worker/engine/mypersonas';
 import { dropSave, listSaves, loadSave, makeSave } from '../../worker/engine/saves';
 import { viewOf } from '../../worker/engine/store';
 import { enter, say } from '../../worker/engine/turn';
@@ -173,5 +174,52 @@ describe('장면 저장', () => {
     const v = await enter(stuck, filmId, uid());
     await say(stuck, v.id, { text: '안녕.', requestId: uid() });
     expect(await failCode(makeSave(stuck, v.id))).toBe('stuck');
+  });
+});
+
+describe('내 페르소나', () => {
+  it('내 이름을 정하면 그 이름으로 첫 페르소나가 생긴다. 이름이 없으면 없다', async () => {
+    const { ctx } = await setup();
+    expect(await listPersonas(ctx)).toEqual([]);
+    await setMe(ctx, { name: '서하' });
+    expect((await listPersonas(ctx)).map((p) => p.name)).toEqual(['서하']);
+    // 두 번 만들지 않는다
+    expect(await listPersonas(ctx)).toHaveLength(1);
+  });
+
+  it('여러 개 만들고, 고치고, 지운다. 정해진 수까지다. 남의 것은 못 건드린다', async () => {
+    const { ctx } = await setup();
+    await setMe(ctx, { name: '서하' });
+    let list = await addPersona(ctx, { name: '지우', line: '밤에만 나오는 사람' });
+    expect(list.map((p) => [p.name, p.line])).toEqual([
+      ['서하', ''],
+      ['지우', '밤에만 나오는 사람'],
+    ]);
+    const jiu = list[1]!;
+    list = await editPersona(ctx, jiu.id, { name: '지우', line: '낮에도 나온다' });
+    expect(list[1]!.line).toBe('낮에도 나온다');
+    expect(await failCode(editPersona({ ...ctx, visitor: OTHER_VISITOR }, jiu.id, { name: '남' }))).toBe('persona_missing');
+    expect(await failCode(addPersona(ctx, { name: '' }))).toBe('film_invalid');
+    for (let i = list.length; i < RULES.personas.max; i++) await addPersona(ctx, { name: `p${i}` });
+    expect(await failCode(addPersona(ctx, { name: '하나 더' }))).toBe('personas_full');
+    list = await dropPersona(ctx, jiu.id);
+    expect(list.map((p) => p.name)).not.toContain('지우');
+  });
+
+  it('필름에 내 페르소나로 들어간다. 이름과 사진과 소개를 다 가져간다. 살던 삶에도 적힌다', async () => {
+    const { ctx, filmId } = await setup();
+    await setMe(ctx, { name: '서하' });
+    const v = await enter(ctx, filmId, uid());
+    const [, jiu] = await addPersona(ctx, { name: '지우', line: '밤에만 나오는 사람' });
+    const chosen = await chooseAs(ctx, filmId, { as: 'persona', id: jiu!.id });
+    expect(chosen.mine).toMatchObject({ name: '지우', line: '밤에만 나오는 사람', as: 'me', personaId: jiu!.id });
+    const fresh = await enter(ctx, filmId, uid());
+    expect(fresh.film.persona).toMatchObject({ name: '지우', line: '밤에만 나오는 사람' });
+    expect(fresh.film.firstScene.beats[1]).toMatchObject({ text: '지우 씨, 그건 이쪽 칸이에요.' });
+    expect((await viewOf(ctx, v.id)).film.persona.name).toBe('지우');
+    // 남의 페르소나로는 못 들어간다
+    expect(await failCode(chooseAs({ ...ctx, visitor: OTHER_VISITOR }, filmId, { as: 'persona', id: jiu!.id }))).toBe('persona_missing');
+    // 배역으로 되돌리면 소개도 배역의 것이다
+    expect((await chooseAs(ctx, filmId, { as: 'role' })).mine).toMatchObject({ name: '수아', line: DEV_FILM.persona.line, as: 'role', personaId: null });
   });
 });

@@ -8,6 +8,7 @@ import { Home } from './pages/Home';
 import { Me } from './pages/Me';
 import { Find, Living, Mine } from './pages/Lists';
 import { MeCtx, NamePop } from './me';
+import { Personas } from './pages/Personas';
 import { Play } from './pages/Play';
 import { useRoute } from './router';
 
@@ -108,6 +109,7 @@ function Page({ path, go, fake, modelReady }: { path: string; go: (to: string) =
   if ((m = new RegExp(`^/film/${ID}$`).exec(path))) return <Film filmId={m[1]!} go={go} />;
   if ((m = new RegExp(`^/create/${ID}$`).exec(path))) return <Create key={m[1]} draftId={m[1]!} go={go} />;
   if (path === '/create') return <Create key="new" go={go} />;
+  if (path === '/personas') return <Personas go={go} />;
   if (path === '/find') return <Find go={go} />;
   if (path === '/living') return <Living go={go} />;
   if (path === '/mine') return <Mine go={go} />;

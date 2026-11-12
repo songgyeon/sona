@@ -6,6 +6,7 @@ import { openFeed, postMine } from './engine/alive';
 import { chooseAs, filmView } from './engine/entry';
 import { createFilm, listFilms, updateFilm } from './engine/films';
 import { getMe, setMe } from './engine/me';
+import { addPersona, dropPersona, editPersona, listPersonas } from './engine/mypersonas';
 import { dropSave, listSaves, loadSave, makeSave } from './engine/saves';
 import { loadImage, saveImage } from './engine/images';
 import { skip } from './engine/skip';
@@ -55,6 +56,10 @@ const ROUTES: [string, RegExp, Handler][] = [
   ['POST', /^\/api\/films$/, (ctx, _p, body) => createFilm(ctx, body)],
   ['GET', /^\/api\/me$/, (ctx) => getMe(ctx)],
   ['PUT', /^\/api\/me$/, (ctx, _p, body) => setMe(ctx, body)],
+  ['GET', /^\/api\/personas$/, (ctx) => listPersonas(ctx)],
+  ['POST', /^\/api\/personas$/, (ctx, _p, body) => addPersona(ctx, body)],
+  ['PUT', /^\/api\/personas\/([^/]+)$/, (ctx, p, body) => editPersona(ctx, p[0]!, body)],
+  ['POST', /^\/api\/personas\/([^/]+)\/drop$/, (ctx, p) => dropPersona(ctx, p[0]!)],
   ['GET', /^\/api\/films\/([^/]+)$/, (ctx, p) => filmView(ctx, p[0]!)],
   ['PUT', /^\/api\/films\/([^/]+)\/as$/, (ctx, p, body) => chooseAs(ctx, p[0]!, body)],
   ['PUT', /^\/api\/films\/([^/]+)$/, (ctx, p, body) => updateFilm(ctx, p[0]!, body)],

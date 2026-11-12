@@ -173,6 +173,16 @@ export interface FilmMine {
   line: string;
   face: string;
   as: 'me' | 'role' | 'custom';
+  /** 내 페르소나로 들어가면 그 페르소나 */
+  personaId: string | null;
+}
+
+/** 내 페르소나 — 필름마다 이 가운데 하나로 들어갈 수 있다 */
+export interface MyPersona {
+  id: string;
+  name: string;
+  line: string;
+  face: string;
 }
 
 /** 저장한 장면 한 자리 */

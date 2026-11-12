@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { formatMin } from '../../shared/clock';
 import { DOW_NAMES } from '../../shared/rules';
-import type { Film as FilmData, FilmCard, FilmMine, PlayCard } from '../../shared/types';
+import type { Film as FilmData, FilmCard, FilmMine, MyPersona, PlayCard } from '../../shared/types';
 import { ApiFail, api, imgUrl, newId } from '../api';
 import { Back, LinkIcon, Next, Pen, PlayFill } from '../icons';
 import { useMe } from '../me';
@@ -17,6 +17,15 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
   /** 들어가는 이름을 바꾸는 중 */
   const [choosing, setChoosing] = useState(false);
   const me = useMe();
+  /** 내 페르소나. 이 가운데 하나로 들어갈 수 있다 */
+  const [personas, setPersonas] = useState<MyPersona[]>([]);
+
+  useEffect(() => {
+    api
+      .personas()
+      .then(setPersonas)
+      .catch(() => setPersonas([]));
+  }, [me.name]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [toast, setToast] = useState('');
@@ -54,13 +63,15 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
     }
   };
 
-  /** 들어가는 이름을 고른다. 이 필름에서 살던 삶에도 적힌다 */
-  const choose = async (as: 'me' | 'role') => {
-    if (!data || choosing || data.mine.as === as) return;
+  /** 들어가는 사람을 고른다: 배역이나 내 페르소나. 이 필름에서 살던 삶에도 적힌다 */
+  const choose = async (as: 'role' | 'persona', personaId?: string) => {
+    if (!data || choosing) return;
+    if (as === 'role' && data.mine.as === 'role') return;
+    if (as === 'persona' && data.mine.personaId === personaId) return;
     setChoosing(true);
     setErr('');
     try {
-      setData(await api.chooseAs(filmId, as));
+      setData(await api.chooseAs(filmId, as, personaId));
     } catch (e) {
       setErr(e instanceof ApiFail ? e.message : '이름을 바꾸지 못했어요.');
     }
@@ -104,22 +115,27 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
         <h1 className={titleClass(film.title)}>{film.title}</h1>
         {film.logline && <p className="line1">{film.logline}</p>}
         <div className="go">
-          {/* 들어가는 이름: 내 이름이나, 디렉터가 정한 배역 이름 */}
-          {me.name && (
-            <div className="asme" role="group" aria-label="들어가는 이름">
-              <p>들어가는 이름</p>
-              <div className="two">
-                <button className={mine.as === 'me' ? 'on' : ''} aria-pressed={mine.as === 'me'} disabled={choosing} onClick={() => void choose('me')}>
-                  <b>{me.name}</b>
-                  <small>내 이름</small>
+          {/* 들어가는 사람: 디렉터가 정한 배역이나, 내 페르소나 가운데 하나 */}
+          <div className="asme" role="group" aria-label="들어가는 사람">
+            <p>
+              들어가는 사람
+              <button className="textbtn" onClick={() => go('/personas')}>
+                페르소나 관리
+              </button>
+            </p>
+            <div className="pick">
+              <button className={mine.as === 'role' ? 'on' : ''} aria-pressed={mine.as === 'role'} disabled={choosing} onClick={() => void choose('role')}>
+                <b>{film.persona.name}</b>
+                <small>배역</small>
+              </button>
+              {personas.map((p) => (
+                <button key={p.id} className={mine.personaId === p.id ? 'on' : ''} aria-pressed={mine.personaId === p.id} disabled={choosing} onClick={() => void choose('persona', p.id)}>
+                  <b>{p.name}</b>
+                  <small>내 페르소나</small>
                 </button>
-                <button className={mine.as === 'role' ? 'on' : ''} aria-pressed={mine.as === 'role'} disabled={choosing} onClick={() => void choose('role')}>
-                  <b>{film.persona.name}</b>
-                  <small>배역 이름</small>
-                </button>
-              </div>
+              ))}
             </div>
-          )}
+          </div>
           {living ? (
             <>
               <button className="btn play wide" onClick={() => go(`/play/${living.id}`)}>

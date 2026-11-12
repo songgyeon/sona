@@ -145,6 +145,11 @@ export function Mine({ go }: { go: (to: string) => void }) {
   return (
     <main className="app tabbed page">
       <h1>내 필름</h1>
+      {/* 내 이름과 내 페르소나 */}
+      <button className="savedrow sect mypersonas" onClick={() => go('/personas')}>
+        <b>내 페르소나</b>
+        <span>이름과 페르소나 고치기 ›</span>
+      </button>
       {err && <p className="warn sect">{err}</p>}
       {films !== null && mine.length === 0 && saved.length === 0 && (
         <div className="empty">

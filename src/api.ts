@@ -2,7 +2,7 @@
 
 import { type Box, outSide } from '../shared/crop';
 import { RULES } from '../shared/rules';
-import type { ApiError, Film, FilmCard, FilmMine, PlayCard, PlayView, SaveView } from '../shared/types';
+import type { ApiError, Film, FilmCard, FilmMine, MyPersona, PlayCard, PlayView, SaveView } from '../shared/types';
 
 const KEY = 'sona.key';
 const VISITOR = 'sona.visitor';
@@ -130,7 +130,13 @@ export const api = {
   films: () => call<FilmCard[]>('GET', '/api/films'),
   film: (id: string) => call<{ card: FilmCard; film: Film; mine: FilmMine }>('GET', `/api/films/${id}`),
   /** 들어가는 이름 고르기: 내 이름(me)이나 배역 이름(role) */
-  chooseAs: (id: string, as: 'me' | 'role') => call<{ card: FilmCard; film: Film; mine: FilmMine }>('PUT', `/api/films/${id}/as`, { as }),
+  chooseAs: (id: string, as: 'me' | 'role' | 'persona', personaId?: string) =>
+    call<{ card: FilmCard; film: Film; mine: FilmMine }>('PUT', `/api/films/${id}/as`, { as, id: personaId }),
+  /** 내 페르소나 */
+  personas: () => call<MyPersona[]>('GET', '/api/personas'),
+  addPersona: (p: Omit<MyPersona, 'id'>) => call<MyPersona[]>('POST', '/api/personas', p),
+  editPersona: (id: string, p: Omit<MyPersona, 'id'>) => call<MyPersona[]>('PUT', `/api/personas/${id}`, p),
+  dropPersona: (id: string) => call<MyPersona[]>('POST', `/api/personas/${id}/drop`, {}),
   /** 내 이름 */
   me: () => call<{ name: string }>('GET', '/api/me'),
   setMe: (name: string) => call<{ name: string }>('PUT', '/api/me', { name }),
