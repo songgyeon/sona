@@ -139,7 +139,7 @@ function FilmPeek({ film, onEnter }: { film: Film; onEnter: () => void }) {
       {(opening || film.setting) && (
         <section className="block sect">
           <div className="rowhead" style={{ padding: 0 }}>
-            오프닝<span>{when}</span>
+            첫 장면<span>{when}</span>
           </div>
           <p className="prose">{opening || film.setting}</p>
         </section>

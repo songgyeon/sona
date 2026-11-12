@@ -228,7 +228,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .filmrow .thumb .blank b { font-size: 9.5px; letter-spacing: 0.06em; }
 .filmrow .text { display: block; min-width: 0; }
 .filmrow strong { display: block; font-family: var(--serif); font-size: 18px; font-weight: 700; letter-spacing: 0.1em; }
-.filmrow .text span { margin-top: 5px; font-size: 13px; line-height: 1.5; color: var(--ink-3); white-space: pre-line; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.filmrow .text span { margin-top: 5px; text-align: justify; font-size: 13px; line-height: 1.5; color: var(--ink-3); white-space: pre-line; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .filmrow em { display: block; margin-top: 6px; font-style: normal; font-size: 11.5px; letter-spacing: 0.06em; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .empty { margin: 34px var(--pad) 0; display: grid; gap: 18px; justify-items: start; }
 /* 내 필름: 임시저장한 필름. 줄 오른쪽에 지우는 단추가 선다 */
@@ -962,3 +962,24 @@ button:disabled { opacity: 0.4; cursor: default; }
 .pvend p { font-size: 12.5px; color: var(--ink-3); }
 .peekrow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
 .peekrow .btn svg, .peekbtn svg { width: 14px; height: 14px; fill: currentColor; }
+
+/* 이어 살기 — 필름마다 묶은 삶들. 필름 머리 아래로 삶이 들여 서고, 삶마다 지울 수 있다 */
+.lgroup { margin-top: 14px; padding: 0 var(--pad); }
+.lgroup + .lgroup { margin-top: 30px; }
+.lhead { width: 100%; display: grid; grid-template-columns: 48px 1fr 18px; column-gap: 14px; align-items: center; padding: 8px 0 12px; text-align: left; }
+.lhead .thumb { display: block; width: 48px; height: 64px; overflow: hidden; background: #0c0c0c; }
+.lhead .thumb img { width: 100%; height: 100%; object-fit: cover; }
+.lhead .thumb .blank { padding: 4px; }
+.lhead .thumb .blank b { font-size: 8.5px; letter-spacing: 0.04em; }
+.lhead .text { display: block; min-width: 0; }
+.lhead strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--serif); font-size: 18px; font-weight: 700; letter-spacing: 0.1em; }
+.lhead em { display: block; margin-top: 6px; font-style: normal; font-size: 11.5px; letter-spacing: 0.06em; color: var(--ink-3); }
+.lhead svg { width: 18px; height: 18px; color: var(--ink-4); }
+.lives { margin-left: 62px; border-top: 1px solid var(--hair); }
+.life { position: relative; border-bottom: 1px solid var(--hair); }
+.liferow { width: 100%; display: block; padding: 13px 58px 13px 0; text-align: left; }
+.liferow em { display: block; font-style: normal; font-size: 12px; letter-spacing: 0.06em; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.liferow span { margin-top: 5px; text-align: justify; font-size: 13px; line-height: 1.5; color: var(--ink-3); white-space: pre-line; word-break: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.life .del { position: absolute; top: 14px; right: 0; padding: 0 0 10px 12px; }
+.life .ask { display: flex; justify-content: flex-end; align-items: center; gap: 18px; padding: 0 0 14px; font-size: 12.5px; color: var(--ink-2); }
+.life .ask .textbtn:first-of-type { color: var(--ink); }

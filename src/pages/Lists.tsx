@@ -6,7 +6,7 @@ import { draftTitle } from '../../shared/draft';
 import type { FilmCard, PlayCard } from '../../shared/types';
 import { ApiFail, api } from '../api';
 import { drafts } from '../drafts';
-import { Search } from '../icons';
+import { Next, Search } from '../icons';
 import { Art } from '../poster';
 import { Tabs } from '../tabs';
 
@@ -72,10 +72,14 @@ export function Find({ go }: { go: (to: string) => void }) {
   );
 }
 
-/** 이어 살기. 살고 있던 필름으로 돌아간다. 퍼센트가 아니라 지금 그 세계의 시각을 적는다 */
+/** 이어 살기. 살고 있던 필름으로 돌아간다. 필름마다 묶는다 — 한 필름에 삶이 여럿일 수 있다(처음부터 다시 살기).
+    삶마다 지금 그 세계의 시각과 마지막으로 오간 말을 적는다. 삶은 지울 수 있다. 되돌릴 수 없어서 한 번 묻는다 */
 export function Living({ go }: { go: (to: string) => void }) {
   const [plays, setPlays] = useState<PlayCard[] | null>(null);
   const [err, setErr] = useState('');
+  /** 지울지 묻고 있는 삶 */
+  const [asking, setAsking] = useState('');
+  const [busy, setBusy] = useState(false);
   useEffect(() => {
     api
       .plays()
@@ -83,14 +87,31 @@ export function Living({ go }: { go: (to: string) => void }) {
       .catch((e) => setErr(e instanceof ApiFail ? e.message : '목록을 불러오지 못했어요.'));
   }, []);
 
-  const living = (plays ?? []).filter((p) => !p.ended);
-  const ended = (plays ?? []).filter((p) => p.ended);
+  const drop = async (id: string) => {
+    setBusy(true);
+    setErr('');
+    try {
+      setPlays(await api.dropPlay(id));
+      setAsking('');
+    } catch (e) {
+      setErr(e instanceof ApiFail ? e.message : '지우지 못했어요.');
+    }
+    setBusy(false);
+  };
+
+  /** 필름마다 묶는다. 최근에 들어간 삶이 있는 필름부터, 묶음 안에서는 최근 삶부터 */
+  const groups: { filmId: string; title: string; poster: string; plays: PlayCard[] }[] = [];
+  for (const p of plays ?? []) {
+    const g = groups.find((x) => x.filmId === p.filmId);
+    if (g) g.plays.push(p);
+    else groups.push({ filmId: p.filmId, title: p.title, poster: p.poster, plays: [p] });
+  }
 
   return (
     <main className="app tabbed page">
       <h1>이어 살기</h1>
       {err && <p className="warn sect">{err}</p>}
-      {plays !== null && living.length === 0 && (
+      {plays !== null && plays.length === 0 && (
         <div className="empty">
           <p>살고 있는 필름이 없어요.</p>
           <button className="btn more" onClick={() => go('/')}>
@@ -98,28 +119,48 @@ export function Living({ go }: { go: (to: string) => void }) {
           </button>
         </div>
       )}
-      <ul className="rows">
-        {living.map((p) => (
-          <Row key={p.id} poster={p.poster} title={p.title} onClick={() => go(`/play/${p.id}`)}>
-            <em>{formatWorld(p)}</em>
-            {p.lastLine && <span>{p.lastLine}</span>}
-          </Row>
-        ))}
-      </ul>
-      {ended.length > 0 && (
-        <>
-          <p className="kicker sect" style={{ marginTop: 34 }}>
-            끝난 하루
-          </p>
-          <ul className="rows">
-            {ended.map((p) => (
-              <Row key={p.id} poster={p.poster} title={p.title} onClick={() => go(`/play/${p.id}`)}>
-                <em>{formatWorld(p)}</em>
-              </Row>
+      {groups.map((g) => (
+        <section className="lgroup" key={g.filmId}>
+          <button className="lhead" onClick={() => go(`/film/${g.filmId}`)}>
+            <span className="thumb">
+              <Art id={g.poster} title={g.title} />
+            </span>
+            <span className="text">
+              <strong>{g.title}</strong>
+              <em>삶 {g.plays.length}개</em>
+            </span>
+            <Next />
+          </button>
+          <ul className="lives">
+            {g.plays.map((p) => (
+              <li key={p.id} className="life">
+                <button className="liferow" onClick={() => go(`/play/${p.id}`)}>
+                  <em>
+                    {p.ended ? '끝난 하루 · ' : ''}
+                    {formatWorld(p)}
+                  </em>
+                  {p.lastLine && <span>{p.lastLine}</span>}
+                </button>
+                {asking === p.id ? (
+                  <p className="ask">
+                    이 삶을 지울까요?
+                    <button className="textbtn" disabled={busy} onClick={() => void drop(p.id)}>
+                      지우기
+                    </button>
+                    <button className="textbtn" disabled={busy} onClick={() => setAsking('')}>
+                      취소
+                    </button>
+                  </p>
+                ) : (
+                  <button className="textbtn del" onClick={() => setAsking(p.id)} aria-label={`${g.title}, ${formatWorld(p)}의 삶 지우기`}>
+                    지우기
+                  </button>
+                )}
+              </li>
             ))}
           </ul>
-        </>
-      )}
+        </section>
+      ))}
       <Tabs path="/living" go={go} />
     </main>
   );

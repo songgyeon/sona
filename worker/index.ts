@@ -11,7 +11,7 @@ import { dropSave, listSaves, loadSave, makeSave } from './engine/saves';
 import { loadImage, saveImage } from './engine/images';
 import { finishMedia, putPart, serveMedia, startMedia } from './engine/media';
 import { skip } from './engine/skip';
-import { listPlays, viewOf } from './engine/store';
+import { dropPlay, listPlays, viewOf } from './engine/store';
 import { setMine } from './engine/persona';
 import { enter, nextDay, retry, say } from './engine/turn';
 import { checkKey, visitorOf } from './guard';
@@ -87,6 +87,7 @@ const ROUTES: [string, RegExp, Handler][] = [
   ['POST', /^\/api\/plays\/([^/]+)\/saves\/([^/]+)\/load$/, (ctx, p) => loadSave(ctx, p[0]!, p[1]!)],
   ['POST', /^\/api\/plays\/([^/]+)\/saves\/([^/]+)\/drop$/, (ctx, p) => dropSave(ctx, p[0]!, p[1]!)],
   ['POST', /^\/api\/plays\/([^/]+)\/next$/, (ctx, p) => nextDay(ctx, p[0]!)],
+  ['POST', /^\/api\/plays\/([^/]+)\/drop$/, (ctx, p) => dropPlay(ctx, p[0]!)],
   ['POST', /^\/api\/plays\/([^/]+)\/persona$/, (ctx, p, body) => setMine(ctx, p[0]!, body)],
 ];
 

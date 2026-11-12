@@ -92,7 +92,7 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
   const { film, card, mine } = data;
   const fs = film.firstScene;
   const stills = film.stills ?? [];
-  /** 오프닝의 첫 지문. 필름이 어떻게 시작하는지 미리 보인다 */
+  /** 첫 장면의 첫 지문. 필름이 어떻게 시작하는지 미리 보인다 */
   const opening = fs.beats.flatMap((b) => (b.kind === 'tell' ? [b.text] : []))[0] ?? '';
   const still = stills[0] ?? film.poster ?? '';
   const when = [`${DOW_NAMES[film.startDow]} ${formatMin(film.startMin)}`, fs.place].filter(Boolean).join(' · ');
@@ -211,7 +211,7 @@ export function Film({ filmId, go }: { filmId: string; go: (to: string) => void 
       {(opening || film.setting) && (
         <section className="block sect">
           <div className="rowhead" style={{ padding: 0 }}>
-            오프닝<span>{when}</span>
+            첫 장면<span>{when}</span>
           </div>
           <p className="prose">{opening || film.setting}</p>
         </section>

@@ -39,9 +39,11 @@ export const Search = () => (
     <path d="M15.8 15.8 20.2 20.2" />
   </Line>
 );
-export const HomeIcon = () => (
+/** 입장권. 양옆이 파이고 뜯는 자리에 점선이 있다 — 「상영작」 */
+export const Ticket = () => (
   <Line>
-    <path d="M4 10.8 12 4l8 6.8V20h-5.4v-5.6H9.4V20H4z" />
+    <path d="M3.5 6.5h17V10a2 2 0 0 0 0 4v3.5h-17V14a2 2 0 0 0 0-4z" />
+    <path d="M15 8.6v1.5M15 11.25v1.5M15 13.9v1.5" />
   </Line>
 );
 /** 책갈피 — 장면 저장 */

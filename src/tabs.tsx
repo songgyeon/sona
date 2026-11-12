@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
-import { Camera, FilmIcon, HomeIcon, PlayLine, Search } from './icons';
+import { Camera, FilmIcon, PlayLine, Search, Ticket } from './icons';
 
 const TABS: [string, string, ReactNode][] = [
-  ['/', '로비', <HomeIcon key="i" />],
-  // 이름은 사용자가 정했다(2026-11-12): 홈 → 로비, 찾기 → 아카이브, 만들기 → 크랭크인(촬영기)
+  ['/', '상영작', <Ticket key="i" />],
+  // 이름은 사용자가 정했다(2026-11-12): 홈 → 로비 → 상영작(입장권), 찾기 → 아카이브, 만들기 → 크랭크인(촬영기)
   ['/find', '아카이브', <Search key="i" />],
   ['/create', '크랭크인', <Camera key="i" />],
   ['/living', '이어 살기', <PlayLine key="i" />],

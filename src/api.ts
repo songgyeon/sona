@@ -153,6 +153,8 @@ export const api = {
   updateFilm: (id: string, film: unknown) => call<{ id: string }>('PUT', `/api/films/${id}`, film),
   enter: (filmId: string, playId: string) => call<PlayView>('POST', `/api/films/${filmId}/enter`, { playId }),
   plays: () => call<PlayCard[]>('GET', '/api/plays'),
+  /** 삶을 지운다. 되돌릴 수 없다. 남은 목록이 돌아온다 */
+  dropPlay: (id: string) => call<PlayCard[]>('POST', `/api/plays/${id}/drop`, {}),
   play: (id: string) => call<PlayView>('GET', `/api/plays/${id}`),
   /** 내 대사와 내 지문을 보낸다. 하나만 있어도 된다 */
   /** 대사와 지문을 함께 보낸다. 지문은 *별표* 사이에 쓴다 — 가르는 것은 서버가 한다 */

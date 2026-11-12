@@ -229,26 +229,26 @@ export function parseFilm(input: unknown): Film {
   let stills: string[];
   let firstLine = '';
   if (Array.isArray(fs.beats)) {
-    if (fs.beats.length > L.beats) throw new Fail(400, 'film_invalid', `오프닝은 ${L.beats}칸까지 쌓을 수 있어요.`);
+    if (fs.beats.length > L.beats) throw new Fail(400, 'film_invalid', `첫 장면은 ${L.beats}칸까지 쌓을 수 있어요.`);
     for (const raw of fs.beats) {
       const b = obj(raw);
       if (b.kind === 'cut') {
         const img = image(b.image, '컷');
         if (img) beats.push({ kind: 'cut', image: img });
       } else if (b.kind === 'tell') {
-        const t = text(b.text, L.opening, '오프닝의 지문');
+        const t = text(b.text, L.opening, '첫 장면의 지문');
         if (t) beats.push({ kind: 'tell', text: t });
       } else if (b.kind === 'say') {
-        const t = text(b.text, L.line, '오프닝의 대사');
-        const who = text(b.cast, 4, '오프닝의 대사') || room;
-        if (!keys.has(who)) throw new Fail(400, 'film_invalid', '오프닝에서 말하는 캐스트가 캐스트에 없어요.');
+        const t = text(b.text, L.line, '첫 장면의 대사');
+        const who = text(b.cast, 4, '첫 장면의 대사') || room;
+        if (!keys.has(who)) throw new Fail(400, 'film_invalid', '첫 장면에서 말하는 캐스트가 캐스트에 없어요.');
         if (t) beats.push({ kind: 'say', cast: who, text: t });
       } else {
-        throw new Fail(400, 'film_invalid', '오프닝의 칸이 올바르지 않아요.');
+        throw new Fail(400, 'film_invalid', '첫 장면의 칸이 올바르지 않아요.');
       }
     }
     const total = beats.reduce((n, b) => n + (b.kind === 'cut' ? 0 : b.text.length), 0);
-    if (total > L.opening) throw new Fail(400, 'film_invalid', `오프닝은 모두 합쳐 ${L.opening}자까지 쓸 수 있어요.`);
+    if (total > L.opening) throw new Fail(400, 'film_invalid', `첫 장면은 모두 합쳐 ${L.opening}자까지 쓸 수 있어요.`);
     // 필름의 컷은 오프닝에 건 컷들이다
     stills = [...new Set(beats.flatMap((b) => (b.kind === 'cut' ? [b.image] : [])))];
   } else {

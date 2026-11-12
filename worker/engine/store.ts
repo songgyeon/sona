@@ -3,7 +3,7 @@
 import type { Clock } from '../../shared/clock';
 import { readFilm } from '../../shared/opening';
 import type { AsideView, Film, MessageView, PlayCard, PlayView, PostData, PostView, TurnView } from '../../shared/types';
-import type { Db } from '../db';
+import { type Db, q } from '../db';
 import { type Ctx, Fail } from './ctx';
 import { forScreen } from './films';
 
@@ -210,7 +210,7 @@ export async function listPlays(ctx: Ctx): Promise<PlayCard[]> {
        (SELECT json_group_array(json_extract(c.value, '$.name')) FROM json_each(p.film, '$.casts') c) AS casts,
        (SELECT json_extract(b.value, '$.text') FROM json_each(p.film, '$.firstScene.beats') b WHERE json_extract(b.value, '$.kind') = 'say' ORDER BY b.key DESC LIMIT 1) AS said,
        (SELECT m.text FROM messages m WHERE m.play_id = p.id AND m.speaker != 'tell' AND m.kind != 'aside' ORDER BY m.at DESC, m.rowid DESC LIMIT 1) AS last
-     FROM plays p WHERE p.owner = ? ORDER BY p.created_at DESC LIMIT 20`,
+     FROM plays p WHERE p.owner = ? ORDER BY p.created_at DESC LIMIT 200`,
     ctx.visitor,
   );
   return rows.map((r) => ({
@@ -227,4 +227,16 @@ export async function listPlays(ctx: Ctx): Promise<PlayCard[]> {
     // 한편의 줄은 내가 나눈 말이 아니다. 아직 오간 말이 없으면 오프닝의 마지막 대사를 보인다
     lastLine: r.last ?? r.said ?? '',
   }));
+}
+
+/** 삶 하나에 딸린 것이 있는 표 */
+const OF_PLAY = ['turns', 'messages', 'posts', 'feed_days', 'asides', 'saves', 'events', 'gen_log'] as const;
+
+/** 삶을 지운다. 내 삶만 지운다. 오간 말, 피드, 한편, 저장한 장면까지 다 지운다 — 되돌릴 수 없어서 화면이 한 번 묻는다.
+    남은 내 삶 목록을 돌려준다 */
+export async function dropPlay(ctx: Ctx, id: string): Promise<PlayCard[]> {
+  const row = await ctx.db.first<{ id: string }>('SELECT id FROM plays WHERE id = ? AND owner = ?', id, ctx.visitor);
+  if (!row) throw new Fail(404, 'play_missing', '살고 있던 필름을 찾을 수 없어요.');
+  await ctx.db.batch([...OF_PLAY.map((t) => q(`DELETE FROM ${t} WHERE play_id = ?`, id)), q('DELETE FROM plays WHERE id = ?', id)]);
+  return listPlays(ctx);
 }

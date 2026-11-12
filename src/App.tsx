@@ -38,7 +38,7 @@ export function App() {
   const [name, setName] = useState('');
   /** 입장권을 띄우고 있나 */
   const [naming, setNaming] = useState(false);
-  /** 들어가는 화면을 띄우고 있나. 로비로 열었을 때, 이 창에서 처음일 때만 */
+  /** 들어가는 화면을 띄우고 있나. 상영작(첫 화면)으로 열었을 때, 이 창에서 처음일 때만 */
   const [entering, setEntering] = useState(() => shouldEnter(window.location.pathname));
 
   const check = async () => {

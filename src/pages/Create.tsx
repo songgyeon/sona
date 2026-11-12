@@ -582,7 +582,7 @@ export function Create({ go, editId, draftId }: { go: Go; editId?: string; draft
             </Card>
 
             <div className="boardhead">
-              <span className="kicker">오프닝</span>
+              <span className="kicker">첫 장면</span>
               <span className="count">
                 {used.toLocaleString('ko-KR')} / {RULES.limits.opening.toLocaleString('ko-KR')}
               </span>
@@ -717,7 +717,7 @@ export function Create({ go, editId, draftId }: { go: Go; editId?: string; draft
               </button>
             </div>
 
-            <Card title="첫 장면">
+            <Card title="장소와 첫 마디">
               <Field label="장소">
                 <input value={d.place} maxLength={40} placeholder="예) 방송부 부실" onChange={(e) => set('place', e.target.value)} />
               </Field>
@@ -733,8 +733,8 @@ export function Create({ go, editId, draftId }: { go: Go; editId?: string; draft
                 label="먼저 말하는 사람"
                 value={d.speaker}
                 options={[
-                  { value: 'cast', label: opener, desc: `오프닝에 이어 ${josa(opener, '이', '가')} 먼저 말해요.` },
-                  { value: 'persona', label: me, desc: '오프닝이 끝나면 내가 먼저 말해요.' },
+                  { value: 'cast', label: opener, desc: `첫 장면에 이어 ${josa(opener, '이', '가')} 먼저 말해요.` },
+                  { value: 'persona', label: me, desc: '첫 장면에 이어 내가 먼저 말해요.' },
                 ]}
                 onChange={(v) => set('speaker', v)}
               />
