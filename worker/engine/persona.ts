@@ -2,7 +2,7 @@
    고친 것은 그 사람의 삶에만 적힌다. 디렉터의 필름은 그대로다.
    같은 필름에 다시 들어가도 이어지게, 사람과 필름마다 따로 기억해 둔다. */
 
-import { renameIn } from '../../shared/ko';
+import { givenName, renameIn } from '../../shared/ko';
 import { RULES } from '../../shared/rules';
 import type { Extra, Film, Persona, PlayView } from '../../shared/types';
 import type { Db } from '../db';
@@ -39,8 +39,8 @@ export function readMine(input: { name?: unknown; line?: unknown; face?: unknown
   };
 }
 
-/** 이름에서 성을 뗀 것. 「문리현」→「리현」. 한글 세 글자가 아니면 이름 그대로다 */
-const given = (name: string): string => (/^[가-힣]{3}$/.test(name) ? name.slice(1) : name);
+/** 이름에서 성을 뗀 것. 「문리현」→「리현」 */
+const given = givenName;
 
 /** 삶이 들고 있는 필름에 내 배역을 적는다.
     이름이 바뀌면 디렉터가 쓴 글 속의 이름도 함께 바꾼다 — 캐스트가 부르는 말, 오프닝, 배경.

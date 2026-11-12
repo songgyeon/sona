@@ -18,6 +18,7 @@ import { inPassage, lifeWork } from './alive';
 import { overused } from './echo';
 import { asNow } from './persona';
 import { type Play, SCENE, sceneMessages } from './store';
+import { labelOf, PERSONA, speakerOf, unquote } from './speakers';
 
 /** 줄바꿈 하나가 메시지 하나다. 줄을 지우거나 고치지 않는다 — 빈 줄만 걷는다 */
 export function bubbles(raw: string): string[] {
@@ -34,10 +35,6 @@ export interface Piece {
   text: string;
 }
 
-const OPEN = '"“「『';
-const CLOSE = '"”」』';
-/** 따옴표로 통째로 감싼 말이면 따옴표를 벗긴다. 아니면 그대로 */
-const unquote = (t: string) => (t.length > 2 && OPEN.includes(t[0]!) && CLOSE.includes(t[t.length - 1]!) ? t.slice(1, -1).trim() : t);
 
 /** 모델이 쓴 대목을 읽는다. 「이름: "대사"」 줄은 그 캐스트의 대사고, 나머지는 지문이다.
     글자를 지우거나 고치지 않는다 — 대사를 감싼 따옴표만 벗긴다. 이어지는 지문 줄은 한 덩이로 둔다.
@@ -45,7 +42,8 @@ const unquote = (t: string) => (t.length > 2 && OPEN.includes(t[0]!) && CLOSE.in
     「모습 | …」 줄은 대목이 끝났을 때 사람들이 어디에 어떻게 있는지 적은 줄이다. 이것도 흐름에 놓지 않는다(없으면 null).
     유저의 인물 이름으로 시작하는 대사 줄은 받지 않는다 — 그 사람의 말은 유저가 쓴다 */
 export function parseScene(raw: string, film: Film): { pieces: Piece[]; personaSpoke: boolean; place: string | null; pose: string | null } {
-  const keyOf = new Map(film.casts.map((c) => [c.name, c.key]));
+  // 이름, 성을 뗀 이름, 불리는 이름으로 알아본다(speakers.ts)
+  const who = speakerOf(film);
   /** 캐스트가 한 명뿐이면, 이름 없이 따옴표로만 감싼 줄도 그 사람의 말이다 */
   const only = film.casts.length === 1 ? film.casts[0]!.key : null;
   const pieces: Piece[] = [];
@@ -67,16 +65,14 @@ export function parseScene(raw: string, film: Film): { pieces: Piece[]; personaS
       if (text.length <= RULES.limits.pose) pose = text;
       continue;
     }
-    const m = /^([^:：]{1,24}?)\s*[:：]\s*(.+)$/.exec(line);
-    // 이름표를 꾸민 기호(**이름**, [이름])는 떼고 견준다
-    const who = m ? m[1]!.replace(/^[\s*\[(「『]+|[\s*\])」』]+$/g, '') : '';
-    if (m && who === film.persona.name) {
+    const label = labelOf(line);
+    const key = label ? who(label.who) : null;
+    if (key === PERSONA) {
       personaSpoke = true;
       continue;
     }
-    const key = m ? keyOf.get(who) : undefined;
-    if (m && key) {
-      const text = unquote(m[2]!.trim());
+    if (label && key) {
+      const text = unquote(label.rest);
       if (text.length > 0) pieces.push({ speaker: key, text });
       continue;
     }

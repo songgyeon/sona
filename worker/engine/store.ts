@@ -6,6 +6,7 @@ import type { AsideView, Film, MessageView, PlayCard, PlayView, PostData, PostVi
 import { type Db, q } from '../db';
 import { type Ctx, Fail } from './ctx';
 import { forScreen } from './films';
+import { relabel } from './speakers';
 
 export interface Play extends Clock {
   id: string;
@@ -131,7 +132,7 @@ export const SCENE = 'scene';
 /** 본편에서 오간 말들 — 유저의 말과 지문, 캐스트의 말, 지문, 폰으로 온 메시지. 작중 시각 순, 같은 시각이면 들어온 순.
     한편(유저가 없는 자리의 장면)의 줄은 들지 않는다 */
 export async function sceneMessages(db: Db, play: Play): Promise<MessageView[]> {
-  return (await messagesOf(db, play.id)).filter((m) => m.kind !== 'aside');
+  return relabel((await messagesOf(db, play.id)).filter((m) => m.kind !== 'aside'), play.film);
 }
 
 /** 피드 글의 속. 한 줄 글이거나 못 읽으면 한 줄 글로 둔다 */
@@ -179,7 +180,8 @@ export async function viewOf(ctx: Ctx, playId: string): Promise<PlayView> {
     day: play.days,
     place: play.place,
     mine: maker?.owner === ctx.visitor,
-    messages,
+    // 예전 대목에서 지문에 섞여 들어간 대사는 대사로 세워 보인다
+    messages: relabel(messages, play.film),
     posts,
     asides,
     stuck: last && last.status !== 'done' ? last : null,

@@ -9,6 +9,7 @@ import { RULES } from '../../shared/rules';
 import type { Cast, Film } from '../../shared/types';
 import type { Layers } from '../model/index';
 import { type SceneEvent, when } from '../prompt/scene';
+import { labelOf, PERSONA, speakerOf, unquote } from './speakers';
 
 export const ASIDE_SYSTEM = `너는 「소나」의 필름 속 한 장면을 쓰는 작가다. [두 사람]이 [때]에 만나 나누는 짧은 장면을 쓴다.
 
@@ -148,8 +149,6 @@ export interface AsideRead {
   personaSpoke: boolean;
 }
 
-const OPEN = '"“「『';
-const CLOSE = '"”」』';
 
 /** 모델이 쓴 장면을 읽는다. 「이름: "대사"」 줄은 그 사람의 대사고, 나머지는 지문이다.
     글자를 지우거나 고치지 않는다 — 대사를 감싼 따옴표만 벗긴다. 이어지는 지문 줄은 한 덩이로 둔다 */
@@ -168,23 +167,19 @@ export function parseAside(raw: string, film: Film, a: Cast, b: Cast): AsideRead
     if (p.length <= RULES.limits.place) place = p;
   }
 
-  const keyOf = new Map([
-    [a.name, a.key],
-    [b.name, b.key],
-  ]);
+  // 이름, 성을 뗀 이름, 불리는 이름으로 알아본다(speakers.ts). 이 장면의 두 사람 말만 대사로 받는다
+  const who = speakerOf(film);
   const pieces: AsidePiece[] = [];
   let personaSpoke = false;
   for (const line of lines) {
-    const m = /^([^:：]{1,20}?)\s*[:：]\s*(.+)$/.exec(line);
-    const who = m ? m[1]!.trim() : '';
-    if (m && who === film.persona.name) {
+    const label = labelOf(line);
+    const key = label ? who(label.who) : null;
+    if (key === PERSONA) {
       personaSpoke = true;
       continue;
     }
-    const key = m ? keyOf.get(who) : undefined;
-    if (m && key) {
-      let text = m[2]!.trim();
-      if (text.length > 2 && OPEN.includes(text[0]!) && CLOSE.includes(text[text.length - 1]!)) text = text.slice(1, -1).trim();
+    if (label && (key === a.key || key === b.key)) {
+      const text = unquote(label.rest);
       if (text.length > 0) pieces.push({ speaker: key, text });
       continue;
     }

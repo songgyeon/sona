@@ -81,3 +81,13 @@ export function renameIn(text: string, from: string, to: string, keep: string[] 
   }
   return out;
 }
+
+/** 두 글자 성. 이 성으로 시작하는 네 글자 이름은 뒤 두 글자가 이름이다 */
+const DOUBLE_SURNAMES = ['남궁', '황보', '제갈', '선우', '독고', '사공', '서문', '동방'];
+
+/** 이름에서 성을 뗀 것. 「배이안」→「이안」, 「남궁민수」→「민수」. 성을 가를 수 없으면 이름 그대로다 */
+export function givenName(name: string): string {
+  if (/^[가-힣]{3}$/.test(name)) return name.slice(1);
+  if (/^[가-힣]{4}$/.test(name) && DOUBLE_SURNAMES.some((s) => name.startsWith(s))) return name.slice(2);
+  return name;
+}
