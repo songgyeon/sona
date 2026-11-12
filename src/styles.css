@@ -944,3 +944,21 @@ button:disabled { opacity: 0.4; cursor: default; }
 .eenter { margin-top: 36px; width: calc(100% - 60px); max-width: 320px; }
 .estub { margin-top: 14px; width: calc(100% - 60px); max-width: 320px; display: flex; justify-content: space-between; font-size: 10.5px; font-weight: 600; letter-spacing: 0.14em; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) { .eholes, .leader, .erow, .marquee { animation: none; } }
+
+/* 미리 보기 — 개봉하기 전에 필름 정보와 오프닝을 들어가는 사람의 화면 그대로 본다 */
+.preview { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; background: #000; }
+.pvbar { flex: none; display: flex; align-items: center; gap: 8px; width: 100%; max-width: 520px; height: 52px; margin: 0 auto; padding: 0 6px 0 var(--pad); border-bottom: 1px solid var(--hair); }
+.pvk { flex: none; font-size: 10.5px; font-weight: 700; letter-spacing: 0.3em; color: var(--ink-3); }
+.pvtabs { flex: 1; display: flex; justify-content: center; gap: 6px; }
+.pvtabs button { padding: 8px 10px 7px; font-size: 13.5px; font-weight: 600; color: var(--ink-3); border-bottom: 1.5px solid transparent; }
+.pvtabs button[aria-selected='true'] { color: var(--ink); border-bottom-color: var(--ink); }
+.pvbody { position: relative; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.pvbody > .app { min-height: 100%; }
+.pvbody > .playing { height: 100%; padding-bottom: 0; }
+.pvfilm { padding-bottom: 24px; }
+.pvfilm .aswho { cursor: default; }
+.pvsound { position: absolute; top: 6px; right: 6px; z-index: 5; }
+.pvend { margin: 34px 0 6px; display: grid; gap: 14px; justify-items: center; text-align: center; }
+.pvend p { font-size: 12.5px; color: var(--ink-3); }
+.peekrow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+.peekrow .btn svg, .peekbtn svg { width: 14px; height: 14px; fill: currentColor; }

@@ -1,5 +1,5 @@
 import { type ChangeEvent, cloneElement, type ReactElement, type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import { blankCast, blankDraft, blankRole, type Draft, type DraftBeat, type DraftCast, type DraftExtra, type DraftRole, editSlot, fromFilm, isBlank, toFilm } from '../../shared/draft';
+import { blankCast, blankDraft, blankRole, type Draft, type DraftBeat, type DraftCast, type DraftExtra, type DraftRole, editSlot, fromFilm, isBlank, previewFilm, toFilm } from '../../shared/draft';
 import { FEED_KINDS, FEED_LABEL } from '../../shared/feed';
 import { openingLength } from '../../shared/opening';
 import { lengthOf } from '../../shared/reel';
@@ -10,11 +10,13 @@ import type { FeedKind, FeedPhoto } from '../../shared/types';
 import { ApiFail, api, imgUrl, newId, uploadImage } from '../api';
 import { FacePick } from '../crop';
 import { drafts } from '../drafts';
-import { Arrow, Close, Down, Plus, Up, Upload } from '../icons';
+import { Arrow, Close, Down, PlayFill, Plus, Up, Upload } from '../icons';
 import { Face } from '../poster';
 import { BgmPick } from '../bgm';
 import { clock, ReelEditor } from '../reel';
 import { Tabs } from '../tabs';
+import { useMe } from '../me';
+import { type PeekMode, Preview } from '../preview';
 import { type Go, goBack, replaceUrl } from '../router';
 
 /* 필름 만들기. 디렉터가 채우는 칸이다.
@@ -50,6 +52,9 @@ export function Create({ go, editId, draftId }: { go: Go; editId?: string; draft
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [toast, setToast] = useState('');
+  /** 미리 보기를 띄우고 있으면 그 화면 */
+  const [peek, setPeek] = useState<PeekMode | null>(null);
+  const me0 = useMe();
   /** 고치는 필름: 서버에 저장돼 있는 내용. 임시저장한 것을 버리고 되돌릴 때 쓴다 */
   const stored = useRef<Draft | null>(null);
   /** 고치는 필름을 임시저장해 둔 데서 이어 열었나 */
@@ -705,6 +710,12 @@ export function Create({ go, editId, draftId }: { go: Go; editId?: string; draft
               </div>
             </div>
             <p className="hint boardhint">컷을 넣은 자리부터 화면의 그림이 바뀌어요.</p>
+            <div className="addrow">
+              <button className="btn peekbtn" onClick={() => setPeek('opening')}>
+                <PlayFill />
+                오프닝 미리 보기
+              </button>
+            </div>
 
             <Card title="첫 장면">
               <Field label="장소">
@@ -741,6 +752,18 @@ export function Create({ go, editId, draftId }: { go: Go; editId?: string; draft
             ) : (
               <p className="lead">{ready ? '개봉할 준비가 됐어요.' : '개봉 전에 채워야 할 항목이 있어요.'}</p>
             )}
+
+            <Card title="미리 보기" sub="들어가는 사람이 보는 화면이에요.">
+              <div className="peekrow">
+                <button className="btn more" onClick={() => setPeek('film')}>
+                  필름 정보
+                </button>
+                <button className="btn more" onClick={() => setPeek('opening')}>
+                  <PlayFill />
+                  오프닝
+                </button>
+              </div>
+            </Card>
 
             <Card title="공개 범위">
               <Chips
@@ -808,6 +831,7 @@ export function Create({ go, editId, draftId }: { go: Go; editId?: string; draft
           {toast}
         </p>
       )}
+      {peek && <Preview film={previewFilm(d, me0.name)} start={peek} onClose={() => setPeek(null)} />}
       <Tabs path={'/create'} go={go} />
     </main>
   );

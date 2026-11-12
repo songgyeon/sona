@@ -47,7 +47,7 @@ const CREDITS_AFTER_MS = 2600;
 /** 오프닝. 디렉터가 쌓은 순서대로 흐른다. 재생 중에는 컷 번호 같은 만드는 말을 보이지 않는다.
     컷은 글 사이에 끼우지 않는다 — 그 컷 바로 다음에 오는 줄에 표시(data-cut)만 달아 두고,
     읽는 자리가 그 줄에 닿으면 위 화면의 그림이 바뀐다 */
-function Opening({ film }: { film: Film }) {
+export function Opening({ film }: { film: Film }) {
   const out: ReactNode[] = [];
   let pending = '';
   film.firstScene.beats.forEach((b, i) => {
@@ -88,7 +88,7 @@ function Opening({ film }: { film: Film }) {
 
 /** 오프닝이 끝나면 서는 내 배역 소개. 이 필름에서 내가 누구인지 — 사진과 이름은 크게.
     긴 소개는 접어 둔다 — 필름 정보에서 이미 읽을 수 있고, 여기서는 이름이 뜬 다음 바로 첫 대사를 쓰게 한다 */
-function MeCard({ me }: { me: Persona }) {
+export function MeCard({ me }: { me: Persona }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="introme">
@@ -103,6 +103,16 @@ function MeCard({ me }: { me: Persona }) {
             소개 보기
           </button>
         ))}
+    </div>
+  );
+}
+
+/** 들어가는 순간의 제목. 오프닝 영상이 흐르는 동안에는 검은 막으로만 기다리고(hold), 영상이 끝나면 제목이 떴다가 걷힌다.
+    영상 뒤에서 미리 떠 버리면 영상이 끝났을 때는 이미 걷혀 있다 — 기다리다가 새로 띄운다 */
+export function TitleCard({ title, hold }: { title: string; hold: boolean }) {
+  return (
+    <div className="titlecard" key={hold ? 'hold' : 'run'} style={hold ? { animation: 'none' } : undefined} aria-hidden="true">
+      {!hold && <h1 className={titleClass(title)}>{title}</h1>}
     </div>
   );
 }
@@ -723,11 +733,7 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
       )}
 
       {reelOn && film.reel && <ReelOverlay reel={film.reel} onDone={() => setReelOn(false)} />}
-      {card && (
-        <div className="titlecard" aria-hidden="true">
-          <h1 className={titleClass(film.title)}>{film.title}</h1>
-        </div>
-      )}
+      {card && <TitleCard title={film.title} hold={reelOn} />}
       <Tabs path="" go={go} />
     </main>
   );

@@ -3,7 +3,9 @@
 
 import { FEED_KINDS } from './feed';
 import { RULES } from './rules';
-import type { Extra, FeedKind, FeedPhoto, Film, Reel } from './types';
+import { renameIn } from './ko';
+import { standIn } from './roles';
+import type { Cast, Extra, FeedKind, FeedPhoto, Film, FirstScene, Reel } from './types';
 
 /** 덧붙이는 칸 하나(항목과 내용) */
 export type DraftExtra = Extra;
@@ -241,6 +243,29 @@ export function toFilm(d: Draft): unknown {
       room: key(Math.min(d.room, d.casts.length - 1)),
       speaker: d.speaker,
     },
+  };
+}
+
+/** 미리 보기에 쓰는 필름. 개봉하기 전의 칸을 필름 정보와 재생 화면이 읽는 모양으로 바꾼다.
+    서버가 읽을 때(parseFilm)처럼 거르거나 거절하지 않는다 — 비어 있는 칸은 빈 채로 보인다.
+    첫째 배역으로 들어간 것으로 본다. 「유저 이름」 배역은 내 이름으로, 글 속의 대신 쓰는 이름도 내 이름으로 읽는다 */
+export function previewFilm(d: Draft, myName: string): Film {
+  const f = toFilm(d) as Omit<Film, 'casts' | 'stills' | 'firstScene'> & { casts: Omit<Cast, 'key'>[]; firstScene: Omit<FirstScene, 'firstLine'> };
+  const first = f.persona;
+  const shown = first.player ? myName || '유저 이름' : first.name.trim() || '나';
+  const names = f.casts.map((c, i) => c.name.trim() || `캐스트 ${i + 1}`);
+  const from = first.player ? standIn(first) : '';
+  const fix = (t: string) => (from ? renameIn(t, from, shown, names) : t);
+  const beats = f.firstScene.beats.map((b) => (b.kind === 'cut' ? b : { ...b, text: fix(b.text) }));
+  return {
+    ...f,
+    title: f.title.trim() || '제목 없음',
+    stills: [...new Set(beats.flatMap((b) => (b.kind === 'cut' ? [b.image] : [])))],
+    setting: fix(f.setting),
+    persona: { ...first, name: shown },
+    roles: [],
+    casts: f.casts.map((c, i) => ({ ...c, key: key(i), name: names[i]!, role: fix(c.role), callsUser: fix(c.callsUser) })),
+    firstScene: { ...f.firstScene, beats, firstLine: '' },
   };
 }
 
