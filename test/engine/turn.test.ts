@@ -76,6 +76,21 @@ describe('필름을 링크로 보여 주기', () => {
     expect([theirs.title, theirs.mine]).toEqual(['동네 서점', false]);
   });
 
+  it('대문에 건 필름이 목록 맨 앞이다. 나머지는 최근에 개봉한 것부터', async () => {
+    const ctx = testCtx();
+    const { id: old } = await createFilm(ctx, { ...DEV_FILM, title: '수몰된 마을' });
+    const { id: fresh } = await createFilm(ctx, { ...DEV_FILM, title: '동네 서점' });
+    // 같은 밀리초에 만들어질 수 있어서 개봉 시각을 벌려 둔다
+    await ctx.db.run('UPDATE films SET created_at = created_at - 60000 WHERE id = ?', old);
+    const order = async (featured: readonly string[]) =>
+      (await listFilms({ ...ctx, visitor: OTHER_VISITOR }, featured)).map((f) => f.title);
+    expect(await order([])).toEqual(['동네 서점', '수몰된 마을']);
+    expect(await order([old])).toEqual(['수몰된 마을', '동네 서점']);
+    // 대문에 건 필름이라도 남에게 안 보이는 필름은 그대로 안 보인다
+    await ctx.db.run('UPDATE films SET private = 1 WHERE id = ?', old);
+    expect(await order([old])).toEqual(['동네 서점']);
+  });
+
   it('시험하느라 만든 필름은 만든 사람에게만 보인다. 주소로는 누구나 들어온다', async () => {
     const { ctx, filmId } = await setup();
     expect(DEV_FILM.title.startsWith('개발용 —')).toBe(true);
