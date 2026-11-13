@@ -34,7 +34,9 @@ export async function designate(ctx: Ctx, filmId: string, film: Film, mine: Mine
   applyMine(withRole(film, r), mine, true);
   const before = await savedMine(ctx.db, ctx.visitor, filmId);
   const moved = (before?.role ?? 0) !== r;
-  const next: Mine = moved ? { ...mine, extras: roleExtras(film, rolesOf(film)[r]!, mine.name) } : mine;
+  // 맡은 배역이 바뀌면 그 배역의 덧붙인 칸과 나이·직업·대표 대사가 간다
+  const to = rolesOf(film)[r]!;
+  const next: Mine = moved ? { ...mine, extras: roleExtras(film, to, mine.name), age: to.age ?? '', job: to.job ?? '', quote: to.quote ?? '' } : mine;
   const stmts: Stmt[] = [
     q(
       'INSERT INTO personas (visitor, film_id, name, line, face, updated_at, persona_id, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(visitor, film_id) DO UPDATE SET name = excluded.name, line = excluded.line, face = excluded.face, updated_at = excluded.updated_at, persona_id = excluded.persona_id, role = excluded.role',

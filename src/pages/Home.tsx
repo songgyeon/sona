@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { formatWorld } from '../../shared/clock';
 import { DEV_FILM } from '../../shared/dev-film';
 import { fillCard } from '../../shared/roles';
+import { RULES } from '../../shared/rules';
 import type { FilmCard, PlayCard } from '../../shared/types';
 import { ApiFail, api } from '../api';
 import { PlayFill, Search } from '../icons';
@@ -50,9 +51,12 @@ export function Home({ go, fake, modelReady }: { go: (to: string) => void; fake:
   const cards = films.map((f) => fillCard(f, me.name));
   const mine = cards.filter((f) => f.mine);
   const others = cards.filter((f) => !f.mine);
-  /** 살고 있던 삶이 있으면 그 필름이 맨 위에 걸린다. 없으면 가장 최근 필름 */
+  /** 대문은 필름마다 한 장씩 넘긴다. 살고 있던 삶이 있으면 그 필름이 「이어 살기」로 맨 앞에 서고,
+      그다음 대문에 건 필름부터 최근에 개봉한 것 차례다. 이어 살기로 선 필름은 뒤에서 또 서지 않는다
+      (2026-11-13 사용자: 대문에 한 편만 걸려 「다른 작품은 안 보이잖아」) */
   const now = plays.find((p) => !p.ended) ?? null;
-  const lead = now ? null : (mine[0] ?? others[0] ?? null);
+  const reel = cards.filter((f) => f.id !== now?.filmId).slice(0, RULES.hero.max - (now ? 1 : 0));
+  const count = (now ? 1 : 0) + reel.length;
 
   return (
     <main className="app tabbed">
@@ -71,62 +75,80 @@ export function Home({ go, fake, modelReady }: { go: (to: string) => void; fake:
         </div>
       </header>
 
-      <section className="hero">
-        <div className="art grain">
-          <Art id={now?.poster ?? lead?.poster ?? ''} title={now?.title ?? lead?.title ?? 'SONA'} />
-        </div>
-
+      <HeroReel count={count}>
         {now && (
-          <div className="poster">
-            <p className="kicker">이어 살기</p>
-            <h1 className={titleClass(now.title)}>{now.title}</h1>
-            <p className="line1">{formatWorld(now)}</p>
-            <div className="acts">
-              <button className="btn play" onClick={() => go(`/play/${now.id}`)}>
-                <PlayFill />
-                이어 살기
-              </button>
-              <button className="btn more" onClick={() => go(`/film/${now.filmId}`)}>
-                필름 정보
-              </button>
+          <section className="hero">
+            <div className="art grain">
+              <Art id={now.poster} title={now.title} />
             </div>
-            <p className="bill">
-              <span>
-                캐스트<b>{now.castNames.join(' · ')}</b>
-              </span>
-            </p>
-          </div>
+            <div className="poster">
+              <p className="kicker">이어 살기</p>
+              <h1 className={titleClass(now.title)}>{now.title}</h1>
+              <p className="line1">{formatWorld(now)}</p>
+              <div className="acts">
+                <button className="btn play" onClick={() => go(`/play/${now.id}`)}>
+                  <PlayFill />
+                  이어 살기
+                </button>
+                <button className="btn more" onClick={() => go(`/film/${now.filmId}`)}>
+                  필름 정보
+                </button>
+              </div>
+              <Dots count={count} at={0} />
+              <p className="bill">
+                <span>
+                  캐스트<b>{now.castNames.join(' · ')}</b>
+                </span>
+              </p>
+            </div>
+          </section>
         )}
 
-        {lead && (
-          <div className="poster">
-            <h1 className={titleClass(lead.title)}>{lead.title}</h1>
-            {lead.logline && <p className="line1">{lead.logline}</p>}
-            <div className="acts">
-              <button className="btn play" onClick={() => go(`/film/${lead.id}`)}>
-                <PlayFill />
-                필름 정보
-              </button>
-            </div>
-            <p className="bill">
-              <span>
-                캐스트<b>{lead.castNames.join(' · ')}</b>
-              </span>
-            </p>
-          </div>
-        )}
+        {reel.map((f, k) => {
+          const at = k + (now ? 1 : 0);
+          // 제목은 첫 장만 화면의 큰 제목이다
+          const Title = at === 0 ? 'h1' : 'h2';
+          return (
+            <section className="hero" key={f.id}>
+              <div className="art grain">
+                <Art id={f.poster} title={f.title} />
+              </div>
+              <div className="poster">
+                <Title className={titleClass(f.title)}>{f.title}</Title>
+                {f.logline && <p className="line1">{f.logline}</p>}
+                <div className="acts">
+                  <button className="btn play" onClick={() => go(`/film/${f.id}`)}>
+                    <PlayFill />
+                    필름 정보
+                  </button>
+                </div>
+                <Dots count={count} at={at} />
+                <p className="bill">
+                  <span>
+                    캐스트<b>{f.castNames.join(' · ')}</b>
+                  </span>
+                </p>
+              </div>
+            </section>
+          );
+        })}
 
-        {!now && !lead && (
-          <div className="poster">
-            <p className="line1">아직 필름이 없어요. 첫 필름을 만들어 보세요.</p>
-            <div className="acts">
-              <button className="btn play" onClick={() => go('/create')}>
-                첫 필름 만들기
-              </button>
+        {count === 0 && (
+          <section className="hero">
+            <div className="art grain">
+              <Art id="" title="SONA" />
             </div>
-          </div>
+            <div className="poster">
+              <p className="line1">아직 필름이 없어요. 첫 필름을 만들어 보세요.</p>
+              <div className="acts">
+                <button className="btn play" onClick={() => go('/create')}>
+                  첫 필름 만들기
+                </button>
+              </div>
+            </div>
+          </section>
         )}
-      </section>
+      </HeroReel>
 
       <div className="shelves">
         {mine.length > 0 && (
@@ -139,7 +161,9 @@ export function Home({ go, fake, modelReady }: { go: (to: string) => void; fake:
         )}
         {others.length > 0 && (
           <section>
-            <div className="rowhead">필름</div>
+            <div className="rowhead">
+              필름<button onClick={() => go('/films')}>모두 보기</button>
+            </div>
             <PosterStrip items={others} onPick={(id) => go(`/film/${id}`)} />
           </section>
         )}
@@ -164,5 +188,42 @@ export function Home({ go, fake, modelReady }: { go: (to: string) => void; fake:
 
       <Tabs path="/" go={go} />
     </main>
+  );
+}
+
+/** 대문: 필름마다 한 장씩 가로로 넘긴다. 가만두면 RULES.hero.ms마다 다음 장으로 가고, 끝에서는 처음으로 돌아간다.
+    손으로 한 번이라도 만지면 그때부터는 저절로 넘기지 않는다. 움직임을 줄인 기기에서도 저절로 넘기지 않는다 */
+function HeroReel({ count, children }: { count: number; children: ReactNode }) {
+  const track = useRef<HTMLDivElement>(null);
+  const [auto, setAuto] = useState(true);
+  useEffect(() => {
+    if (!auto || count < 2) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const t = window.setInterval(() => {
+      const el = track.current;
+      if (!el || document.hidden) return;
+      const w = el.clientWidth;
+      const now = Math.round(el.scrollLeft / w);
+      el.scrollTo({ left: ((now + 1) % count) * w, behavior: 'smooth' });
+    }, RULES.hero.ms);
+    return () => window.clearInterval(t);
+  }, [auto, count]);
+  const stop = () => setAuto(false);
+  return (
+    <div className="heroes" ref={track} onPointerDown={stop} onWheel={stop} onKeyDown={stop}>
+      {children}
+    </div>
+  );
+}
+
+/** 대문의 몇째 장인지. 한 장뿐이면 서지 않는다 */
+function Dots({ count, at }: { count: number; at: number }) {
+  if (count < 2) return null;
+  return (
+    <p className="herodots" aria-label={`${count}편 가운데 ${at + 1}째`}>
+      {Array.from({ length: count }, (_, j) => (
+        <i key={j} className={j === at ? 'on' : undefined} />
+      ))}
+    </p>
   );
 }

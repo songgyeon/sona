@@ -8,7 +8,7 @@ import { Create } from './pages/Create';
 import { Film } from './pages/Film';
 import { Home } from './pages/Home';
 import { Me } from './pages/Me';
-import { Find, Living, Mine } from './pages/Lists';
+import { AllFilms, Find, Living, Mine } from './pages/Lists';
 import { Entrance, shouldEnter } from './entrance';
 import { MeCtx, NamePop } from './me';
 import { Personas } from './pages/Personas';
@@ -121,6 +121,7 @@ function Page({ path, go, fake, modelReady }: { path: string; go: (to: string) =
   if (path === '/create') return <Create key="new" go={go} />;
   if (path === '/personas') return <Personas go={go} />;
   if (path === '/find') return <Find go={go} />;
+  if (path === '/films') return <AllFilms go={go} />;
   if (path === '/living') return <Living go={go} />;
   if (path === '/mine') return <Mine go={go} />;
   return <Home go={go} fake={fake} modelReady={modelReady} />;

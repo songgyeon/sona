@@ -113,6 +113,8 @@ export function asideLayers(film: Film, a: Cast, b: Cast, clock: Clock, at: numb
   out.push('');
   out.push('[그 자리에 없는 사람]');
   out.push(film.persona.line ? `${film.persona.name} — ${film.persona.line}` : film.persona.name);
+  if (film.persona.age) out.push(`- 나이: ${film.persona.age}`);
+  if (film.persona.job) out.push(`- 직업: ${film.persona.job}`);
   // 아는 것의 주인을 갈라서 건넨다: 둘 다 아는 일, 한 사람만 아는 일
   if (known.shared.length > 0) {
     out.push('');

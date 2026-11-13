@@ -43,6 +43,49 @@ function useFilms(): [FilmCard[] | null, string] {
   return [films && films.map((f) => fillCard(f, me.name)), err];
 }
 
+/** 필름 전체. 상영작 필름 줄의 「모두 보기」로 온다. 포스터를 세 줄로 세우고 제목과 캐스트를 단다 — 대문에 건 필름부터 최근에 개봉한 것 차례
+    (2026-11-13 사용자: 「전체 목록 보기는 안 돼? 왓챠피디아처럼」) */
+export function AllFilms({ go }: { go: (to: string) => void }) {
+  const me = useMe();
+  const [films, setFilms] = useState<FilmCard[] | null>(null);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    api
+      .films()
+      .then(setFilms)
+      .catch((e) => setErr(e instanceof ApiFail ? e.message : '목록을 불러오지 못했어요.'));
+  }, []);
+  if (films === null) return <p className="center">{err || '불러오는 중'}</p>;
+  // 글 속의 {{user}}는 내 이름으로 읽는다
+  const cards = films.map((f) => fillCard(f, me.name));
+  return (
+    <main className="app tabbed page">
+      <h1>필름</h1>
+      <section className="alllist">
+        <p className="count">{cards.length}편</p>
+        {cards.length === 0 ? (
+          <p className="note">아직 개봉한 필름이 없어요.</p>
+        ) : (
+          <ul className="grid3">
+            {cards.map((f) => (
+              <li key={f.id}>
+                <button onClick={() => go(`/film/${f.id}`)} aria-label={`${f.title} 열기`}>
+                  <span className="pc grain">
+                    <Art id={f.poster} title={f.title} />
+                  </span>
+                  <b>{f.title}</b>
+                  <small>{f.castNames.join(' · ')}</small>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      <Tabs path="/" go={go} />
+    </main>
+  );
+}
+
 /** 아카이브. 제목, 한 줄, 캐스트 이름으로 찾는다 */
 export function Find({ go }: { go: (to: string) => void }) {
   const [films, err] = useFilms();

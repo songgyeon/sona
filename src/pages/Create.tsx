@@ -132,8 +132,21 @@ export function Create({ go, editId, draftId }: { go: Go; editId?: string; draft
     setD((x) => ({ ...x, ties: { ...x.ties, [pair]: { relation: '', calls: '', ...x.ties[pair], [k]: v } } }));
   const addCast = () => setD((x) => ({ ...x, casts: [...x.casts, blankCast()] }));
   /** 내 배역들. 첫째는 persona로 시작하는 칸이고, 둘째부터는 roles다 */
-  const roles: DraftRole[] = [{ name: d.personaName, line: d.personaLine, face: d.personaFace, player: d.personaPlayer, extras: d.personaExtras }, ...(d.roles ?? [])];
-  const asFirst = (x: Draft, r: DraftRole): Draft => ({ ...x, personaName: r.name, personaLine: r.line, personaFace: r.face, personaPlayer: r.player, personaExtras: r.extras });
+  const roles: DraftRole[] = [
+    { name: d.personaName, line: d.personaLine, face: d.personaFace, age: d.personaAge ?? '', job: d.personaJob ?? '', quote: d.personaQuote ?? '', player: d.personaPlayer, extras: d.personaExtras },
+    ...(d.roles ?? []),
+  ];
+  const asFirst = (x: Draft, r: DraftRole): Draft => ({
+    ...x,
+    personaName: r.name,
+    personaLine: r.line,
+    personaFace: r.face,
+    personaAge: r.age,
+    personaJob: r.job,
+    personaQuote: r.quote,
+    personaPlayer: r.player,
+    personaExtras: r.extras,
+  });
   const setRole = (i: number, r: DraftRole) => setD((x) => (i === 0 ? asFirst(x, r) : { ...x, roles: x.roles.map((o, j) => (j === i - 1 ? r : o)) }));
   const addRole = () => setD((x) => ({ ...x, roles: [...(x.roles ?? []), blankRole()] }));
   /** 배역을 뺀다. 첫째를 빼면 둘째가 첫째가 된다 */
@@ -417,7 +430,8 @@ export function Create({ go, editId, draftId }: { go: Go; editId?: string; draft
                       <input value={c.job} maxLength={RULES.limits.job} placeholder="예) 방송부 부장" onChange={(e) => setCast(i, 'job', e.target.value)} />
                     </Field>
                   </div>
-                  <Field label={`${josa(me, '과', '와')}의 관계`}>
+                  {/* 이 사람이 내 배역에게 누구인지다. 거꾸로(내 배역이 이 사람에게 누구인지) 적으면 대사 모델에게도 거꾸로 간다 */}
+                  <Field label={`${josa(me, '과', '와')}의 관계`} hint={`${josa(c.name.trim() || '이 사람', '이', '가')} ${me}에게 어떤 사람인지 적어 주세요.`}>
                     <input value={c.role} maxLength={RULES.limits.short} placeholder="예) 같이 입학한 동기" onChange={(e) => setCast(i, 'role', e.target.value)} />
                   </Field>
                   <Field label="대표 대사" optional count={[c.quote.length, RULES.limits.quote]} hint="프로필에 영화 배역 소개처럼 서요.">
@@ -1104,6 +1118,18 @@ function RoleFields({ role, label, busy, onChange }: { role: DraftRole; label: s
           필름의 글에 「{stand}」{pickJosa(stand, '이라고', '라고')} 쓰면 들어가는 사람의 이름으로 바뀌어요.
         </p>
       )}
+      {/* 캐스트와 같은 배역 소개: 나이 · 직업, 대표 대사. 프로필에 영화의 배역 소개처럼 선다 */}
+      <div className="two lean">
+        <Field label="나이" optional>
+          <input value={role.age} maxLength={RULES.limits.age} placeholder="예) 18세" onChange={(e) => put('age', e.target.value)} />
+        </Field>
+        <Field label="직업" optional>
+          <input value={role.job} maxLength={RULES.limits.job} placeholder="예) 방송부 아나운서" onChange={(e) => put('job', e.target.value)} />
+        </Field>
+      </div>
+      <Field label="대표 대사" optional count={[role.quote.length, RULES.limits.quote]} hint="프로필에 영화 배역 소개처럼 서요.">
+        <input value={role.quote} maxLength={RULES.limits.quote} placeholder="예) 이번엔 끝까지 할게요." onChange={(e) => put('quote', e.target.value)} />
+      </Field>
       <Field label="어떤 사람" count={[role.line.length, RULES.limits.persona]}>
         <textarea
           rows={2}
@@ -1113,7 +1139,7 @@ function RoleFields({ role, label, busy, onChange }: { role: DraftRole; label: s
           onChange={(e) => put('line', e.target.value)}
         />
       </Field>
-      <Extras value={role.extras} onChange={(v) => put('extras', v)} examples={{ label: '예) 나이', text: '예) 스물셋. 휴학 중이다.' }} />
+      <Extras value={role.extras} onChange={(v) => put('extras', v)} examples={{ label: '예) 사는 곳', text: '예) 학교 앞 반지하 자취방.' }} />
     </>
   );
 }

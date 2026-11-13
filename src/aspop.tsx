@@ -9,13 +9,18 @@ import { ticketNo, today } from './me';
 import { Face } from './poster';
 import { fillUser, shownName } from '../shared/roles';
 
-/** 지금 고른 사람이 무엇인가. 배역이 여럿이면 맡은 배역도 적는다 */
+/** 배역의 「나이 · 직업」. 적지 않았으면 빈 글자 */
+export const creditOf = (r: { age?: string; job?: string } | undefined): string => [r?.age, r?.job].filter((s) => s && s.trim()).join(' · ');
+
+/** 지금 고른 사람이 무엇인가. 배역이면 그 배역의 「나이 · 직업」, 배역이 여럿이면 맡은 배역도 적는다.
+    「유저 이름」은 만드는 사람의 말이라 들어가는 사람에게는 쓰지 않는다 */
 export const asLabel = (mine: FilmMine, roles: Persona[] = []): string => {
-  const base = mine.as === 'role' ? '배역' : mine.personaId ? '내 페르소나' : mine.as === 'me' ? '내 이름' : '고친 배역';
   const r = roles[mine.role];
-  if (!r) return base;
-  if (mine.as === 'role') return r.player ? '배역 · 유저 이름' : '배역';
-  return roles.length > 1 ? `${base} · ${r.player ? '유저 이름 배역' : `${r.name} 역`}` : base;
+  const credit = creditOf(r);
+  if (mine.as === 'role') return credit || '배역';
+  const base = mine.personaId ? '내 페르소나' : mine.as === 'me' ? '내 이름' : '고친 배역';
+  if (!r || roles.length < 2) return base;
+  return `${base} · ${credit || (r.player ? `배역 ${mine.role + 1}` : `${r.name} 역`)}`;
 };
 
 /** 필름 정보의 한 칸. 지금 들어가는 사람, 「고치기」와 「바꾸기」.
@@ -147,8 +152,11 @@ export function AsPop({
                       <button className={on ? 'on' : ''} aria-pressed={on} disabled={busy} onClick={() => void pick({ as: 'persona', id: asking.id, role: i })}>
                         <Face id={r.face} name={r.player ? asking.name : r.name} />
                         <span>
-                          <b>{r.player ? '유저 이름' : r.name}</b>
-                          <small>{fillUser(r.line, r.player ? asking.name : r.name) || '배역'}</small>
+                          <b>{r.player ? asking.name : r.name}</b>
+                          <small>
+                            {creditOf(r) || '배역'}
+                            {r.line ? `\n${fillUser(r.line, r.player ? asking.name : r.name)}` : ''}
+                          </small>
                         </span>
                         {on && <em>지금</em>}
                       </button>
@@ -187,7 +195,7 @@ export function AsPop({
                         <span>
                           <b>{name}</b>
                           <small>
-                            {r.player ? '배역 · 유저 이름' : '배역'}
+                            {creditOf(r) || '배역'}
                             {roles.length > 1 && r.line ? `\n${fillUser(r.line, name)}` : ''}
                           </small>
                         </span>

@@ -187,6 +187,9 @@ function role(v: unknown, i: number): Persona {
     name: text(p.name, 20, `${what}의 이름`, !player) || RULES.playerName,
     line: text(p.line, L.persona, `${what} 설명`),
     face: image(p.face, what),
+    age: text(p.age, L.age, `${what}의 나이`),
+    job: text(p.job, L.job, `${what}의 직업`),
+    quote: text(p.quote, L.quote, `${what}의 대표 대사`),
     extras: extras(p.extras, what),
     ...(player ? { player: true } : {}),
   };

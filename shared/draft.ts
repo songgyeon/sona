@@ -25,12 +25,16 @@ export interface DraftRole {
   name: string;
   line: string;
   face: string;
+  /** 나이·직업·대표 대사 — 캐스트와 같은 배역 소개 */
+  age: string;
+  job: string;
+  quote: string;
   /** 유저 이름 — 들어가는 사람의 이름이 이 배역의 이름이 된다. 그때 name은 글에 대신 쓰는 이름이다 */
   player: boolean;
   extras: DraftExtra[];
 }
 
-export const blankRole = (): DraftRole => ({ name: '', line: '', face: '', player: false, extras: blankExtras() });
+export const blankRole = (): DraftRole => ({ name: '', line: '', face: '', age: '', job: '', quote: '', player: false, extras: blankExtras() });
 
 /** 「유저 이름」 배역의 이름 칸. 대신 쓰는 이름을 그대로 두었으면 비워서 보인다 */
 const roleName = (r: { name: string; player?: boolean }): string => (r.player && r.name === RULES.playerName ? '' : r.name);
@@ -96,6 +100,10 @@ export interface Draft {
   personaLine: string;
   /** 내 배역의 프로필 사진 */
   personaFace: string;
+  /** 내 배역의 나이·직업·대표 대사 */
+  personaAge: string;
+  personaJob: string;
+  personaQuote: string;
   /** 내 배역의 「유저 이름」 */
   personaPlayer: boolean;
   /** 둘째 배역부터. 배역이 여럿이면 들어가는 사람이 하나를 고른다 */
@@ -160,6 +168,9 @@ export const blankDraft = (): Draft => ({
   personaName: '',
   personaLine: '',
   personaFace: '',
+  personaAge: '',
+  personaJob: '',
+  personaQuote: '',
   personaPlayer: false,
   roles: [],
   casts: [blankCast()],
@@ -211,8 +222,8 @@ export function toFilm(d: Draft): unknown {
     bgmName: d.bgmName,
     reel: d.reel && d.reel.clips.length > 0 ? d.reel : null,
     extras: filled(d.extras),
-    persona: { name: d.personaName, line: d.personaLine, face: d.personaFace, extras: filled(d.personaExtras), player: d.personaPlayer },
-    roles: (d.roles ?? []).map((r) => ({ name: r.name, line: r.line, face: r.face, extras: filled(r.extras), player: r.player })),
+    persona: { name: d.personaName, line: d.personaLine, face: d.personaFace, age: d.personaAge, job: d.personaJob, quote: d.personaQuote, extras: filled(d.personaExtras), player: d.personaPlayer },
+    roles: (d.roles ?? []).map((r) => ({ name: r.name, line: r.line, face: r.face, age: r.age, job: r.job, quote: r.quote, extras: filled(r.extras), player: r.player })),
     casts: d.casts.map((c) => ({
       name: c.name,
       face: c.face,
@@ -325,8 +336,20 @@ export function fromFilm(f: Film): Draft {
     personaName: roleName(f.persona),
     personaLine: f.persona.line,
     personaFace: f.persona.face ?? '',
+    personaAge: f.persona.age ?? '',
+    personaJob: f.persona.job ?? '',
+    personaQuote: f.persona.quote ?? '',
     personaPlayer: f.persona.player === true,
-    roles: (f.roles ?? []).map((r) => ({ name: roleName(r), line: r.line, face: r.face ?? '', player: r.player === true, extras: padded(r.extras) })),
+    roles: (f.roles ?? []).map((r) => ({
+      name: roleName(r),
+      line: r.line,
+      face: r.face ?? '',
+      age: r.age ?? '',
+      job: r.job ?? '',
+      quote: r.quote ?? '',
+      player: r.player === true,
+      extras: padded(r.extras),
+    })),
     extras: padded(f.extras),
     personaExtras: padded(f.persona.extras),
     bgm: f.bgm ?? '',
@@ -441,7 +464,10 @@ export function isBlank(d: Draft): boolean {
     d.personaName,
     d.personaLine,
     d.personaFace,
-    ...(d.roles ?? []).flatMap((r) => [r.name, r.line, r.face, ...r.extras.flatMap((e) => [e.label, e.text])]),
+    d.personaAge ?? '',
+    d.personaJob ?? '',
+    d.personaQuote ?? '',
+    ...(d.roles ?? []).flatMap((r) => [r.name, r.line, r.face, r.age ?? '', r.job ?? '', r.quote ?? '', ...r.extras.flatMap((e) => [e.label, e.text])]),
     d.place,
     ...d.casts.flatMap((c) => [c.name, c.face, c.aliases, c.role, c.age, c.job, c.quote, c.intro, c.callsUser, c.speech, c.nature, c.habit, c.trauma, c.lack, c.secret, c.samples, c.dayPlace]),
     ...Object.values(d.ties).flatMap((t) => [t.relation, t.calls]),

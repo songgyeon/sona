@@ -117,6 +117,14 @@ button:disabled { opacity: 0.4; cursor: default; }
 
 /* ── 홈 ── */
 .hero { position: relative; height: calc(100dvh - var(--tabs)); min-height: 560px; max-height: 790px; }
+/* 대문: 필름마다 한 장씩 가로로 넘긴다 */
+.heroes { display: flex; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.heroes::-webkit-scrollbar { display: none; }
+.heroes > .hero { flex: 0 0 100%; scroll-snap-align: start; scroll-snap-stop: always; }
+.herodots { margin-top: 20px; display: flex; justify-content: center; align-items: center; gap: 6px; }
+.herodots i { width: 14px; height: 2px; background: rgba(255, 255, 255, 0.28); transition: width 0.3s ease; }
+.herodots i.on { width: 28px; background: var(--ink); }
+.herodots + .bill { margin-top: 18px; }
 .poster { position: absolute; z-index: 3; inset: auto 0 0 0; padding: 0 var(--pad) 22px; text-align: center; }
 .poster .kicker { display: flex; align-items: center; justify-content: center; gap: 14px; padding-left: 0.34em; }
 .poster .kicker::before, .poster .kicker::after { content: ''; width: 22px; height: 1px; background: var(--ink-4); }
@@ -139,6 +147,17 @@ button:disabled { opacity: 0.4; cursor: default; }
 /* 포스터 맨 아래의 작은 글씨 */
 .bill { margin-top: 26px; padding-top: 14px; border-top: 1px solid var(--hair); display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 22px; font-size: 10.5px; letter-spacing: 0.06em; color: var(--ink-3); }
 .bill b { margin-left: 7px; font-weight: 600; letter-spacing: 0.1em; color: var(--ink-2); }
+
+/* 필름 전체: 포스터 세 줄(상영작 필름 줄의 「모두 보기」) */
+.alllist { padding: 0 var(--pad) 40px; }
+.alllist .count { margin: 6px 0 20px; font-size: 12.5px; color: var(--ink-3); }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px 10px; }
+.grid3 button { display: block; width: 100%; text-align: left; }
+.grid3 .pc { position: relative; display: block; aspect-ratio: 2 / 3; overflow: hidden; background: #0c0c0c; }
+.grid3 .pc img { width: 100%; height: 100%; object-fit: cover; }
+.grid3 .pc .blank b { font-size: 13px; }
+.grid3 button > b { display: block; margin-top: 9px; font-size: 13.5px; font-weight: 600; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.grid3 button > small { display: block; margin-top: 3px; font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* 줄 칸은 화면 폭에 묶는다 — 묶지 않으면 필름 줄이 넘쳐도 칸이 같이 늘어나, 밀리지 않고 화면 밖에서 잘렸다(2026-11-12 사용자: 「왜 양옆으로 안 움직여?」) */
 .shelves { padding: 20px 0 40px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 30px; }
@@ -214,6 +233,12 @@ button:disabled { opacity: 0.4; cursor: default; }
 .castrow .face { width: 52px; height: 52px; font-size: 19px; }
 .castrow strong { display: block; font-size: 16.5px; font-weight: 600; letter-spacing: -0.01em; }
 .castrow small { display: block; margin-top: 3px; font-size: 13px; color: var(--ink-3); white-space: pre-line; }
+/* 캐스트 목록의 「나이 · 직업」과 두 줄로 접은 소개 — 프로필의 배역 줄과 같은 결 */
+.castrow .credit { display: block; margin-top: 5px; font-style: normal; font-size: 11.5px; font-weight: 600; letter-spacing: 0.12em; color: var(--ink-3); }
+.castrow small.clip { margin-top: 5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; line-height: 1.55; }
+/* 다른 배역: 누르면 그 배역으로 바꾼다 */
+.castrow.other { grid-template-columns: 52px 1fr auto; }
+.castrow .pick { font-size: 12.5px; font-weight: 500; color: var(--ink-3); white-space: nowrap; }
 .castrow svg { width: 18px; height: 18px; color: var(--ink-4); }
 .prose { margin-top: 14px; font-family: var(--serif); font-size: 15px; line-height: 1.86; font-weight: 400; letter-spacing: 0.005em; color: rgba(255, 255, 255, 0.7); white-space: pre-wrap; }
 .info .bill { margin: 40px var(--pad) 0; padding: 16px 0 44px; }
@@ -232,6 +257,10 @@ button:disabled { opacity: 0.4; cursor: default; }
 /* 캐스트 소개 — 디렉터가 보여 주려고 쓴 글 */
 .who .intro { margin-top: 14px; font-family: var(--serif); font-size: 14.5px; line-height: 1.85; color: var(--ink-2); white-space: pre-line; }
 .who .quote + .intro { margin-top: 12px; }
+/* 내 배역의 프로필: 이름 옆 「나」, 아래 내 피드에 쓰는 칸 */
+.who .title .metag { vertical-align: 7px; }
+.feed.myfeed .note { padding: 16px 0 0; }
+.feed.myfeed .btn { margin-top: 14px; }
 .who .acts { margin-top: 22px; }
 .who .acts .btn { width: 100%; height: 46px; }
 .btn .bubble { width: 17px; height: 17px; fill: #000; }

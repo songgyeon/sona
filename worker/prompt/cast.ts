@@ -14,6 +14,15 @@ function world(film: Film, out: string[]): void {
   for (const e of more) out.push(`- ${e.label}: ${e.text}`);
 }
 
+/** 유저의 인물: 이름과 소개, 맡은 배역의 나이·직업, 덧붙인 칸. 대표 대사는 프로필에만 둔다 */
+export function person(film: Film, out: string[]): void {
+  const p = film.persona;
+  out.push(p.line ? `${p.name} — ${p.line}` : p.name);
+  if (p.age) out.push(`- 나이: ${p.age}`);
+  if (p.job) out.push(`- 직업: ${p.job}`);
+  for (const e of p.extras ?? []) out.push(`- ${e.label}: ${e.text}`);
+}
+
 export function castLayer(film: Film, cast: Cast): string {
   const me = film.persona.name;
   const out: string[] = [];
@@ -42,8 +51,7 @@ export function castLayer(film: Film, cast: Cast): string {
 
   out.push('');
   out.push('[상대]');
-  out.push(film.persona.line ? `${me} — ${film.persona.line}` : me);
-  for (const e of film.persona.extras ?? []) out.push(`- ${e.label}: ${e.text}`);
+  person(film, out);
 
   const others = film.casts.filter((c) => c.key !== cast.key);
   if (others.length > 0) {
@@ -105,7 +113,6 @@ export function castsLayer(film: Film): string {
 
   out.push('');
   out.push('[유저의 인물]');
-  out.push(film.persona.line ? `${me} — ${film.persona.line}` : me);
-  for (const e of film.persona.extras ?? []) out.push(`- ${e.label}: ${e.text}`);
+  person(film, out);
   return out.join('\n');
 }

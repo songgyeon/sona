@@ -17,6 +17,11 @@ export interface Mine {
   face: string;
   /** 맡은 배역의 덧붙인 칸. 배역을 바꿀 때만 준다 — 없으면 그 필름의 것을 그대로 둔다 */
   extras?: Extra[];
+  /** 맡은 배역의 나이·직업·대표 대사. 덧붙인 칸처럼 배역을 바꿀 때만 준다 — 없으면 그 필름의 것을 그대로 둔다.
+      배역에 붙어 있어서 누가 맡든 그 배역의 것이다. 플레이하는 사람이 고치는 칸이 아니다 */
+  age?: string;
+  job?: string;
+  quote?: string;
 }
 
 /** 사람과 필름마다 기억해 둔 내 배역과, 맡은 배역(0 = 첫째 배역) */
@@ -59,6 +64,9 @@ export function applyMine(base: Film, mine: Mine, fresh = false): Film {
     line: fillUser(mine.line, mine.name),
     face: mine.face,
     extras: (mine.extras ?? film.persona.extras ?? []).map((e) => ({ ...e, label: fillUser(e.label, mine.name), text: fillUser(e.text, mine.name) })),
+    age: fillUser(mine.age ?? film.persona.age ?? '', mine.name),
+    job: fillUser(mine.job ?? film.persona.job ?? '', mine.name),
+    quote: fillUser(mine.quote ?? film.persona.quote ?? '', mine.name),
   };
   const formerly = [...(film.persona.formerly ?? []), ...(old === mine.name ? [] : [old])].filter((n, i, all) => n !== mine.name && all.indexOf(n) === i);
   if (!fresh && formerly.length > 0) persona.formerly = formerly.slice(-3);

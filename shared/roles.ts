@@ -33,7 +33,14 @@ export const fillUser = (text: string, name: string): string => (text && USER_MA
 export function fillFilm(film: Film, name: string = film.persona.name): Film {
   const f = (t: string) => fillUser(t, name);
   const ex = (list: Extra[]) => list.map((e) => ({ ...e, label: f(e.label), text: f(e.text) }));
-  const person = (p: Persona): Persona => ({ ...p, line: f(p.line), ...(p.extras ? { extras: ex(p.extras) } : {}) });
+  const person = (p: Persona): Persona => ({
+    ...p,
+    line: f(p.line),
+    ...(p.extras ? { extras: ex(p.extras) } : {}),
+    ...(p.age !== undefined ? { age: f(p.age) } : {}),
+    ...(p.job !== undefined ? { job: f(p.job) } : {}),
+    ...(p.quote !== undefined ? { quote: f(p.quote) } : {}),
+  });
   return {
     ...film,
     title: f(film.title),

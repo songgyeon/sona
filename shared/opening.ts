@@ -1,10 +1,13 @@
 /* 오프닝 — 디렉터가 컷·지문·대사를 쌓은 것. 화면과 서버가 같은 눈으로 읽는다. 계산뿐이다. */
 
 import { FEED_KINDS } from './feed';
-import type { Beat, Film, FirstScene } from './types';
+import type { Beat, Film, FirstScene, Persona } from './types';
 
 /** 예전 필름의 첫 장면: 장면 글 한 덩이였다 */
 type OldScene = Omit<FirstScene, 'beats'> & { beats?: Beat[]; situation?: string };
+
+/** 배역의 나이·직업·대표 대사. 없으면 빈 칸 */
+const credit = (p: Partial<Persona> | undefined) => ({ age: p?.age ?? '', job: p?.job ?? '', quote: p?.quote ?? '' });
 
 /** 저장된 필름을 지금 모양으로 읽는다.
     예전 필름은 첫 컷과 장면 글을 오프닝의 칸으로 옮긴다. 첫 마디(firstLine)는 그대로 둔다 —
@@ -22,9 +25,10 @@ export function readFilm(saved: Film): Film {
     bgm: saved.bgm ?? '',
     bgmName: saved.bgmName ?? '',
     reel: saved.reel ?? null,
-    persona: { ...saved.persona, face: saved.persona?.face ?? '', extras: saved.persona?.extras ?? [] },
+    // 배역의 나이·직업·대표 대사가 생기기 전의 필름(2026-11-13)도 빈 칸으로 읽는다
+    persona: { ...saved.persona, face: saved.persona?.face ?? '', extras: saved.persona?.extras ?? [], ...credit(saved.persona) },
     // 내 배역이 하나뿐이던 때의 필름. 둘째 배역은 없다
-    roles: (saved.roles ?? []).map((r) => ({ ...r, face: r.face ?? '', extras: r.extras ?? [] })),
+    roles: (saved.roles ?? []).map((r) => ({ ...r, face: r.face ?? '', extras: r.extras ?? [], ...credit(r) })),
     // 성격부터 비밀까지의 칸이 생기기 전의 캐스트. 비어 있는 것으로 읽는다
     casts: saved.casts.map((c) => ({
       ...c,

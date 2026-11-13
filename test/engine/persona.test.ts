@@ -42,6 +42,9 @@ async function failCode(p: Promise<unknown>): Promise<string> {
   return 'no-fail';
 }
 
+/** 임시 필름의 배역에는 나이·직업·대표 대사를 적지 않았다. 삶의 내 배역에는 빈 칸으로 간다 */
+const NO_CREDIT = { age: '', job: '', quote: '' };
+
 describe('글 속의 이름 바꾸기', () => {
   it('이름 뒤의 조사를 새 이름의 받침에 맞춘다', () => {
     expect(renameIn('수아가 책을 든다. 한서는 수아를 본다.', '수아', '문리현')).toBe('문리현이 책을 든다. 한서는 문리현을 본다.');
@@ -84,7 +87,7 @@ describe('내 배역 고치기', () => {
   it('사진과 소개를 고치면 내 삶에 적힌다. 디렉터의 필름은 그대로다', async () => {
     const { ctx, filmId, playId } = await setup();
     const v = await setMine(ctx, playId, { name: '수아', line: '서점에서 일한 지 일주일. 책을 좋아한다.', face: FACE });
-    expect(v.film.persona).toEqual({ name: '수아', line: '서점에서 일한 지 일주일. 책을 좋아한다.', face: FACE, extras: [] });
+    expect(v.film.persona).toEqual({ name: '수아', line: '서점에서 일한 지 일주일. 책을 좋아한다.', face: FACE, extras: [], ...NO_CREDIT });
     expect((await viewOf(ctx, playId)).film.persona.face).toBe(FACE);
 
     const made = (await getFilm(ctx, filmId)).film;
@@ -101,7 +104,7 @@ describe('내 배역 고치기', () => {
   it('이름을 바꾸면 캐스트가 부르는 말과 오프닝 속의 이름도 바뀐다', async () => {
     const { ctx, playId } = await setup();
     const v = await setMine(ctx, playId, { name: '문리현', line: '', face: '' });
-    expect(v.film.persona).toEqual({ name: '문리현', line: '', face: '', formerly: ['수아'], extras: [] });
+    expect(v.film.persona).toEqual({ name: '문리현', line: '', face: '', formerly: ['수아'], extras: [], ...NO_CREDIT });
     expect(v.film.casts.map((c) => c.callsUser)).toEqual(['문리현 씨', '문리현 님']);
     expect(v.film.firstScene.beats).toEqual([
       { kind: 'tell', text: '손님이 끊긴 오후. 문리현이 책을 들고 서가 앞에 서 있다. 한서는 문리현을 한 번 본다.' },
@@ -150,7 +153,7 @@ describe('내 배역 고치기', () => {
     const { ctx, playId } = await setup();
     await setMine(ctx, playId, { name: '문리현', line: '', face: '' });
     const v = await setMine(ctx, playId, { name: '수아', line: '', face: '' });
-    expect(v.film.persona).toEqual({ name: '수아', line: '', face: '', formerly: ['문리현'], extras: [] });
+    expect(v.film.persona).toEqual({ name: '수아', line: '', face: '', formerly: ['문리현'], extras: [], ...NO_CREDIT });
     expect(v.film.casts[0]!.callsUser).toBe('수아 씨');
     expect(v.film.firstScene.beats[0]).toEqual({ kind: 'tell', text: '손님이 끊긴 오후. 수아가 책을 들고 서가 앞에 서 있다. 한서는 수아를 한 번 본다.' });
   });
@@ -176,7 +179,7 @@ describe('내 배역 고치기', () => {
     // 새로 들어간 삶에서 캐스트는 처음부터 그 이름으로 안다. 전의 이름은 남기지 않는다
     const againId = uid();
     const again = await enter(ctx, filmId, againId);
-    expect(again.film.persona).toEqual({ name: '문리현', line: '새로 온 알바', face: FACE, extras: [] });
+    expect(again.film.persona).toEqual({ name: '문리현', line: '새로 온 알바', face: FACE, extras: [], ...NO_CREDIT });
     expect(again.film.casts[0]!.callsUser).toBe('문리현 씨');
     await say(ctx, againId, { room: 'c1', text: '내 이름이 뭐예요?', requestId: uid() });
     const { cast, scene } = ctx.model.calls.at(-1)!.layers;

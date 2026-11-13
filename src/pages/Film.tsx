@@ -6,8 +6,8 @@ import { ApiFail, api, imgUrl, newId } from '../api';
 import { Back, LinkIcon, Next, Pen, PlayFill } from '../icons';
 import { useMe } from '../me';
 import { Face, StillStrip, titleClass } from '../poster';
-import { AsPop, AsSlot, type Pick } from '../aspop';
-import { fillFilm, rolesOf } from '../../shared/roles';
+import { AsPop, AsSlot, creditOf, type Pick } from '../aspop';
+import { fillFilm, fillUser, rolesOf, shownName } from '../../shared/roles';
 import { Tabs } from '../tabs';
 import { type Go, goBack } from '../router';
 import { dropFilmFlow } from '../drafts';
@@ -78,6 +78,16 @@ export function Film({ filmId, go }: { filmId: string; go: Go }) {
       return e instanceof ApiFail ? e.message : '바꾸지 못했어요.';
     }
   };
+  /** 캐스트 목록에서 다른 배역을 고른다. 내 페르소나로 들어가고 있으면 그 페르소나가 그 배역을 맡는다 */
+  const [switching, setSwitching] = useState(false);
+  const switchRole = async (role: number) => {
+    if (!data || switching) return;
+    setSwitching(true);
+    const m = data.mine;
+    const why = await choose(m.personaId ? { as: 'persona', id: m.personaId, role } : { as: 'role', role });
+    if (why) setToast(why);
+    setSwitching(false);
+  };
 
   /** 필름을 지운다. keep이면 임시저장으로 옮긴 뒤에. 지우면 내 필름으로 간다 — 이 화면은 이제 없다 */
   const dropFilm = async (keep: boolean) => {
@@ -119,6 +129,8 @@ export function Film({ filmId, go }: { filmId: string; go: Go }) {
   const { card, mine } = data;
   /** 글 속의 {{user}}는 들어가는 사람의 이름으로 읽는다 */
   const film = fillFilm(data.film, mine.name);
+  /** 내 배역들. 맡은 배역의 나이·직업은 누가 맡든 그 배역의 것이다 */
+  const roles = rolesOf(film);
   const fs = film.firstScene;
   const stills = film.stills ?? [];
   /** 첫 장면의 첫 지문. 필름이 어떻게 시작하는지 미리 보인다 */
@@ -228,9 +240,9 @@ export function Film({ filmId, go }: { filmId: string; go: Go }) {
       <section className="block first">
         <p className="kicker">캐스트</p>
         <ul className="casts">
-          {/* 나. 이 필름에 들어가면 이 사람이 된다 */}
+          {/* 나. 이 필름에 들어가면 이 사람이 된다. 나이·직업은 맡은 배역의 것이다 */}
           <li>
-            {/* 살고 있는 삶이 있으면 내 배역으로 간다 — 프로필을 고치고 내 피드에 글을 올린다 */}
+            {/* 살고 있는 삶이 있으면 내 배역으로 간다 — 프로필을 보고 고치고, 내 피드에 글을 올린다 */}
             <button className="castrow me" disabled={!living} onClick={() => living && go(`/play/${living.id}/me`)}>
               <Face id={mine.face} name={mine.name} />
               <span>
@@ -238,23 +250,49 @@ export function Film({ filmId, go }: { filmId: string; go: Go }) {
                   {mine.name}
                   <em className="metag">나</em>
                 </strong>
-                {mine.line && <small>{mine.line}</small>}
+                {creditOf(roles[mine.role]) && <em className="credit">{creditOf(roles[mine.role])}</em>}
+                {mine.line && <small className="clip">{mine.line}</small>}
               </span>
               {living ? <Next /> : <span />}
             </button>
           </li>
-          {film.casts.map((c) => (
-            <li key={c.key}>
-              <button className="castrow" onClick={() => go(castPath(c.key))}>
-                <Face id={c.face ?? ''} name={c.name} />
-                <span>
-                  <strong>{c.name}</strong>
-                  {c.role && <small>{c.role}</small>}
-                </span>
-                <Next />
-              </button>
-            </li>
-          ))}
+          {/* 내 배역이 여럿이면 다른 배역도 선다. 누르면 그 배역으로 바꾼다(2026-11-13 사용자: 「내 배역 캐스트가 2개인데 왜 1개만 나와?」) */}
+          {roles.map((r, j) => {
+            if (j === mine.role) return null;
+            const name = mine.personaId ? mine.name : shownName(r, me.name);
+            return (
+              <li key={`r${j}`}>
+                <button className="castrow other" disabled={switching} onClick={() => void switchRole(j)} aria-label={`${name}, 이 배역으로 바꾸기`}>
+                  <Face id={r.face} name={name} />
+                  <span>
+                    <strong>{name}</strong>
+                    {creditOf(r) && <em className="credit">{creditOf(r)}</em>}
+                    {r.line && <small className="clip">{fillUser(r.line, name)}</small>}
+                  </span>
+                  <span className="pick">고르기</span>
+                </button>
+              </li>
+            );
+          })}
+          {/* 캐스트: 「나이 · 직업」과 소개. 나와의 관계는 프로필에 선다 — 여기 두면 누구 얘기인지 헷갈렸다(2026-11-13 사용자: 「인물 소개도 제대로 모르겠고」).
+              나이·직업·소개가 생기기 전의 필름은 관계를 그대로 보인다 */}
+          {film.casts.map((c) => {
+            const credit = creditOf(c);
+            const about = c.intro || (credit ? '' : c.role);
+            return (
+              <li key={c.key}>
+                <button className="castrow" onClick={() => go(castPath(c.key))}>
+                  <Face id={c.face ?? ''} name={c.name} />
+                  <span>
+                    <strong>{c.name}</strong>
+                    {credit && <em className="credit">{credit}</em>}
+                    {about && <small className="clip">{about}</small>}
+                  </span>
+                  <Next />
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </section>
 
