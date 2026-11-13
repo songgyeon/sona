@@ -1,4 +1,5 @@
 import { type FormEvent, Fragment, type KeyboardEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { CutScreen } from '../cutscreen';
 import { type Clock, dayEnd, dayName, formatWorld, nextEvening, nextWake, worldAt } from '../../shared/clock';
 import { josa } from '../../shared/ko';
 import { splitLine } from '../../shared/line';
@@ -215,7 +216,6 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
   const [saving, setSaving] = useState(() => new URLSearchParams(window.location.search).has('saves'));
   /** 지금 화면에 걸린 컷과, 그 밑에 깔린 바로 앞 컷 */
   const [shot, setShot] = useState('');
-  const [under, setUnder] = useState('');
   const flow = useRef<HTMLElement>(null);
   /** 하루의 끝에 오르는 크레딧 */
   const [credits, setCredits] = useState(false);
@@ -534,12 +534,7 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
       )}
 
       {/* 그림은 오프닝을 읽는 동안에만 걸린다. 다 읽으면 치우고, 그 뒤로는 화면 전체가 오가는 말이다 */}
-      {onScreen && reading && (
-        <div className="screen grain">
-          {under && under !== onScreen && <img key={`under-${under}`} src={imgUrl(under)} alt="" />}
-          <img key={onScreen} className="cutin" src={imgUrl(onScreen)} alt="" onAnimationEnd={() => setUnder(onScreen)} />
-        </div>
-      )}
+      {onScreen && reading && <CutScreen id={onScreen} />}
       <p className="where">
         {formatWorld(clock)}
         {place && (

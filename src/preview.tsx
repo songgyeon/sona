@@ -2,6 +2,7 @@
    필름 정보(그림, 제목, 한 줄 소개, 캐스트)와 오프닝(영상 → 제목 → 컷·지문·대사 → 내 배역 카드).
    필름 정보 화면과 재생 화면을 그대로 빌려 그린다. 첫째 배역으로 들어간 것으로 본다. 아무것도 저장하지 않는다. */
 
+import { CutScreen } from './cutscreen';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { formatMin, formatWorld } from '../shared/clock';
@@ -162,7 +163,6 @@ function OpeningPeek({ film, onAgain }: { film: Film; onAgain: () => void }) {
   const [card, setCard] = useState(!((film.reel?.clips.length ?? 0) > 0));
   const [reading, setReading] = useState(hasLines(film));
   const [shot, setShot] = useState('');
-  const [under, setUnder] = useState('');
   const flow = useRef<HTMLElement>(null);
   const tick = useRef(0);
   const still = useRef(0);
@@ -226,12 +226,7 @@ function OpeningPeek({ film, onAgain }: { film: Film; onAgain: () => void }) {
           {bgm.on ? <Sound /> : <SoundOff />}
         </button>
       )}
-      {onScreen && reading && (
-        <div className="screen grain">
-          {under && under !== onScreen && <img key={`under-${under}`} src={imgUrl(under)} alt="" />}
-          <img key={onScreen} className="cutin" src={imgUrl(onScreen)} alt="" onAnimationEnd={() => setUnder(onScreen)} />
-        </div>
-      )}
+      {onScreen && reading && <CutScreen id={onScreen} />}
       <p className="where">
         {formatWorld(clock)}
         {place && (
