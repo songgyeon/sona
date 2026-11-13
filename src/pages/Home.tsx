@@ -196,12 +196,21 @@ export function Home({ go, fake, modelReady }: { go: (to: string) => void; fake:
 function HeroReel({ count, children }: { count: number; children: ReactNode }) {
   const track = useRef<HTMLDivElement>(null);
   const [auto, setAuto] = useState(true);
+  /** 들어가는 화면이나 입장권(이름 적기 등)이 마지막으로 대문을 덮고 있던 때 */
+  const covered = useRef(0);
   useEffect(() => {
     if (!auto || count < 2) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const t = window.setInterval(() => {
       const el = track.current;
       if (!el || document.hidden) return;
+      // 덮여 있는 동안은 넘기지 않고, 걷힌 뒤에도 지금 장을 한 번은 온전히 보여 준다 —
+      // 처음 온 사람이 들어가는 화면과 이름 적기를 마치면 대문이 벌써 둘째·셋째 장에 가 있었다(2026-11-14 처음 온 사람으로 돌려 보다가)
+      if (document.querySelector('.entrance, .namepop')) {
+        covered.current = Date.now();
+        return;
+      }
+      if (Date.now() - covered.current < RULES.hero.ms) return;
       const w = el.clientWidth;
       const now = Math.round(el.scrollLeft / w);
       el.scrollTo({ left: ((now + 1) % count) * w, behavior: 'smooth' });
