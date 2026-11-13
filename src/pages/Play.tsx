@@ -87,24 +87,72 @@ export function Opening({ film }: { film: Film }) {
 }
 
 /** 오프닝이 끝나면 서는 내 배역 소개. 이 필름에서 내가 누구인지 — 사진과 이름은 크게.
-    긴 소개는 접어 둔다 — 필름 정보에서 이미 읽을 수 있고, 여기서는 이름이 뜬 다음 바로 첫 대사를 쓰게 한다 */
-export function MeCard({ me }: { me: Persona }) {
+    긴 소개는 접어 둔다 — 필름 정보에서 이미 읽을 수 있고, 여기서는 이름이 뜬 다음 바로 첫 대사를 쓰게 한다.
+    「고치기」는 오른쪽 위 내 얼굴과 같은 곳(내 배역)으로 간다. 이 카드를 보고 고치려는 사람이 많다
+    (2026-11-13 플레이에서: 「소개 보기」를 눌러도 고칠 수 없었고, 고치는 곳은 눌러 보기 전엔 몰랐다). 미리 보기에는 없다 */
+export function MeCard({ me, onEdit }: { me: Persona; onEdit?: () => void }) {
   const [open, setOpen] = useState(false);
+  const more = Boolean(me.line) && !open;
   return (
     <div className="introme">
       <Face id={me.face} name={me.name} />
       <p className="k">내 배역</p>
       <h2>{me.name}</h2>
-      {me.line &&
-        (open ? (
-          <p className="l">{me.line}</p>
-        ) : (
-          <button className="textbtn more" onClick={() => setOpen(true)}>
-            소개 보기
-          </button>
-        ))}
+      {me.line && open && <p className="l">{me.line}</p>}
+      {(more || onEdit) && (
+        // 말하는 칸에 쓰다가 누르면 칸이 포커스를 잃으며 아래 탭이 다시 서고 화면이 밀린다 — 그 사이 단추가 움직여 눌리지 않는다.
+        // 누르는 순간 포커스를 가져가지 않게 해서 화면이 그대로 있게 한다
+        <p className="acts" onMouseDown={(e) => e.preventDefault()}>
+          {more && (
+            <button className="textbtn more" onClick={() => setOpen(true)}>
+              소개 보기
+            </button>
+          )}
+          {onEdit && (
+            <button className="textbtn more" onClick={onEdit}>
+              고치기
+            </button>
+          )}
+        </p>
+      )}
     </div>
   );
+}
+
+/** 말하는 칸에 쓰던 글. 내 배역을 고치러 가거나 다른 화면에 다녀와도 남게 이 기기에 둔다 — 삶마다 한 자리.
+    (2026-11-13 플레이에서: 써 둔 대사가 화면이 바뀌면서 날아갔다) */
+const SAY = (playId: string) => `sona.say.${playId}`;
+function readSay(playId: string): string {
+  try {
+    return localStorage.getItem(SAY(playId)) ?? '';
+  } catch {
+    return '';
+  }
+}
+function writeSay(playId: string, text: string): void {
+  try {
+    if (text) localStorage.setItem(SAY(playId), text);
+    else localStorage.removeItem(SAY(playId));
+  } catch {
+    /* 저장이 막힌 브라우저에서는 이 화면에서만 남는다 */
+  }
+}
+
+/** 이 삶의 오프닝을 이 기기에서 끝까지 읽었나 */
+const READ = (playId: string) => `sona.read.${playId}`;
+function wasRead(playId: string): boolean {
+  try {
+    return localStorage.getItem(READ(playId)) === '1';
+  } catch {
+    return false;
+  }
+}
+function markRead(playId: string): void {
+  try {
+    localStorage.setItem(READ(playId), '1');
+  } catch {
+    /* 저장이 막히면 돌아올 때 오프닝을 처음부터 다시 읽는다 */
+  }
 }
 
 /** 기본 오프닝: 검은 화면에 제목이 떴다가 걷힌다. 오프닝 영상이 없는 필름에만 뜬다 — 영상이 있으면 영상이 오프닝이다
@@ -121,7 +169,17 @@ export function TitleCard({ title }: { title: string }) {
 export function Play({ playId, go }: { playId: string; go: Go }) {
   const [view, setView] = useState<PlayView | null>(null);
   /** 쓰고 있는 글. 대사와 지문을 한 칸에 쓴다. 지문은 *별표* 사이에 쓴다 */
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState(() => readSay(playId));
+  /** 지금 들고 있는 글이 어느 삶의 것인지. 다른 삶으로 넘어오면 그 삶의 글을 꺼낸다 — 앞 삶의 글을 덮어쓰지 않는다 */
+  const sayOf = useRef(playId);
+  useEffect(() => {
+    if (sayOf.current !== playId) {
+      sayOf.current = playId;
+      setDraft(readSay(playId));
+      return;
+    }
+    writeSay(playId, draft);
+  }, [playId, draft]);
   const box = useRef<HTMLTextAreaElement>(null);
   /** 보냈는데 아직 답이 안 온 말. 끊기면 같은 전송 표로 다시 보낸다 — 서버는 한 번만 처리한다 */
   const [out, setOut] = useState<Outgoing | null>(null);
@@ -138,6 +196,10 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
   const [reelOn, setReelOn] = useState(() => new URLSearchParams(window.location.search).has('open'));
   /** 오프닝을 읽는 중. 끝에 닿으면 말하는 칸이 선다 */
   const [reading, setReading] = useState(false);
+  // 끝까지 읽었으면 이 기기에 적어 둔다 — 다른 화면에 다녀와도 오프닝을 처음부터 다시 읽게 하지 않는다
+  useEffect(() => {
+    if (view && !reading) markRead(playId);
+  }, [view, reading, playId]);
   /** 장면 저장 시트를 열어 두었나. 필름 정보의 「저장한 장면」에서 오면 열린 채로 온다(?saves) */
   const [saving, setSaving] = useState(() => new URLSearchParams(window.location.search).has('saves'));
   /** 지금 화면에 걸린 컷과, 그 밑에 깔린 바로 앞 컷 */
@@ -161,8 +223,9 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
         const reel = (v.film.reel?.clips.length ?? 0) > 0;
         setReelOn((on) => on && reel);
         setCard((on) => on && !reel);
-        // 아직 한마디도 안 했으면 오프닝을 처음부터 읽는다
-        setReading(hasLines(v.film) && v.elapsed === 0 && !v.messages.some((m) => m.speaker === 'persona'));
+        // 아직 한마디도 안 했으면 오프닝을 처음부터 읽는다. 다만 이 기기에서 끝까지 읽은 오프닝은 다시 처음으로 돌리지 않는다 —
+        // 내 배역을 고치러 갔다 오면 말하는 칸이 그대로 서 있어야 한다(2026-11-13 플레이에서)
+        setReading(hasLines(v.film) && v.elapsed === 0 && !v.messages.some((m) => m.speaker === 'persona') && !wasRead(playId));
       })
       .catch((e) => setErr(e instanceof ApiFail ? e.message : '필름을 불러오지 못했어요.'));
   }, [playId]);
@@ -479,7 +542,7 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
 
       <section className="flow" aria-live="polite" ref={flow} onScroll={onScroll}>
         {fs.beats.length > 0 && <Opening film={film} />}
-        <MeCard me={film.persona} />
+        <MeCard me={film.persona} onEdit={() => go(`/play/${playId}/me`)} />
 
         {items.map(({ m, a }, i) =>
           a ? (
@@ -652,7 +715,18 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
         {!view.ended && (
           <div className="skips">
             {skipsAt(worldAt(clock).min).map((s) => (
-              <button key={s.kind} className="skip" disabled={locked} onClick={() => leave({ kind: s.kind, requestId: newId() })}>
+              // 말하는 칸에 쓰다가 누르면 칸이 포커스를 잃으며 아래 탭이 다시 서고, 그 사이 단추가 밀려 눌리지 않는다.
+              // 누르는 순간에는 포커스를 그대로 두고, 눌린 뒤에 칸을 놓는다(자판을 닫는다)
+              <button
+                key={s.kind}
+                className="skip"
+                disabled={locked}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  box.current?.blur();
+                  leave({ kind: s.kind, requestId: newId() });
+                }}
+              >
                 {s.label}
                 <SkipFill />
               </button>
@@ -686,7 +760,17 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
             disabled={view.ended || !!view.stuck || !!away}
             autoComplete="off"
           />
-          <button type="submit" className="send" disabled={locked || splitLine(draft).length === 0} aria-label="보내기">
+          {/* 칸 밖에 포커스가 있을 때(써 둔 글이 남아 있는 채로 돌아왔을 때) 누르면, 단추가 포커스를 받으며 아래 탭이 숨고
+              그 사이 단추가 밀려 눌리지 않는다. 그때만 포커스를 옮기지 않는다 — 칸에 쓰던 중에 누르는 것은 전과 같다 */}
+          <button
+            type="submit"
+            className="send"
+            disabled={locked || splitLine(draft).length === 0}
+            aria-label="보내기"
+            onMouseDown={(e) => {
+              if (!e.currentTarget.form?.contains(document.activeElement)) e.preventDefault();
+            }}
+          >
             <Arrow />
           </button>
         </form>

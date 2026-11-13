@@ -686,7 +686,8 @@ button:disabled { opacity: 0.4; cursor: default; }
 /* 가운데에 서는 글도 양쪽을 맞춘다. 마지막 줄만 가운데 */
 .poster .line1, .introme .l, .stuck p, .empty p { text-align: justify; text-align-last: center; }
 .empty p { text-align-last: auto; }
-.introme .more { margin-top: 14px; font-size: 12.5px; color: var(--ink-3); text-decoration: underline; text-underline-offset: 3px; }
+.introme .acts { margin-top: 14px; display: flex; justify-content: center; gap: 22px; }
+.introme .more { font-size: 12.5px; color: var(--ink-3); text-decoration: underline; text-underline-offset: 3px; }
 
 /* ── 들어가는 사람: 배역과 내 페르소나를 옆으로 늘어놓는다 ── */
 .asme > p { display: flex; align-items: baseline; }
