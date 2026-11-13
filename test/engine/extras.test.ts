@@ -88,7 +88,7 @@ describe('덧붙이는 칸', () => {
     expect(cast).toContain('- 나이: 스물셋. 휴학 중이다.');
   });
 
-  it('만드는 화면: 처음에 빈 칸 셋. 적은 칸만 필름으로 가고, 다시 열면 빈 칸을 셋까지 채워 둔다', () => {
+  it('만드는 화면: 처음에 빈 칸이 RULES.extras.show만큼 있다. 적은 칸만 필름으로 가고, 다시 열면 그 수까지 빈 칸을 채워 둔다', () => {
     const d = blankDraft();
     expect(d.extras).toHaveLength(RULES.extras.show);
     expect(d.personaExtras).toHaveLength(RULES.extras.show);
@@ -97,8 +97,9 @@ describe('덧붙이는 칸', () => {
 
     const film = parseFilm(FILM);
     const back = fromFilm(film);
-    expect(back.extras).toEqual([...WORLD, { label: '', text: '' }, { label: '', text: '' }]);
-    expect(back.casts[0]!.extras).toHaveLength(RULES.extras.show);
+    const blanks = Array.from({ length: Math.max(0, RULES.extras.show - WORLD.length) }, () => ({ label: '', text: '' }));
+    expect(back.extras).toEqual([...WORLD, ...blanks]);
+    expect(back.casts[0]!.extras).toHaveLength(Math.max(film.casts[0]!.extras.length, RULES.extras.show));
     const again = parseFilm(toFilm(back));
     expect(again.extras).toEqual(film.extras);
     expect(again.persona.extras).toEqual(film.persona.extras);

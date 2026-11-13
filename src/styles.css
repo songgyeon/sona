@@ -51,7 +51,9 @@ button:disabled { opacity: 0.4; cursor: default; }
 .note { font-size: 12.5px; line-height: 1.6; color: var(--ink-3); }
 
 /* 폰 너비의 한 줄. 넓은 화면에서도 가운데에 그대로 선다 */
-.app { position: relative; max-width: 520px; min-height: 100dvh; margin: 0 auto; background: var(--black); overflow-x: hidden; }
+/* 옆으로 넘친 것은 자른다. clip은 스크롤 칸을 만들지 않아서 안쪽의 sticky(크랭크인 위 탭)가 화면에 붙어 있는다 — hidden이면 스크롤과 함께 사라졌다 */
+.app { position: relative; max-width: 520px; min-height: 100dvh; margin: 0 auto; background: var(--black); overflow-x: hidden; overflow-x: clip; }
+.maker { margin: 44px 0 8px; text-align: center; font-size: 10.5px; letter-spacing: 0.32em; padding-left: 0.32em; color: var(--ink-4); }
 .app.tabbed { padding-bottom: var(--tabs); }
 
 /* 작은 글씨로 띄엄띄엄 적는 머리말 */

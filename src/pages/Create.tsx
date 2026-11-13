@@ -395,7 +395,7 @@ export function Create({ go, editId, draftId }: { go: Go; editId?: string; draft
                     </Field>
                   </div>
 
-                  <Field label="소개" optional count={[c.intro.length, RULES.limits.intro]} hint="프로필에만 보이고, 캐스트의 말과 행동에는 쓰이지 않아요.">
+                  <Field label="소개" optional count={[c.intro.length, RULES.limits.intro]} hint="프로필에 보이는 첫인상이에요.">
                     <textarea
                       rows={3}
                       value={c.intro}
@@ -993,7 +993,7 @@ function CastFeed({
   );
 }
 
-/** 덧붙이는 칸. 항목 이름과 내용을 디렉터가 직접 적는다. 처음에 빈 칸 셋, 「칸 추가」로 늘린다.
+/** 덧붙이는 칸. 항목 이름과 내용을 디렉터가 직접 적는다. 처음에 빈 칸 하나(`RULES.extras.show`), 「칸 추가」로 늘린다.
     내용이 빈 칸은 저장하지 않는다. 플레이하는 사람에게는 보이지 않고, 대사 모델에게 그대로 건네진다 */
 function Extras({ value, onChange, examples, bare }: { value: DraftExtra[]; onChange: (v: DraftExtra[]) => void; examples: { label: string; text: string }; bare?: boolean }) {
   const edit = (i: number, k: 'label' | 'text', v: string) => onChange(value.map((e, j) => (j === i ? { ...e, [k]: v } : e)));

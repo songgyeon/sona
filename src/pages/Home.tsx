@@ -159,6 +159,9 @@ export function Home({ go, fake, modelReady }: { go: (to: string) => void; fake:
         )}
       </div>
 
+      {/* 만든 사람. 링크만 받고 들어온 사람도 누가 만들었는지 알게 — 이름만 둔다(2026-11-13 사용자 승인) */}
+      <p className="maker">기획·제작 문리현</p>
+
       <Tabs path="/" go={go} />
     </main>
   );
