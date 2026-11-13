@@ -5,6 +5,7 @@ import { type Ctx, Fail } from './engine/ctx';
 import { dropPost, editPost, openFeed, postMine } from './engine/alive';
 import { chooseAs, filmView } from './engine/entry';
 import { createFilm, dropFilm, listFilms, updateFilm } from './engine/films';
+import { listDrafts, putDrafts } from './engine/drafts';
 import { claimLink, makeLink } from './engine/link';
 import { getMe, setMe } from './engine/me';
 import { addPersona, dropPersona, editPersona, listPersonas } from './engine/mypersonas';
@@ -59,6 +60,8 @@ const ROUTES: [string, RegExp, Handler][] = [
   ['GET', /^\/api\/me$/, (ctx) => getMe(ctx)],
   ['POST', /^\/api\/link$/, (ctx, _p, body) => makeLink(ctx, body)],
   ['POST', /^\/api\/link\/claim$/, (ctx, _p, body) => claimLink(ctx, body)],
+  ['GET', /^\/api\/drafts$/, (ctx) => listDrafts(ctx)],
+  ['PUT', /^\/api\/drafts$/, (ctx, _p, body) => putDrafts(ctx, body)],
   ['PUT', /^\/api\/me$/, (ctx, _p, body) => setMe(ctx, body)],
   ['GET', /^\/api\/personas$/, (ctx) => listPersonas(ctx)],
   ['POST', /^\/api\/personas$/, (ctx, _p, body) => addPersona(ctx, body)],

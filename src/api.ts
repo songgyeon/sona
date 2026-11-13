@@ -1,6 +1,7 @@
 /* 서버와 말하는 곳. 화면은 세계를 들고 다니지 않는다 — 열쇠와 방문자 표만 들고 다닌다. */
 
 import { type Box, outSide } from '../shared/crop';
+import type { DraftItem } from '../shared/draft';
 import { RULES } from '../shared/rules';
 import type { ApiError, Film, FilmCard, FilmMine, MyPersona, PlayCard, PlayView, SaveView } from '../shared/types';
 
@@ -135,6 +136,8 @@ export const api = {
   chooseAs: (id: string, pick: { as: 'role'; role: number } | { as: 'persona'; id: string; role: number }) =>
     call<{ card: FilmCard; film: Film; mine: FilmMine }>('PUT', `/api/films/${id}/as`, pick),
   /** 내 페르소나 */
+  drafts: () => call<DraftItem[]>('GET', '/api/drafts'),
+  putDrafts: (items: DraftItem[]) => call<{ ok: true }>('PUT', '/api/drafts', { items }),
   link: (drafts: string) => call<{ code: string; expiresAt: number }>('POST', '/api/link', { drafts }),
   claim: (code: string) => call<{ visitor: string; name: string; drafts: string }>('POST', '/api/link/claim', { code }),
   personas: () => call<MyPersona[]>('GET', '/api/personas'),

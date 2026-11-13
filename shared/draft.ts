@@ -396,6 +396,16 @@ export const editSlot = (filmId: string): string => `edit-${filmId}`;
 
 /** 한 편의 자리. 뒤에 그 필름의 표가 붙는다 */
 const SLOT = 'sona.draft.';
+/** 임시저장 한 편의 자리 이름. 이 기기에서 만든 것은 무작위 id다 */
+export const DRAFT_ID = /^[A-Za-z0-9-]{1,64}$/;
+
+/** 서버에 맞춰 둔 임시저장 한 편. raw는 기기에 저장된 모양 그대로, dropped는 지운 표시 */
+export interface DraftItem {
+  id: string;
+  raw: string;
+  savedAt: number;
+  dropped: boolean;
+}
 /** 한 편만 남기던 때의 자리 */
 const OLD_SLOT = 'sona.draft';
 
@@ -462,6 +472,26 @@ export function shelf(store: () => Store, newId: () => string, now: () => number
     }
   };
 
+  /** 남겨 둔 필름을 저장된 모양 그대로 */
+  const items = (): { id: string; raw: string; savedAt: number }[] => {
+    const s = open();
+    if (!s) return [];
+    try {
+      const out: { id: string; raw: string; savedAt: number }[] = [];
+      for (let i = 0; i < s.length; i++) {
+        const k = s.key(i);
+        if (!k || !k.startsWith(SLOT)) continue;
+        const id = k.slice(SLOT.length);
+        const raw = s.getItem(k);
+        const one = raw === null ? null : readSaved(id, raw);
+        if (raw !== null && one) out.push({ id, raw, savedAt: one.savedAt });
+      }
+      return out;
+    } catch {
+      return [];
+    }
+  };
+
   return {
     /** 남겨 둔 필름들. 최근에 남긴 것부터 */
     list(): SavedDraft[] {
@@ -518,21 +548,38 @@ export function shelf(store: () => Store, newId: () => string, now: () => number
 
     /** 다른 기기로 옮길 짐. 남겨 둔 필름을 저장된 모양 그대로 싼다 */
     pack(): string {
+      return JSON.stringify(items().map(({ id, raw }) => ({ id, raw })));
+    },
+
+    /** 한 자리의 저장된 모양. 없으면 null — 서버로 보낼 때 쓴다 */
+    entry(id: string): { raw: string; savedAt: number } | null {
+      return items().find((it) => it.id === id) ?? null;
+    },
+
+    /** 서버에 맞춰 둔 것을 받아 이 기기에 맞춘다. 같은 자리는 나중에 남긴 쪽을 두고,
+        지운 표시는 그보다 먼저 남긴 것을 지운다. 이 기기 쪽이 더 나중이거나 서버에 없는 자리는 돌려준다 — 서버로 보낼 것이다 */
+    merge(server: readonly DraftItem[]): string[] {
       const s = open();
-      if (!s) return '[]';
-      try {
-        const out: { id: string; raw: string }[] = [];
-        for (let i = 0; i < s.length; i++) {
-          const k = s.key(i);
-          if (!k || !k.startsWith(SLOT)) continue;
-          const id = k.slice(SLOT.length);
-          const raw = s.getItem(k);
-          if (raw !== null && readSaved(id, raw)) out.push({ id, raw });
+      if (!s) return [];
+      const known = new Map<string, number>();
+      for (const it of server) {
+        if (!it || typeof it.id !== 'string' || !DRAFT_ID.test(it.id) || typeof it.savedAt !== 'number') continue;
+        known.set(it.id, Math.max(known.get(it.id) ?? 0, it.savedAt));
+        try {
+          const here = readSaved(it.id, s.getItem(SLOT + it.id));
+          if (it.dropped) {
+            if (here && here.savedAt <= it.savedAt) s.removeItem(SLOT + it.id);
+            continue;
+          }
+          if (here && here.savedAt >= it.savedAt) continue;
+          if (typeof it.raw === 'string' && readSaved(it.id, it.raw)) s.setItem(SLOT + it.id, it.raw);
+        } catch {
+          /* 저장소가 막혔다. 이 자리는 그대로 둔다 */
         }
-        return JSON.stringify(out);
-      } catch {
-        return '[]';
       }
+      return items()
+        .filter((it) => (known.get(it.id) ?? -1) < it.savedAt)
+        .map((it) => it.id);
     },
 
     /** 다른 기기에서 온 짐을 푼다. 같은 자리가 이미 있으면 나중에 남긴 쪽을 둔다. 푼 편 수를 돌려준다 */
@@ -550,7 +597,7 @@ export function shelf(store: () => Store, newId: () => string, now: () => number
       for (const it of items) {
         if (!it || typeof it !== 'object') continue;
         const { id, raw } = it as { id?: unknown; raw?: unknown };
-        if (typeof id !== 'string' || typeof raw !== 'string' || !/^[A-Za-z0-9-]{1,64}$/.test(id)) continue;
+        if (typeof id !== 'string' || typeof raw !== 'string' || !DRAFT_ID.test(id)) continue;
         const incoming = readSaved(id, raw);
         if (!incoming) continue;
         try {

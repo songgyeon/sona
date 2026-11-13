@@ -101,7 +101,7 @@ describe('저장소의 표', () => {
     const row = await db.first<{ calls: number }>('SELECT calls FROM usage WHERE day = ?', '2026-11-11');
     expect(row!.calls).toBe(7);
     const tables = await db.all<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name");
-    expect(tables.map((t) => t.name)).toEqual(['asides', 'events', 'feed_days', 'films', 'gen_log', 'images', 'links', 'media', 'media_parts', 'messages', 'meta', 'mypersonas', 'personas', 'plays', 'posts', 'saves', 'turns', 'usage', 'visitors']);
+    expect(tables.map((t) => t.name)).toEqual(['asides', 'drafts', 'events', 'feed_days', 'films', 'gen_log', 'images', 'links', 'media', 'media_parts', 'messages', 'meta', 'mypersonas', 'personas', 'plays', 'posts', 'saves', 'turns', 'usage', 'visitors']);
   });
 
   it('먼저 만들어진 저장소에는 나중에 생긴 칸을 붙인다. 있던 삶은 첫 하루로 읽힌다', async () => {

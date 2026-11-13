@@ -224,6 +224,17 @@ export const SCHEMA: string[] = [
     used_at INTEGER
   )`,
 
+  // 임시저장. 원본은 기기의 저장소이고, 서버는 사람마다 한 벌을 맞춰 둔다(다른 기기에서도 보이게).
+  // raw는 기기에 저장된 모양 그대로. dropped는 지운 표시 — 다른 기기에서도 지운다
+  `CREATE TABLE IF NOT EXISTS drafts (
+    visitor TEXT NOT NULL,
+    id TEXT NOT NULL,
+    raw TEXT NOT NULL,
+    saved_at INTEGER NOT NULL,
+    dropped INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (visitor, id)
+  )`,
+
   // 하루 호출 수
   `CREATE TABLE IF NOT EXISTS usage (
     day TEXT NOT NULL,

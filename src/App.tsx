@@ -1,4 +1,5 @@
 import { type FormEvent, useEffect, useState } from 'react';
+import { syncDrafts } from './drafts';
 import { wakeSoundOnTouch } from './sound';
 import { ApiFail, api, getKey, setKey } from './api';
 import { Aside } from './pages/Aside';
@@ -53,6 +54,8 @@ export function App() {
       setName(me?.name ?? '');
       setNaming(me !== null && !me.name);
       setGate('open');
+      // 서버에 맞춰 둔 임시저장을 받아 둔다 — 다른 기기에서 남긴 것도 내 필름에 선다
+      void syncDrafts();
     } catch (e) {
       if (e instanceof ApiFail && e.code === 'bad_key') {
         // 주인이 열쇠를 걸어 둔 주소다. 아직 안 넣어 본 사람에게 "맞지 않아"라고 하지 않는다

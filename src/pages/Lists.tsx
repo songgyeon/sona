@@ -6,7 +6,7 @@ import { draftTitle } from '../../shared/draft';
 import { fillCard, fillUser } from '../../shared/roles';
 import type { FilmCard, PlayCard } from '../../shared/types';
 import { ApiFail, api } from '../api';
-import { drafts, dropFilmFlow } from '../drafts';
+import { drafts, dropFilmFlow, syncDrafts } from '../drafts';
 import { Next, Search } from '../icons';
 import { useMe } from '../me';
 import { Art } from '../poster';
@@ -184,6 +184,14 @@ export function Mine({ go }: { go: (to: string) => void }) {
   const [gone, setGone] = useState<string[]>([]);
   const mine = (films ?? []).filter((f) => f.mine && !gone.includes(f.id));
   const [saved, setSaved] = useState(() => drafts.list());
+  // 다른 기기에서 남긴 임시저장도 받아 와서 세운다
+  useEffect(() => {
+    let alive = true;
+    void syncDrafts().then(() => alive && setSaved(drafts.list()));
+    return () => {
+      alive = false;
+    };
+  }, []);
   /** 지울지 묻고 있는 임시저장 */
   const [asking, setAsking] = useState('');
   /** 지울지 묻고 있는 개봉한 필름 */

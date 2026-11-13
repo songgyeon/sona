@@ -245,3 +245,38 @@ describe('임시저장: 다른 기기로 옮기기', () => {
     expect(b.drafts.list()).toEqual([]);
   });
 });
+
+describe('임시저장: 서버와 맞추기', () => {
+  const saved = (title: string, savedAt: number) => JSON.stringify({ draft: titled(title), savedAt });
+
+  it('서버 쪽이 나중이면 받는다. 이 기기 쪽이 나중이거나 서버에 없으면 보낼 자리로 돌려준다. 지운 표시는 그보다 먼저 남긴 것을 지운다', () => {
+    const a = setup({
+      'sona.draft.x': saved('이 기기 x', 50),
+      'sona.draft.y': saved('이 기기 y', 900),
+      'sona.draft.z': saved('지울 z', 10),
+      'sona.draft.k': saved('나중에 고친 k', 99),
+      'sona.draft.w': saved('서버에 없는 w', 5),
+    });
+    const push = a.drafts.merge([
+      { id: 'x', raw: saved('서버 x', 100), savedAt: 100, dropped: false },
+      { id: 'y', raw: saved('서버 y', 100), savedAt: 100, dropped: false },
+      { id: 'z', raw: '', savedAt: 20, dropped: true },
+      { id: 'k', raw: '', savedAt: 30, dropped: true },
+      { id: 'v', raw: saved('서버에만 v', 30), savedAt: 30, dropped: false },
+    ]);
+    expect(a.drafts.list().map((d) => d.draft.title).sort()).toEqual(['나중에 고친 k', '서버 x', '서버에 없는 w', '서버에만 v', '이 기기 y'].sort());
+    expect(push.sort()).toEqual(['k', 'w', 'y']);
+    // 한 번 맞춘 뒤에는 보낼 것이 없다
+    const again = a.drafts.merge([
+      ...['x', 'v'].map((id) => ({ id, raw: a.drafts.entry(id)!.raw, savedAt: a.drafts.entry(id)!.savedAt, dropped: false })),
+      ...push.map((id) => ({ id, raw: a.drafts.entry(id)!.raw, savedAt: a.drafts.entry(id)!.savedAt, dropped: false })),
+    ]);
+    expect(again).toEqual([]);
+  });
+
+  it('읽을 수 없는 것은 받지 않는다', () => {
+    const a = setup();
+    expect(a.drafts.merge([{ id: '../x', raw: saved('a', 1), savedAt: 1, dropped: false }, { id: 'y', raw: '{', savedAt: 1, dropped: false }])).toEqual([]);
+    expect(a.drafts.list()).toEqual([]);
+  });
+});

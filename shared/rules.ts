@@ -158,7 +158,9 @@ export const RULES = {
 
   /** 다른 기기에서 이어 하기. 코드는 minutes분 안에 한 번만 쓴다. length는 코드의 글자 수,
       drafts는 코드와 함께 실어 나르는 임시저장의 크기(글자). 저장소 한 줄에 들어가는 크기보다 작게 */
-  link: { minutes: 10, length: 8, drafts: 900_000 },
+  link: { minutes: 10, length: 8, drafts: 600_000 },
+  /** 임시저장을 서버에도 사람마다 한 벌 맞춰 둔다. size는 한 편의 크기(글자), batch는 한 번에 보내는 편 수 */
+  drafts: { size: 300_000, batch: 20 },
 
   /** 장면 저장. 삶마다 이만큼까지 저장한다(돌아가기 전에 저절로 남기는 한 자리는 따로) */
   saves: { max: 20 },

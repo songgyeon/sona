@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { RULES } from '../../shared/rules';
 import { type Ctx, Fail } from '../../worker/engine/ctx';
 import { createFilm } from '../../worker/engine/films';
+import { listDrafts, putDrafts } from '../../worker/engine/drafts';
 import { claimLink, makeLink } from '../../worker/engine/link';
 import { setMe } from '../../worker/engine/me';
 import { addPersona, listPersonas } from '../../worker/engine/mypersonas';
@@ -122,4 +123,34 @@ describe('다른 기기에서 이어 하기', () => {
     expect((await claimLink(phone, { code })).drafts).toBe(packed);
     expect((await fail(() => makeLink(pc, { drafts: 'x'.repeat(RULES.link.drafts + 1) })))?.code).toBe('drafts_big');
   });
+
+  it('임시저장은 서버에도 사람마다 한 벌: 나중에 남긴 쪽이 이기고, 지운 표시는 남는다. 코드를 넣으면 넣은 기기의 것도 합친다', async () => {
+    const { pc, phone } = devices();
+    const raw = (title: string, at: number) => JSON.stringify({ draft: { title }, savedAt: at });
+    const one = (id: string, title: string, at: number) => ({ id, raw: raw(title, at), savedAt: at, dropped: false });
+    await putDrafts(pc, { items: [one('a', '한강', 10)] });
+    await putDrafts(pc, { items: [one('a', '예전 한강', 5)] });
+    expect((await listDrafts(pc)).map((d) => (JSON.parse(d.raw) as { draft: { title: string } }).draft.title)).toEqual(['한강']);
+    await putDrafts(pc, { items: [one('b', '지울 것', 1)] });
+    await putDrafts(pc, { items: [{ id: 'b', raw: '', savedAt: 2, dropped: true }] });
+    await putDrafts(phone, { items: [one('c', '폰에서 쓴 것', 20)] });
+    // 남의 임시저장은 보이지 않는다
+    expect((await listDrafts(phone)).map((d) => d.id)).toEqual(['c']);
+
+    const { code } = await makeLink(pc, {});
+    await claimLink(phone, { code });
+    const all = await listDrafts(pc);
+    expect(all.filter((d) => !d.dropped).map((d) => d.id).sort()).toEqual(['a', 'c']);
+    expect(all.find((d) => d.id === 'b')!.dropped).toBe(true);
+    expect(await listDrafts(phone)).toEqual([]);
+  });
+
+  it('임시저장의 모양이 틀리거나 너무 크면 받지 않는다', async () => {
+    const { pc } = devices();
+    expect((await fail(() => putDrafts(pc, { items: [{ id: '../a', raw: '{"draft":{}}', savedAt: 1, dropped: false }] })))?.code).toBe('bad_drafts');
+    expect((await fail(() => putDrafts(pc, { items: [{ id: 'a', raw: '글자', savedAt: 1, dropped: false }] })))?.code).toBe('bad_drafts');
+    expect((await fail(() => putDrafts(pc, { items: [{ id: 'a', raw: JSON.stringify({ draft: { t: 'x'.repeat(RULES.drafts.size) } }), savedAt: 1, dropped: false }] })))?.code).toBe('draft_big');
+    expect((await fail(() => putDrafts(pc, { items: Array.from({ length: RULES.drafts.batch + 1 }, (_, i) => ({ id: `d${i}`, raw: '', savedAt: 1, dropped: true })) })))?.code).toBe('bad_drafts');
+  });
 });
+

@@ -1,7 +1,7 @@
 /* 다른 기기에서 이어 하기. 쓰던 기기에서 코드를 받고(makeLink), 새 기기에서 넣으면(claimLink) 같은 방문자가 된다.
    코드는 RULES.link.minutes분 안에 한 번만 쓴다. 저장소에는 코드의 해시만 둔다.
-   코드를 넣은 기기에서 쓰던 것(필름, 삶, 페르소나, 이름, 올린 그림과 소리)은 코드를 받은 쪽으로 합친다.
-   임시저장은 기기에 있어서 코드와 함께 실어 나른다 — 서버는 싸 온 그대로 건네기만 한다. */
+   코드를 넣은 기기에서 쓰던 것(필름, 삶, 페르소나, 이름, 올린 그림과 소리, 서버에 맞춰 둔 임시저장)은 코드를 받은 쪽으로 합친다.
+   코드를 받은 기기의 임시저장은 코드와 함께도 실어 나른다 — 서버는 싸 온 그대로 건네기만 한다. */
 
 import { RULES } from '../../shared/rules';
 import { q, type Stmt } from '../db';
@@ -93,6 +93,10 @@ async function mergeInto(ctx: Ctx, from: string, to: string, now: number): Promi
   // 필름마다 고른 사람: 같은 필름에 둘 다 있으면 to의 것을 둔다
   out.push(q('DELETE FROM personas WHERE visitor = ? AND film_id IN (SELECT film_id FROM personas WHERE visitor = ?)', from, to));
   out.push(q('UPDATE personas SET visitor = ? WHERE visitor = ?', to, from));
+
+  // 서버에 맞춰 둔 임시저장. 같은 자리가 둘 다 있으면 받은 쪽 것을 둔다
+  out.push(q('DELETE FROM drafts WHERE visitor = ? AND id IN (SELECT id FROM drafts WHERE visitor = ?)', from, to));
+  out.push(q('UPDATE drafts SET visitor = ? WHERE visitor = ?', to, from));
 
   // 만든 필름, 사는 삶, 올린 그림과 소리
   out.push(q('UPDATE films SET owner = ? WHERE owner = ?', to, from));
