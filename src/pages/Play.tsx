@@ -1,5 +1,5 @@
 import { type FormEvent, Fragment, type KeyboardEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { dayEnd, dayName, formatWorld, worldAt } from '../../shared/clock';
+import { type Clock, dayEnd, dayName, formatWorld, nextEvening, nextWake, worldAt } from '../../shared/clock';
 import { josa } from '../../shared/ko';
 import { splitLine } from '../../shared/line';
 import { cutsOf, hasLines } from '../../shared/opening';
@@ -24,16 +24,27 @@ interface Outgoing {
 }
 
 /** 시간을 넘기는 단추. 넘긴 사이에도 캐스트는 자기 하루를 보낸다.
-    낮에는 저녁과 다음 날 아침으로, 저녁이 지나면 아침으로만 갈 수 있다 */
-function skipsAt(min: number): { kind: SkipKind; label: string }[] {
-  if (min < RULES.skip.wakeMin) return [{ kind: 'sleep', label: '아침으로' }];
-  if (min < RULES.skip.eveningMin) {
-    return [
-      { kind: 'evening', label: '저녁으로' },
-      { kind: 'sleep', label: '다음 날 아침으로' },
-    ];
+    낮에는 저녁과 다음 날 아침으로, 저녁이 지나면 아침으로만 갈 수 있다.
+    가려는 때가 열어 둔 날의 끝(`end`)을 넘으면 서버는 날의 끝에서 멈추고 크레딧이 오른다 — 그 단추는 「하루 마치기」다.
+    (2026-11-13 플레이에서: 저녁 7시에 「다음 날 아침으로」를 누르니 아침이 아니라 날이 끝나는 새벽 1:08로 갔다) */
+function skipsAt(c: Clock, end: number): { kind: SkipKind; label: string }[] {
+  const min = worldAt(c).min;
+  const all: { kind: SkipKind; label: string }[] =
+    min < RULES.skip.wakeMin
+      ? [{ kind: 'sleep', label: '아침으로' }]
+      : min < RULES.skip.eveningMin
+        ? [
+            { kind: 'evening', label: '저녁으로' },
+            { kind: 'sleep', label: '다음 날 아침으로' },
+          ]
+        : [{ kind: 'sleep', label: '다음 날 아침으로' }];
+  const out: { kind: SkipKind; label: string }[] = [];
+  for (const s of all) {
+    const to = s.kind === 'evening' ? nextEvening(c) : nextWake(c);
+    if (to < end) out.push(s);
+    else if (!out.some((o) => o.label === '하루 마치기')) out.push({ kind: s.kind, label: '하루 마치기' });
   }
-  return [{ kind: 'sleep', label: '다음 날 아침으로' }];
+  return out;
 }
 
 /** 앞 대사와 이만큼 벌어지면 그 사이에 시각을 적는다(작중 분) */
@@ -438,7 +449,9 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
       const from = [...new Set(next.messages.filter((m) => !seenMessages.has(m.id) && m.kind === 'ping').map((m) => m.speaker))];
       const names = from.map((key) => next.film.casts.find((c) => c.key === key)?.name ?? key);
       const fresh = next.posts.filter((p) => !seenPosts.has(p.id));
-      setNotice(names.length > 0 ? `${names.join(', ')}의 메시지` : fresh.length > 0 ? '' : '그 사이 온 연락이 없어요.');
+      // 아무 일도 오지 않았을 때: 「연락이 없어요」는 같은 자리에 있다가 넘긴 때(같이 밤을 보낸 때)에 어색하다.
+      // 떨어져 있었든 같이 있었든 맞는 말로 둔다(2026-11-13 플레이에서)
+      setNotice(names.length > 0 ? `${names.join(', ')}의 메시지` : fresh.length > 0 ? '' : '그 사이 별일 없었어요.');
       setNewFeed(fresh.length > 0 ? { cast: fresh[fresh.length - 1]!.cast, count: fresh.length } : null);
     } catch (e) {
       if (e instanceof ApiFail && e.status !== 0 && e.status < 500) {
@@ -714,7 +727,7 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
         {err && <p className="warn">{err}</p>}
         {!view.ended && (
           <div className="skips">
-            {skipsAt(worldAt(clock).min).map((s) => (
+            {skipsAt(clock, dayEnd(view.day)).map((s) => (
               // 말하는 칸에 쓰다가 누르면 칸이 포커스를 잃으며 아래 탭이 다시 서고, 그 사이 단추가 밀려 눌리지 않는다.
               // 누르는 순간에는 포커스를 그대로 두고, 눌린 뒤에 칸을 놓는다(자판을 닫는다)
               <button
