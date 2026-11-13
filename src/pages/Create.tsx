@@ -419,8 +419,12 @@ export function Create({ go, editId, draftId }: { go: Go; editId?: string; draft
                       onChange={(e) => setCast(i, 'speech', e.target.value)}
                     />
                   </Field>
-                  <Field label="예시 대사" hint="한 줄에 하나씩, 세 줄까지 적을 수 있어요.">
-                    <textarea value={c.samples} rows={3} placeholder={'예) 왔어?\n그건 내가 할게.\n내일 큐시트 봤어?'} onChange={(e) => setCast(i, 'samples', e.target.value)} />
+                  <Field
+                    label="예시 대사"
+                    count={[c.samples.split('\n').filter((l) => l.trim()).length, RULES.limits.samples]}
+                    hint={`한 줄에 하나씩, ${RULES.limits.samples}줄까지 적을 수 있어요.`}
+                  >
+                    <textarea value={c.samples} rows={5} placeholder={'예) 왔어?\n그건 내가 할게.\n내일 큐시트 봤어?'} onChange={(e) => setCast(i, 'samples', e.target.value)} />
                   </Field>
                   <Field label="성격" optional count={[c.nature.length, RULES.limits.trait]}>
                     <textarea rows={2} value={c.nature} maxLength={RULES.limits.trait} placeholder="예) 말수가 적다. 맡은 일은 끝까지 하고, 고맙다는 말을 잘 못 한다." onChange={(e) => setCast(i, 'nature', e.target.value)} />

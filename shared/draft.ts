@@ -213,7 +213,7 @@ export function toFilm(d: Draft): unknown {
       trauma: c.trauma,
       lack: c.lack,
       secret: c.secret,
-      samples: split(c.samples, /\n/).slice(0, 3),
+      samples: split(c.samples, /\n/).slice(0, RULES.limits.samples),
       sleepFrom: toMin(c.sleepFrom),
       sleepTo: toMin(c.sleepTo),
       dayPlace: c.dayPlace,

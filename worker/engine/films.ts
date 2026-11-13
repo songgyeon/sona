@@ -211,7 +211,7 @@ export function parseFilm(input: unknown): Film {
       trauma: text(c.trauma, L.trait, '트라우마'),
       lack: text(c.lack, L.trait, '결핍'),
       secret: text(c.secret, L.trait, '비밀'),
-      samples: list(c.samples, 3, L.sample, '예시 대사'),
+      samples: list(c.samples, L.samples, L.sample, '예시 대사'),
       sleepFrom: int(c.sleepFrom ?? 0, 0, 1439, '자는 시간'),
       sleepTo: int(c.sleepTo ?? 420, 0, 1439, '일어나는 시간'),
       dayPlace: text(c.dayPlace, 40, '낮에 있는 곳'),
