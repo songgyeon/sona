@@ -273,14 +273,9 @@ button:disabled { opacity: 0.4; cursor: default; }
 .band { flex: none; height: 50px; padding: 0 8px; display: flex; align-items: center; justify-content: space-between; }
 .screen { position: relative; flex: none; height: min(224px, 30dvh); background: #050505; transition: height 0.45s ease; }
 .screen img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
-/* 세로 그림이면 화면 위를 덮는다(`src/cutscreen.tsx`). 화면 너비에 맞춰 원래 비율 그대로 걸고 — 확대하지 않는다 —
-   너무 길면 화면 높이의 80%에서 자른다. 위 띠 뒤까지 올라가고, 아래 40%는 어둠으로 녹아 장소·시각과 글이 그 위에 선다.
-   --rh는 그림의 높이를 너비로 나눈 값. 바깥 여백의 %는 너비를 기준으로 셈한다 */
-.screen.tall { height: auto; aspect-ratio: 1 / var(--rh); max-height: 80dvh; margin-bottom: calc(min(var(--rh) * 100%, 80dvh) * -0.4); }
-.band + .screen.tall { margin-top: -50px; }
-.screen.tall img { object-position: 50% 10%; }
-.screen.tall::before { background: linear-gradient(180deg, rgba(0, 0, 0, 0.42) 0, rgba(0, 0, 0, 0) 13%, rgba(0, 0, 0, 0) 52%, rgba(0, 0, 0, 0.78) 76%, #000 97%); }
-.playing:has(.screen.tall) > :not(.screen) { position: relative; z-index: 1; }
+/* 세로 그림이면 칸이 세로로 길어진다(화면 높이의 56%까지). 가로 그림은 띠 그대로. 그림은 글 위에 따로 선 칸에 걸린다(`src/cutscreen.tsx`) */
+.screen.tall { height: min(56dvh, 133vw); }
+.screen.tall img { object-position: 50% 18%; }
 /* 컷이 바뀔 때: 앞 컷을 밑에 깔고 새 컷이 그 위로 올라온다 */
 .screen img.cutin { animation: cutin 320ms ease both; }
 @keyframes cutin { from { opacity: 0; } }
