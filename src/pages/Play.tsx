@@ -7,7 +7,7 @@ import { RULES } from '../../shared/rules';
 import type { AsideView, Film, MessageView, Persona, PlayView } from '../../shared/types';
 import { ApiFail, api, imgUrl, newId } from '../api';
 import { useBgm } from '../bgm';
-import { Arrow, Back, Bookmark, Down, PlayFill, SkipFill, Sound, SoundOff } from '../icons';
+import { Arrow, Back, Bookmark, Down, Mail, PlayFill, SkipFill, Sound, SoundOff } from '../icons';
 import { ReelOverlay } from '../reel';
 import { SaveSheet } from '../saves';
 import { Face, titleClass } from '../poster';
@@ -163,6 +163,31 @@ function writeSay(playId: string, text: string): void {
   }
 }
 
+/** 문자 칸: 쓰던 문자, 받는 사람, 칸을 열어 두었는지. 장면 칸과 따로 이 기기에 둔다 — 삶마다 한 자리 */
+interface TextBox {
+  to: string;
+  text: string;
+  open: boolean;
+}
+const TEXT = (playId: string) => `sona.text.${playId}`;
+function readText(playId: string): TextBox {
+  try {
+    const v = JSON.parse(localStorage.getItem(TEXT(playId)) ?? 'null') as Partial<TextBox> | null;
+    if (v && typeof v.to === 'string' && typeof v.text === 'string') return { to: v.to, text: v.text, open: v.open === true };
+  } catch {
+    /* 못 읽으면 빈 칸이다 */
+  }
+  return { to: '', text: '', open: false };
+}
+function writeText(playId: string, v: TextBox): void {
+  try {
+    if (v.text || v.open) localStorage.setItem(TEXT(playId), JSON.stringify(v));
+    else localStorage.removeItem(TEXT(playId));
+  } catch {
+    /* 저장이 막힌 브라우저에서는 이 화면에서만 남는다 */
+  }
+}
+
 /** 이 삶의 오프닝을 이 기기에서 끝까지 읽었나 */
 const READ = (playId: string) => `sona.read.${playId}`;
 function wasRead(playId: string): boolean {
@@ -206,8 +231,26 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
     writeSay(playId, draft);
   }, [playId, draft]);
   const box = useRef<HTMLTextAreaElement>(null);
+  /** 문자 칸. 열려 있으면 말하는 칸이 받는 사람(textTo)에게 보내는 문자 칸이 된다. 쓰던 문자와 함께 이 기기에 남는다 */
+  const [textOpen, setTextOpen] = useState(() => readText(playId).open);
+  const [textTo, setTextTo] = useState(() => readText(playId).to);
+  const [textDraft, setTextDraft] = useState(() => readText(playId).text);
+  const textOf = useRef(playId);
+  useEffect(() => {
+    if (textOf.current !== playId) {
+      textOf.current = playId;
+      const t = readText(playId);
+      setTextOpen(t.open);
+      setTextTo(t.to);
+      setTextDraft(t.text);
+      return;
+    }
+    writeText(playId, { to: textTo, text: textDraft, open: textOpen });
+  }, [playId, textTo, textDraft, textOpen]);
   /** 보냈는데 아직 답이 안 온 말. 끊기면 같은 전송 표로 다시 보낸다 — 서버는 한 번만 처리한다 */
   const [out, setOut] = useState<Outgoing | null>(null);
+  /** 보냈는데 아직 돌아오지 않은 문자. 끊기면 같은 전송 표로 다시 보낸다 */
+  const [outText, setOutText] = useState<{ to: string; text: string; requestId: string } | null>(null);
   /** 시간을 넘기는 중. 끊기면 같은 표로 다시 부른다 */
   const [away, setAway] = useState<{ kind: SkipKind; requestId: string } | null>(null);
   const [waiting, setWaiting] = useState(false);
@@ -345,7 +388,7 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 132)}px`;
-  }, [draft, view]);
+  }, [draft, textDraft, textOpen, view]);
 
   useEffect(() => {
     window.addEventListener('resize', onScroll);
@@ -378,13 +421,53 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
 
   const send = () => {
     const text = draft.trim();
-    if (splitLine(text).length === 0 || waiting || !view || view.ended || view.stuck || out || away) return;
+    if (splitLine(text).length === 0 || waiting || !view || view.ended || view.stuck || out || outText || away) return;
     setDraft('');
     void deliver({ text, requestId: newId() });
   };
+
+  /** 문자 한 통. 장면은 멈춰 있고, 받는 사람이 깨어 있으면 답장이 같이 온다 */
+  const deliverText = async (o: { to: string; text: string; requestId: string }) => {
+    setOutText(o);
+    setWaiting(true);
+    setErr('');
+    setNotice('');
+    setNewFeed(null);
+    try {
+      setView(await api.text(playId, o.to, o.text, o.requestId));
+      setOutText(null);
+    } catch (e) {
+      if (e instanceof ApiFail && e.status !== 0 && e.status < 500) {
+        // 서버가 받지 않았다. 쓴 문자는 돌려준다
+        setOutText(null);
+        setTextDraft(o.text);
+        setView(await api.play(playId).catch(() => view));
+      }
+      setErr(e instanceof ApiFail ? e.message : '보내지 못했어요.');
+    }
+    setWaiting(false);
+  };
+  const sendText = () => {
+    const text = textDraft.trim();
+    if (!text || !textTo || waiting || !view || view.ended || view.stuck || out || outText || away) return;
+    setTextDraft('');
+    void deliverText({ to: textTo, text, requestId: newId() });
+  };
+  /** 문자 칸을 연다. 받는 사람을 정해 주면 그 사람에게(「답장」), 아니면 지난번에 고른 사람에게 — 없으면 마지막으로 문자를 주고받은 사람, 그것도 없으면 첫 캐스트 */
+  const openText = (to?: string) => {
+    if (!view) return;
+    const keys = view.film.casts.map((c) => c.key);
+    const lastPing = [...view.messages].reverse().find((m) => m.kind === 'ping')?.room;
+    const pick = to && keys.includes(to) ? to : keys.includes(textTo) ? textTo : lastPing && keys.includes(lastPing) ? lastPing : keys[0]!;
+    setTextTo(pick);
+    setTextOpen(true);
+    requestAnimationFrame(() => box.current?.focus());
+  };
+
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    send();
+    if (textOpen) sendText();
+    else send();
   };
 
   /** 자판으로 쓰는 화면에서는 Enter로 보낸다(Shift+Enter는 줄바꿈). 손가락으로 쓰는 화면에서는 줄을 바꾸고, 보내기는 단추로 한다.
@@ -393,7 +476,8 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
     if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing || e.keyCode === 229) return;
     if (window.matchMedia('(pointer: coarse)').matches) return;
     e.preventDefault();
-    send();
+    if (textOpen) sendText();
+    else send();
   };
 
   /** 「지문」 단추: 별표 한 쌍을 넣고 그 사이에 쓰게 한다. 골라 둔 글이 있으면 그 글을 별표로 감싼다 */
@@ -443,7 +527,7 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
       setAway(null);
       // 돌아와서 보니 와 있는 것들
       // 한편의 줄은 누가 나에게 보낸 것이 아니다
-      const from = [...new Set(next.messages.filter((m) => !seenMessages.has(m.id) && m.kind === 'ping').map((m) => m.speaker))];
+      const from = [...new Set(next.messages.filter((m) => !seenMessages.has(m.id) && m.kind === 'ping' && m.speaker !== 'persona').map((m) => m.speaker))];
       const names = from.map((key) => next.film.casts.find((c) => c.key === key)?.name ?? key);
       const fresh = next.posts.filter((p) => !seenPosts.has(p.id));
       // 아무 일도 오지 않았을 때: 「연락이 없어요」는 같은 자리에 있다가 넘긴 때(같이 밤을 보낸 때)에 어색하다.
@@ -471,7 +555,7 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
   const pendingHere = out;
   /** 대사를 못 받고 멈춘 턴. 시간을 넘기다 멈춘 것은 따로 알린다 */
   const stuckHere = view.stuck && view.stuck.kind !== 'skip';
-  const locked = waiting || view.ended || !!view.stuck || !!out || !!away;
+  const locked = waiting || view.ended || !!view.stuck || !!out || !!outText || !!away;
   /** 흐름에 놓이는 것들: 오간 말, 그리고 그 사이사이에 있었던 한편. 작중 시각 순.
       피드 글은 흐름에 놓지 않는다 — 피드는 프로필에서 본다(2026-11-12 사용자 지시) */
   const items: ({ at: number; m: MessageView; a?: undefined } | { at: number; a: AsideView; m?: undefined })[] = [
@@ -479,6 +563,9 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
     ...view.asides.map((a) => ({ at: a.at, a })),
   ].sort((x, y) => x.at - y.at);
   const cuts = (i: number) => i > 0 && items[i]!.at - items[i - 1]!.at >= CUT_AFTER;
+  /** 캐스트마다 마지막으로 온 메시지. 그 아래에만 「답장」을 둔다 — 지난 메시지마다 두면 흐름이 단추로 덮인다 */
+  const lastPing = new Map<string, string>();
+  for (const x of messages) if (x.kind === 'ping' && x.speaker !== 'persona') lastPing.set(x.speaker, x.id);
   const castOf = (key: string) => film.casts.find((c) => c.key === key);
   const fs = film.firstScene;
   /** 크레딧 뒤에 까는 그림. 오프닝의 마지막 컷이고, 없으면 스틸, 그것도 없으면 포스터 */
@@ -517,7 +604,7 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
         <SaveSheet
           playId={playId}
           clock={clock}
-          locked={waiting || !!out || !!away}
+          locked={waiting || !!out || !!outText || !!away}
           onClose={() => setSaving(false)}
           onLoaded={(next) => {
             setView(next);
@@ -587,6 +674,14 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
                   {line}
                 </p>
               ))
+            ) : m.speaker === 'persona' && m.kind === 'ping' ? (
+              // 내가 보낸 문자. 오른쪽 흰 말풍선 — 받는 사람과 나만 안다
+              <div className="msg me">
+                <span>
+                  <small>{castOf(m.room)?.name ?? ''}에게 · 메시지</small>
+                  <p>{m.text}</p>
+                </span>
+              </div>
             ) : m.speaker === 'persona' ? (
               <div className={me.face ? 'say me faced' : 'say me'}>
                 <div>
@@ -599,14 +694,22 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
               // 캐스트의 말. 저마다 제 얼굴과 이름으로 나온다
               ((who) =>
                 m.kind === 'ping' ? (
-                  // 작품 속 폰으로 먼저 온 연락. 말풍선은 여기만 쓴다
-                  <button className="msg" onClick={() => profile(who.key)} aria-label={`${who.name}의 프로필 보기`}>
-                    <Face id={who.face ?? ''} name={who.name} />
-                    <span>
-                      <small>{who.name} · 메시지</small>
-                      <p>{m.text}</p>
-                    </span>
-                  </button>
+                  // 작품 속 폰으로 온 메시지(먼저 온 연락, 내 문자에 온 답장). 말풍선은 여기만 쓴다
+                  <>
+                    <button className="msg" onClick={() => profile(who.key)} aria-label={`${who.name}의 프로필 보기`}>
+                      <Face id={who.face ?? ''} name={who.name} />
+                      <span>
+                        <small>{who.name} · 메시지</small>
+                        <p>{m.text}</p>
+                      </span>
+                    </button>
+                    {/* 그 사람에게서 온 마지막 메시지 아래: 누르면 그 사람에게 쓰는 문자 칸이 열린다 */}
+                    {lastPing.get(who.key) === m.id && !view.ended && (
+                      <button className="reply" onMouseDown={(e) => e.preventDefault()} onClick={() => openText(who.key)}>
+                        답장
+                      </button>
+                    )}
+                  </>
                 ) : (
                   <button className="say" onClick={() => profile(who.key)} aria-label={`${who.name}의 프로필 보기`}>
                     <Face id={who.face ?? ''} name={who.name} />
@@ -638,6 +741,15 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
               </div>
             ),
           )}
+        {/* 보냈는데 아직 돌아오지 않은 문자 */}
+        {outText && (
+          <div className="msg me sending">
+            <span>
+              <small>{castOf(outText.to)?.name ?? ''}에게 · 메시지</small>
+              <p>{outText.text}</p>
+            </span>
+          </div>
+        )}
         {/* 다음 대목을 쓰는 중. 누가 나올지는 아직 모른다 — 다음 지문이 올 자리에서 점 셋이 하나씩 밝아진다 */}
         {waiting && !away && (
           <p className="writing" role="status">
@@ -669,6 +781,14 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
           <div className="stuck">
             <p>보내는 중에 연결이 끊겼어요.</p>
             <button className="btn more" onClick={() => deliver(out)}>
+              다시 보내기
+            </button>
+          </div>
+        )}
+        {outText && !waiting && (
+          <div className="stuck">
+            <p>문자를 보내는 중에 연결이 끊겼어요.</p>
+            <button className="btn more" onClick={() => deliverText(outText)}>
               다시 보내기
             </button>
           </div>
@@ -722,7 +842,29 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
       ) : (
       <footer className="foot">
         {err && <p className="warn">{err}</p>}
-        {!view.ended && (
+        {!view.ended && textOpen && (
+          // 문자 칸이 열려 있으면 시간 넘기기 줄 자리에 받는 사람을 고르는 줄이 선다. ✕를 누르면 장면 칸으로 돌아간다(쓰던 문자는 남는다)
+          <div className="tos" role="group" aria-label="받는 사람">
+            <span className="lbl">받는 사람</span>
+            {film.casts.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                className={c.key === textTo ? 'to on' : 'to'}
+                aria-pressed={c.key === textTo}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setTextTo(c.key)}
+              >
+                <Face id={c.face ?? ''} name={c.name} />
+                {c.name}
+              </button>
+            ))}
+            <button type="button" className="x" aria-label="문자 닫기" onMouseDown={(e) => e.preventDefault()} onClick={() => setTextOpen(false)}>
+              ✕
+            </button>
+          </div>
+        )}
+        {!view.ended && !textOpen && (
           <div className="skips">
             {skipsAt(clock, dayEnd(view.day)).map((s) => (
               // 말하는 칸에 쓰다가 누르면 칸이 포커스를 잃으며 아래 탭이 다시 서고, 그 사이 단추가 밀려 눌리지 않는다.
@@ -741,32 +883,44 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
                 <SkipFill />
               </button>
             ))}
+            {/* 문자: 캐스트 한 사람에게 폰으로 보낸다. 장면은 멈춰 있다 */}
+            <button className="skip text" disabled={!!view.stuck || !!away} onMouseDown={(e) => e.preventDefault()} onClick={() => openText()}>
+              <Mail />
+              문자
+            </button>
           </div>
         )}
-        {/* 말하는 칸은 하나다. 대사와 지문을 함께 쓰고, 지문은 *별표* 사이에 쓴다 */}
-        <form className="box" onSubmit={submit}>
-          <button
-            type="button"
-            className="addact"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={addAct}
-            disabled={view.ended || !!view.stuck || !!away}
-            aria-label="지문 넣기"
-          >
-            지문
-          </button>
+        {/* 말하는 칸은 하나다. 대사와 지문을 함께 쓰고, 지문은 *별표* 사이에 쓴다.
+            문자 칸이 열려 있으면 같은 칸이 받는 사람에게 보내는 문자 칸이 된다 — 지문 없이 글만 */}
+        <form className={textOpen ? 'box texting' : 'box'} onSubmit={submit}>
+          {textOpen ? (
+            <span className="tolabel" aria-hidden="true">
+              <Mail />
+            </span>
+          ) : (
+            <button
+              type="button"
+              className="addact"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={addAct}
+              disabled={view.ended || !!view.stuck || !!away}
+              aria-label="지문 넣기"
+            >
+              지문
+            </button>
+          )}
           <label htmlFor="say" className="sr">
-            대사와 지문
+            {textOpen ? `${castOf(textTo)?.name ?? ''}에게 보낼 문자` : '대사와 지문'}
           </label>
           <textarea
             id="say"
             ref={box}
             rows={1}
-            value={draft}
-            maxLength={RULES.limits.say}
-            onChange={(e) => setDraft(e.target.value)}
+            value={textOpen ? textDraft : draft}
+            maxLength={textOpen ? RULES.limits.text : RULES.limits.say}
+            onChange={(e) => (textOpen ? setTextDraft(e.target.value) : setDraft(e.target.value))}
             onKeyDown={onKey}
-            placeholder="대사와 *지문*을 써 주세요."
+            placeholder={textOpen ? `${castOf(textTo)?.name ?? ''}에게 보낼 문자를 써 주세요.` : '대사와 *지문*을 써 주세요.'}
             disabled={view.ended || !!view.stuck || !!away}
             autoComplete="off"
           />
@@ -775,8 +929,8 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
           <button
             type="submit"
             className="send"
-            disabled={locked || splitLine(draft).length === 0}
-            aria-label="보내기"
+            disabled={locked || (textOpen ? textDraft.trim().length === 0 : splitLine(draft).length === 0)}
+            aria-label={textOpen ? '문자 보내기' : '보내기'}
             onMouseDown={(e) => {
               if (!e.currentTarget.form?.contains(document.activeElement)) e.preventDefault();
             }}

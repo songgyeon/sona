@@ -222,7 +222,9 @@ export interface MessageView {
   text: string;
   /** 작중 시각. 시작에서 흐른 분 */
   at: number;
-  /** act는 유저가 쓴 지문(speaker는 persona다). aside는 한편의 줄이다 — 그때 room은 그 장면의 이름표다 */
+  /** act는 유저가 쓴 지문(speaker는 persona다). aside는 한편의 줄이다 — 그때 room은 그 장면의 이름표다.
+      ping은 폰으로 오간 메시지다. 캐스트가 보낸 것(speaker가 그 캐스트)과 유저가 보낸 문자(speaker가 persona)가 있고,
+      room은 늘 상대 캐스트의 이름표다 — 누구와 주고받은 것인지 room으로 안다 */
   kind: 'chat' | 'first' | 'ping' | 'aside' | 'act';
   turnId: string;
 }
@@ -263,7 +265,8 @@ export type PostData =
 export interface TurnView {
   id: string;
   no: number;
-  kind: 'enter' | 'say' | 'skip';
+  /** text는 유저가 캐스트 한 사람에게 보낸 문자다. 장면 작가를 부르지 않는다 */
+  kind: 'enter' | 'say' | 'skip' | 'text';
   room: string | null;
   status: 'pending' | 'done' | 'failed';
   failReason: string | null;

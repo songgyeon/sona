@@ -2,7 +2,8 @@
    모델이 하는 일은 문장을 쓰는 것이다. 시간과 누가 무엇을 아는지는 코드가 정한다. */
 
 /** reply 장면의 다음 대목 / first 장면을 여는 대목 / ping 먼저 건 말 / gap 그 사이의 하루 / check 한 줄 확인 / aside 한편(캐스트끼리의 장면) */
-export type Purpose = 'reply' | 'first' | 'ping' | 'gap' | 'check' | 'aside' | 'post' | 'past';
+/** text는 유저가 보낸 문자에 그 캐스트가 답장을 쓰는 것이다 */
+export type Purpose = 'reply' | 'first' | 'ping' | 'text' | 'gap' | 'check' | 'aside' | 'post' | 'past';
 
 /** 프롬프트 세 층 */
 export interface Layers {

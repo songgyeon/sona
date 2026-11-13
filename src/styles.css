@@ -369,6 +369,29 @@ button:disabled { opacity: 0.4; cursor: default; }
 .msg .face { width: 30px; height: 30px; font-size: 12px; }
 .msg small { display: block; margin-bottom: 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; color: var(--ink-3); }
 .msg p { display: inline-block; max-width: 88%; padding: 10px 14px; border-radius: 16px 16px 16px 4px; background: #1c1c1c; font-size: 15.5px; line-height: 1.45; white-space: pre-wrap; }
+/* 유저의 문자: 시간 넘기기 줄 오른쪽 끝의 「문자」, 받는 사람 줄, 문자 칸, 내가 보낸 문자(오른쪽 흰 말풍선), 「답장」.
+   틀은 흑백이다 — 내 말풍선은 흰색, 고른 받는 사람도 흰색 */
+.msg.me { grid-template-columns: 1fr; }
+.msg.me span { display: flex; flex-direction: column; align-items: flex-end; }
+.msg.me small { text-align: right; }
+.msg.me p { background: #f2f2f2; color: #0a0a0a; border-radius: 16px 16px 4px 16px; text-align: left; }
+.msg.me.sending p { opacity: 0.5; }
+.reply { display: block; margin: -12px 0 22px 42px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: var(--ink-3); text-decoration: underline; text-underline-offset: 3px; }
+svg.mail { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.skips { align-items: center; }
+.skip.text { margin-left: auto; color: var(--ink-2); }
+/* 시간 넘기기 단추의 그림은 칠해서 그린다(.skip svg). 봉투는 선이다 */
+.skip.text svg.mail { width: 14px; height: 14px; fill: none; }
+.tos { padding: 0 var(--pad) 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.tos .lbl { margin-right: 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.16em; color: var(--ink-3); }
+.to { display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px 0 4px; border: 1px solid var(--ink-4); border-radius: 16px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.to .face { width: 24px; height: 24px; font-size: 11px; }
+.to.on { background: #f2f2f2; color: #000; border-color: #f2f2f2; }
+.to.on .face { background: #000; color: #fff; }
+.tos .x { margin-left: auto; width: 32px; height: 32px; display: grid; place-items: center; font-size: 18px; color: var(--ink-3); }
+.box.texting { border-color: var(--ink-2); }
+.box .tolabel { flex: none; height: 34px; padding: 0 8px; display: flex; align-items: center; color: var(--ink-2); }
+.box .tolabel svg.mail { width: 15px; height: 15px; }
 .tell + .say, .tell + .msg { margin-top: 22px; }
 .say + .tell, .msg + .tell { margin-top: 0; }
 .cut { margin: 22px 0; display: flex; align-items: center; gap: 14px; font-family: var(--serif); font-size: 12.5px; letter-spacing: 0.1em; color: var(--ink-3); font-variant-numeric: tabular-nums; }

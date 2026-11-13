@@ -102,7 +102,8 @@ export function recent(messages: MessageView[]): MessageView[] {
   return messages.slice(from);
 }
 
-/** 지나간 장면을 프롬프트에 적을 모양으로 바꾼다. 누가 한 말인지 이름으로 적힌다 */
+/** 지나간 장면을 프롬프트에 적을 모양으로 바꾼다. 누가 한 말인지 이름으로 적힌다.
+    폰으로 주고받은 메시지는 받은 사람도 적는다 — 유저가 보낸 문자는 room의 캐스트에게, 캐스트가 보낸 메시지는 유저의 인물에게 간 것이다 */
 export function toLines(play: Play, messages: MessageView[]): SceneLine[] {
   const nameOf = (key: string) => play.film.casts.find((c) => c.key === key)?.name ?? key;
   // 내 배역의 이름을 바꾸기 전에 오간 말에는 전의 이름이 남아 있다. 지금 이름으로 건넨다
@@ -110,9 +111,16 @@ export function toLines(play: Play, messages: MessageView[]): SceneLine[] {
   return messages.map((m) => {
     if (m.speaker === 'tell') return { kind: 'tell', speaker: '', text: now(m.text), mine: false, at: m.at };
     const mine = m.speaker === 'persona';
-    const kind = m.kind === 'ping' ? 'msg' : mine && m.kind === 'act' ? 'act' : 'say';
-    return { kind, speaker: mine ? play.film.persona.name : nameOf(m.speaker), text: now(m.text), mine, at: m.at };
+    const speaker = mine ? play.film.persona.name : nameOf(m.speaker);
+    if (m.kind === 'ping') return { kind: 'msg', speaker, text: now(m.text), mine, at: m.at, to: mine ? nameOf(m.room) : play.film.persona.name };
+    return { kind: mine && m.kind === 'act' ? 'act' : 'say', speaker, text: now(m.text), mine, at: m.at };
   });
+}
+
+/** 캐스트 한 사람이 아는 오간 말. 폰으로 주고받은 메시지는 그 사람과 주고받은 것만 남긴다 —
+    남이 주고받은 문자는 보낸 사람과 받은 사람만 안다. 장면에서 오간 말은 그대로 둔다(누가 그 자리에 있었는지는 작가가 읽는다) */
+export function heardBy(messages: MessageView[], castKey: string): MessageView[] {
+  return messages.filter((m) => m.kind !== 'ping' || m.room === castKey);
 }
 
 /** 모델을 부른 일을 남긴다. 화면에는 안 보이고, 답이 이상할 때 까닭을 찾는 데 쓴다 */

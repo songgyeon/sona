@@ -174,6 +174,8 @@ export const api = {
   say: (id: string, text: string, requestId: string) => call<PlayView>('POST', `/api/plays/${id}/say`, { text, requestId }),
   skip: (id: string, kind: 'evening' | 'sleep', requestId: string) =>
     call<PlayView>('POST', `/api/plays/${id}/skip`, { kind, requestId }),
+  /** 캐스트 한 사람에게 문자를 보낸다. 깨어 있으면 답장이 같이 온다 */
+  text: (id: string, to: string, text: string, requestId: string) => call<PlayView>('POST', `/api/plays/${id}/text`, { to, text, requestId }),
   retry: (id: string) => call<PlayView>('POST', `/api/plays/${id}/retry`, {}),
   /** 내 삶에서 내 배역의 사진과 정보를 고친다 */
   setPersona: (id: string, mine: { name: string; line: string; face: string }) => call<PlayView>('POST', `/api/plays/${id}/persona`, mine),

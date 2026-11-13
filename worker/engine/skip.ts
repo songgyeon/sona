@@ -11,6 +11,7 @@ import type { ModelCall, ModelOut } from '../model/index';
 import { castLayer } from '../prompt/cast';
 import { sceneLayer, when } from '../prompt/scene';
 import { PING_SYSTEM } from '../prompt/system';
+import { awake, keep, owed, textReply } from './alive';
 import { ASIDE_CUE, asideLayers, asideMemory, asideSlot, parseAside, pickPair } from './aside';
 import { type Ctx, Fail } from './ctx';
 import { GAP_CUE, type GapItem, gapLayers, parseGap, parsePresent, presentLayers, presentUser } from './gap';
@@ -18,7 +19,7 @@ import { feedSpan } from './feed';
 import { asNow } from './persona';
 import { pingHeld, pingSlots } from './ping';
 import { lastTurn, loadPlay, type Play, sceneMessages, viewOf } from './store';
-import { ask, bubbles, errText, eventsFor, logStmt, recent, toLines } from './talk';
+import { ask, bubbles, errText, eventsFor, heardBy, logStmt, recent, toLines } from './talk';
 
 export type SkipKind = 'short' | 'errand' | 'evening' | 'sleep';
 
@@ -99,14 +100,41 @@ export async function settle(ctx: Ctx, play: Play, turnId: string, from: number,
 }
 
 async function between(ctx: Ctx, play: Play, turnId: string, from: number, to: number, stmts: Stmt[]): Promise<void> {
-  await alone(ctx, play, turnId, from, to, stmts);
+  // 자는 동안 온 문자: 그 사이에 깨어 있게 된 사람이 답한다. 먼저 거는 연락보다 먼저다
+  const replied = await answerTexts(ctx, play, turnId, from, to, stmts);
+  await alone(ctx, play, turnId, from, to, stmts, replied);
   // 피드: 그 사이에 든 날마다 남길 때가 오면 하나(남기지 않기도 한다). 적는 것은 다른 일과 함께 한 번에
   if (play.film.opens.feed) stmts.push(...(await feedSpan(ctx, play, turnId, from, to, await sceneMessages(ctx.db, play))));
   await meanwhile(ctx, play, turnId, from, to, stmts);
 }
 
-/** 캐스트마다 혼자 보낸 시간: 일상, 먼저 건 연락 */
-async function alone(ctx: Ctx, play: Play, turnId: string, from: number, to: number, stmts: Stmt[]): Promise<void> {
+/** from에서 to 사이에 이 사람이 깨어 있는 첫 때(작중 분). 내내 자면 null */
+function wakeIn(play: Play, cast: Cast, from: number, to: number): number | null {
+  for (let t = from; t <= to; t++) if (awake(play, cast, t)) return t;
+  return null;
+}
+
+/** 답하지 않은 문자가 있는 사람이 그 사이에 깨어 있게 되면 답한다 — 깨어 있던 사람은 바로, 그 사이에 깬 사람은 깨고 조금 뒤에.
+    돌아와서 보면 이미 와 있는 답장이다. 답한 사람의 이름표를 돌려준다 — 그 사람은 이번에 먼저 연락하지 않는다 */
+async function answerTexts(ctx: Ctx, play: Play, turnId: string, from: number, to: number, stmts: Stmt[]): Promise<Set<string>> {
+  const all = await sceneMessages(ctx.db, play);
+  const done = new Set<string>();
+  for (const cast of play.film.casts) {
+    if (owed(all, cast.key).length === 0) continue;
+    const woke = wakeIn(play, cast, from, to);
+    if (woke === null) continue;
+    const at = Math.min(to, woke === from ? from + RULES.minutesPerSend : woke + RULES.text.wakeLagMin);
+    // 자리를 비운 사이다. 같은 자리에 있지 않다
+    const got = await textReply(ctx, play, cast, turnId, at, all, false);
+    if (!got) continue;
+    stmts.push(...keep(got));
+    if (got.stmts.length > 0) done.add(cast.key);
+  }
+  return done;
+}
+
+/** 캐스트마다 혼자 보낸 시간: 일상, 먼저 건 연락. 이번에 문자에 답한 사람(replied)은 먼저 연락하지 않는다 */
+async function alone(ctx: Ctx, play: Play, turnId: string, from: number, to: number, stmts: Stmt[], replied: Set<string>): Promise<void> {
   const film = play.film;
   if (to - from < RULES.gap.minSpanMin || (!film.opens.feed && !film.opens.ping)) return;
 
@@ -122,7 +150,7 @@ async function alone(ctx: Ctx, play: Play, turnId: string, from: number, to: num
       }
     }
 
-    await reachOut(ctx, play, turnId, cast, from, to, items, stmts);
+    if (!replied.has(cast.key)) await reachOut(ctx, play, turnId, cast, from, to, items, stmts);
   }
 }
 
@@ -156,10 +184,11 @@ async function meanwhile(ctx: Ctx, play: Play, turnId: string, from: number, to:
     at: r.at,
     text: r.kind === 'post' ? `${nameOf(r.actor)}의 피드에 올라온 글: 「${now(r.text)}」` : now(r.text),
   });
-  // 유저의 인물이 있던 자리에서 최근에 오간 말. 지문은 빼고 말만
+  // 유저의 인물이 있던 자리에서 최근에 오간 말. 지문은 빼고 말만. 폰으로 주고받은 메시지는 장면에서 오간 말이 아니다 —
+  // 보낸 사람과 받은 사람만 안다
   const said = (lines: MessageView[]) =>
     lines
-      .filter((m) => m.speaker !== 'tell' && m.kind !== 'act' && m.at <= at)
+      .filter((m) => m.speaker !== 'tell' && m.kind !== 'act' && m.kind !== 'ping' && m.at <= at)
       .slice(-8)
       .map((m) => ({ speaker: m.speaker === 'persona' ? film.persona.name : nameOf(m.speaker), text: now(m.text) }));
   const call: ModelCall = {
@@ -291,7 +320,8 @@ async function lived(
       from,
       to,
       await eventsFor(ctx, play, cast.key, from),
-      room
+      // 남이 주고받은 문자는 건네지 않는다
+      heardBy(room, cast.key)
         .filter((m) => m.speaker !== 'tell' && m.kind !== 'act')
         .slice(-6)
         .map((m) => ({ speaker: nameOf(m.speaker), text: asNow(film)(m.text) })),
@@ -387,7 +417,8 @@ async function reachOut(
             ...(await eventsFor(ctx, play, cast.key, slot)),
             ...before.filter((i) => i.kind === 'daily').map((i) => ({ at: i.at, text: i.text })),
           ],
-          history: toLines(play, recent(room)),
+          // 남이 주고받은 문자는 건네지 않는다
+          history: toLines(play, recent(heardBy(room, cast.key))),
         }),
       },
       user: `(${when(clockAt, slot)}. ${film.persona.name}에게서 온 말은 없다. 네가 먼저 연락한다. 얘깃거리: ${hook.text})`,

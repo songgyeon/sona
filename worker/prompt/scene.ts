@@ -20,6 +20,8 @@ export interface SceneLine {
   text: string;
   /** 유저가 맡은 인물의 말이면 참 — 받은 그대로 적는다 */
   mine: boolean;
+  /** 메시지(msg)를 받은 사람의 이름. 폰으로 주고받은 것은 보낸 사람과 받은 사람만 안다 */
+  to?: string;
   /** 그 말이 나온 때(흐른 분) */
   at: number;
 }
@@ -33,7 +35,7 @@ export function when(clock: Clock, at: number): string {
 /** 지나간 장면의 한 줄을 적는 모양. 유저의 지문은 누가 한 행동인지 붙여서 적는다 */
 export function lineOf(h: SceneLine): string {
   if (h.kind === 'tell') return h.text;
-  if (h.kind === 'msg') return `${h.speaker}(메시지): ${h.text}`;
+  if (h.kind === 'msg') return h.to ? `${h.speaker}(${h.to}에게 메시지): ${h.text}` : `${h.speaker}(메시지): ${h.text}`;
   if (h.kind === 'act') return `(${h.speaker}의 지문) ${h.text}`;
   return h.mine ? `${h.speaker}: ${h.text}` : `${h.speaker}: "${h.text}"`;
 }

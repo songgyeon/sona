@@ -10,6 +10,7 @@ export const FAKE_DEFAULTS: Record<ModelCall['purpose'], string> = {
   reply: '고개를 든다.\n{이름}: "응, 듣고 있어."',
   first: '문 쪽을 본다.\n{이름}: "왔네."',
   ping: '지금 뭐 해?',
+  text: '응, 봤어.\n이따 얘기해.',
   gap: '',
   check: '판정: 없음',
   aside: '',

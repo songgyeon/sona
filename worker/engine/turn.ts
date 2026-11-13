@@ -16,6 +16,7 @@ import { fillFilm, withRole } from '../../shared/roles';
 import { lastTurn, loadPlay, SCENE, viewOf } from './store';
 import { settle } from './skip';
 import { answer } from './talk';
+import { finishText } from './text';
 
 /** 필름에 들어간다. 같은 playId로 두 번 불러도 삶은 하나다 */
 export async function enter(ctx: Ctx, filmId: string, playId: unknown): Promise<PlayView> {
@@ -246,6 +247,11 @@ export async function retry(ctx: Ctx, playId: string): Promise<PlayView> {
       last.id,
     );
     await settle(ctx, play, last.id, row!.elapsed_before, row!.elapsed_after);
+    return viewOf(ctx, playId);
+  }
+  if (last.kind === 'text') {
+    // 문자를 보내고 답장을 받다 끊겼다. 장면 작가는 부르지 않는다 — 답장만 마저 받고 닫는다
+    await finishText(ctx, play, last.id, last.room ?? '');
     return viewOf(ctx, playId);
   }
   await answer(ctx, play, last);

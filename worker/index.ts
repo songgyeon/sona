@@ -13,6 +13,7 @@ import { dropSave, listSaves, loadSave, makeSave } from './engine/saves';
 import { loadImage, saveImage } from './engine/images';
 import { type Edge, finishMedia, putPart, serveMedia, startMedia } from './engine/media';
 import { skip } from './engine/skip';
+import { sendText } from './engine/text';
 import { dropPlay, listPlays, viewOf } from './engine/store';
 import { setMine } from './engine/persona';
 import { enter, nextDay, retry, say } from './engine/turn';
@@ -84,6 +85,12 @@ const ROUTES: [string, RegExp, Handler][] = [
     'POST',
     /^\/api\/plays\/([^/]+)\/skip$/,
     (ctx, p, body) => skip(ctx, p[0]!, { kind: body.kind, requestId: body.requestId }),
+  ],
+  // 유저가 캐스트 한 사람에게 보내는 문자. 장면은 멈춰 있다
+  [
+    'POST',
+    /^\/api\/plays\/([^/]+)\/text$/,
+    (ctx, p, body) => sendText(ctx, p[0]!, { to: body.to, text: body.text, requestId: body.requestId }),
   ],
   ['POST', /^\/api\/plays\/([^/]+)\/retry$/, (ctx, p) => retry(ctx, p[0]!)],
   ['POST', /^\/api\/plays\/([^/]+)\/feed$/, (ctx, p) => openFeed(ctx, p[0]!)],

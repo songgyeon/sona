@@ -2,6 +2,7 @@
    - 피드: 캐스트마다 작중 하루에 많아야 하나. 본 영화·드라마, 들은 노래, 일기, 사진, 검색어, 본 영상 가운데서(feed.ts).
      그 자리에 있는 사람은 남기지 않는다 — 말하다가 피드를 올리는 사람은 없다.
    - 여럿이 나오는 필름에서, 자리에 없는 캐스트는 가끔 먼저 메시지를 보낸다(chatPing).
+   - 유저가 보낸 문자에 자는 동안이라 답하지 못한 사람은, 깨어 있게 된 다음 대사 턴에 답한다(textReply). 먼저 오는 메시지보다 먼저다.
    누가 언제 남기고 보낼지는 코드가 정한다. 모델은 무엇을 남길지 고르고 글만 쓴다. 답이 늦어지지 않게 답과 같이 부른다. */
 
 import { inSpan, worldAt } from '../../shared/clock';
@@ -14,14 +15,15 @@ import { newId, q, type Stmt } from '../db';
 import type { ModelCall } from '../model/index';
 import { castLayer } from '../prompt/cast';
 import { sceneLayer, when } from '../prompt/scene';
-import { PING_SYSTEM } from '../prompt/system';
+import { PING_SYSTEM, TEXT_SYSTEM } from '../prompt/system';
 import { type Ctx, Fail } from './ctx';
 import { feedDue, type FeedGot, pastFeed } from './feed';
 import { dataOf, lastTurn, loadPlay, type Play, viewOf } from './store';
-import { ask, bubbles, errText, eventsFor, logStmt, recent, toLines } from './talk';
+import { asNow } from './persona';
+import { ask, bubbles, errText, eventsFor, heardBy, logStmt, recent, toLines } from './talk';
 
 /** 이 사람이 그때 깨어 있나 */
-const awake = (play: Play, cast: Cast, at: number): boolean => !inSpan(worldAt(play, at).min, cast.sleepFrom, cast.sleepTo);
+export const awake = (play: Play, cast: Cast, at: number): boolean => !inSpan(worldAt(play, at).min, cast.sleepFrom, cast.sleepTo);
 
 const named = (text: string, c: Cast) => [c.name, ...c.aliases].some((n) => n.length > 0 && text.includes(n));
 
@@ -53,20 +55,22 @@ export function pinger(play: Play, before: MessageView[], here: Set<string>, bus
   const film = play.film;
   if (!film.opens.ping || film.casts.length < 2) return null;
   const now = play.elapsed;
-  const lastOf = (key: string) => Math.max(0, ...before.filter((m) => m.speaker === key && m.kind !== 'aside').map((m) => m.at));
+  // 그 사람이 한 말과, 유저가 그 사람에게 보낸 문자. 방금 문자를 주고받은 사람이 또 먼저 연락하지 않는다
+  const lastOf = (key: string) =>
+    Math.max(0, ...before.filter((m) => m.kind !== 'aside' && (m.speaker === key || (m.kind === 'ping' && m.room === key))).map((m) => m.at));
   const can = film.casts.filter((c) => c.key !== busy?.key && !here.has(c.key) && awake(play, c, now) && now - lastOf(c.key) >= RULES.ping.chatMin);
   can.sort((a, b) => lastOf(a.key) - lastOf(b.key));
   return can[0] ?? null;
 }
 
 /** 받은 글과 그 기록. 글은 적을지 버릴지 나중에 정한다(drop) */
-interface Got {
+export interface Got {
   stmts: Stmt[];
   log: (dropped: string | null) => Stmt;
 }
 
 /** 모델을 부르고, 못 받으면 까닭만 남긴다. 같이 사는 느낌의 글은 못 받아도 장면은 그대로 간다 */
-async function tryAsk(ctx: Ctx, play: Play, turnId: string, call: ModelCall, use: (text: string) => Stmt[]): Promise<Got> {
+export async function tryAsk(ctx: Ctx, play: Play, turnId: string, call: ModelCall, use: (text: string) => Stmt[]): Promise<Got> {
   try {
     const out = await ask(ctx, call);
     const stmts = use(out.text);
@@ -76,7 +80,7 @@ async function tryAsk(ctx: Ctx, play: Play, turnId: string, call: ModelCall, use
   }
 }
 
-const keep = (g: Got): Stmt[] => [...g.stmts, g.log(null)];
+export const keep = (g: Got): Stmt[] => [...g.stmts, g.log(null)];
 
 /** 자리에 없는 사람이 먼저 메시지를 보낸다 */
 async function chatPing(ctx: Ctx, play: Play, cast: Cast, turnId: string, before: MessageView[]): Promise<Got> {
@@ -86,7 +90,8 @@ async function chatPing(ctx: Ctx, play: Play, cast: Cast, turnId: string, before
     layers: {
       system: PING_SYSTEM,
       cast: castLayer(film, cast),
-      scene: sceneLayer({ film, cast, clock: play, events: await eventsFor(ctx, play, cast.key), history: toLines(play, recent(before)) }),
+      // 남이 주고받은 문자는 건네지 않는다
+      scene: sceneLayer({ film, cast, clock: play, events: await eventsFor(ctx, play, cast.key), history: toLines(play, recent(heardBy(before, cast.key))) }),
     },
     user: `(${when(play, play.elapsed)}. ${josa(film.persona.name, '은', '는')} 지금 너와 다른 곳에 있다. 네가 먼저 메시지를 보낸다.)`,
     temperature: 0.8,
@@ -112,6 +117,73 @@ async function chatPing(ctx: Ctx, play: Play, cast: Cast, turnId: string, before
   );
 }
 
+/** 이 사람에게 보낸 문자 가운데 아직 답하지 않은 것. 그 사람이 마지막으로 말한 뒤(문자로든 장면에서든)에 보낸 문자들이다.
+    그 뒤로 그 사람이 장면에서 말했으면 답할 문자가 없다 — 얼굴을 보고 이미 말을 나눴다 */
+export function owed(messages: MessageView[], key: string): MessageView[] {
+  const out: MessageView[] = [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]!;
+    if (m.speaker === key && m.kind !== 'aside') break;
+    if (m.speaker === 'persona' && m.kind === 'ping' && m.room === key) out.unshift(m);
+  }
+  return out;
+}
+
+/** 유저가 보낸 문자에 그 사람이 되어 답한다. at은 답하는 때다 — 자는 동안 온 문자면 깨고 나서다.
+    그 사람이 아는 일과 그 사람이 들은 말만 건넨다. here는 지금 유저의 인물과 같은 자리에 있는지.
+    답할 문자가 없으면 null. 적을지 버릴지는 부르는 쪽이 정한다 */
+export async function textReply(ctx: Ctx, play: Play, cast: Cast, turnId: string, at: number, all: MessageView[], here: boolean): Promise<Got | null> {
+  const seen = all.filter((m) => m.at <= at);
+  const unread = owed(seen, cast.key);
+  if (unread.length === 0) return null;
+  const film = play.film;
+  const me = film.persona.name;
+  const clock = { ...play, elapsed: at };
+  const now = asNow(film);
+  const first = unread[0]!;
+  const where = here ? `너는 지금 ${josa(me, '과', '와')} 같은 자리에 있다. 소리 내지 않고 폰으로 답한다.` : `너는 지금 ${josa(me, '과', '와')} 다른 곳에 있다.`;
+  // 받고 바로 답하는 것이 아니면, 언제 온 메시지를 지금 보는지 알려 준다
+  const late = at - first.at > RULES.minutesPerSend ? ` 메시지가 온 것은 ${when(play, first.at)}이고, 너는 지금 봤다.` : '';
+  const call: ModelCall = {
+    purpose: 'text',
+    layers: {
+      system: TEXT_SYSTEM,
+      cast: castLayer(film, cast),
+      scene: sceneLayer({ film, cast, clock, events: await eventsFor(ctx, play, cast.key, at), history: toLines(play, recent(heardBy(seen, cast.key))) }),
+    },
+    user: `(${when(clock, at)}. ${me}에게서 메시지가 왔다. ${where}${late}\n받은 메시지:\n${unread.map((m) => now(m.text)).join('\n')}\n네가 답장을 보낸다.)`,
+    temperature: 0.8,
+    maxTokens: 300,
+  };
+  return tryAsk(ctx, play, turnId, call, (text) =>
+    bubbles(text)
+      .slice(0, RULES.text.replyMax)
+      .map((line) =>
+        q(
+          'INSERT INTO messages (id, play_id, turn_id, room, speaker, text, at, kind, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          newId(),
+          play.id,
+          turnId,
+          cast.key,
+          cast.key,
+          line,
+          at,
+          'ping',
+          ctx.now(),
+        ),
+      ),
+  );
+}
+
+/** 지금 답할 수 있는 사람: 답하지 않은 문자가 있고 지금 깨어 있는 사람 가운데, 가장 오래 기다린 사람. 없으면 null */
+export function replier(play: Play, before: MessageView[]): Cast | null {
+  const waiting = play.film.casts
+    .map((c) => ({ c, unread: owed(before, c.key) }))
+    .filter((x) => x.unread.length > 0 && awake(play, x.c, play.elapsed));
+  waiting.sort((a, b) => a.unread[0]!.at - b.unread[0]!.at);
+  return waiting[0]?.c ?? null;
+}
+
 /** 이번 턴에 같이 사는 느낌으로 일어날 일. 답과 같이 부르고, 답을 받으면 함께 적는다.
     돌려주는 것은 「이번 대목에 나온 사람」을 받아 적을 문장을 내주는 함수다 —
     피드와 메시지는 답과 같이 받으니, 이번 대목에 그 사람이 나왔으면(들어와서 말했으면) 버린다.
@@ -121,14 +193,21 @@ export async function lifeWork(ctx: Ctx, play: Play, turnId: string, before: Mes
   const past = play.film.opens.feed && !play.past ? pastFeed(ctx, play, turnId) : Promise.resolve([] as Stmt[]);
   const here = presentCasts(play, before);
   const feed = feedDue(ctx, play, turnId, before, here);
-  const caller = pinger(play, before, here, null);
-  const [pastStmts, post, ping] = await Promise.all([past, feed, caller ? chatPing(ctx, play, caller, turnId, before) : null]);
+  // 자는 동안 온 문자에 깨어 있게 된 지금 답한다. 먼저 오는 메시지보다 먼저다 — 한 턴에 폰은 한 번만 울린다
+  const answering = replier(play, before);
+  const caller = answering ? null : pinger(play, before, here, null);
+  const [pastStmts, post, reply, ping] = await Promise.all([
+    past,
+    feed,
+    answering ? textReply(ctx, play, answering, turnId, play.elapsed, before, here.has(answering.key)) : null,
+    caller ? chatPing(ctx, play, caller, turnId, before) : null,
+  ]);
   const settle = (got: Got | FeedGot | null, cast: Cast | null, appeared: Set<string>): Stmt[] => {
     if (!got || !cast) return [];
     if (appeared.has(cast.key)) return [got.log('이번 대목에 나와서 버림')];
     return keep(got);
   };
-  return (appeared) => [...pastStmts, ...settle(post, post?.cast ?? null, appeared), ...settle(ping, caller, appeared)];
+  return (appeared) => [...pastStmts, ...settle(post, post?.cast ?? null, appeared), ...settle(reply, answering, appeared), ...settle(ping, caller, appeared)];
 }
 
 /** 피드를 열 때. 이 기능이 생기기 전에 들어간 삶은 이야기 전의 피드가 없다 — 그때 적는다 */

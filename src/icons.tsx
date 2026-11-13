@@ -104,6 +104,13 @@ export const PlayFill = () => (
     <path d="M6 3.6v16.8L20.4 12z" />
   </svg>
 );
+/** 문자. 봉투 — 선으로 그린다 */
+export const Mail = () => (
+  <svg className="mail" viewBox="0 0 24 24" aria-hidden="true">
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="M3.5 6.5 12 13l8.5-6.5" />
+  </svg>
+);
 export const SkipFill = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true">
     <path d="M3.5 5.5v13l8.5-6.5zM12 5.5v13l8.5-6.5z" />
