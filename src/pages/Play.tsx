@@ -648,8 +648,15 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
               </div>
             ),
           )}
-        {/* 다음 대목을 쓰는 중. 누가 나올지는 아직 모른다 */}
-        {waiting && !away && <p className="tell wait">…</p>}
+        {/* 다음 대목을 쓰는 중. 누가 나올지는 아직 모른다 — 다음 지문이 올 자리에서 점 셋이 하나씩 밝아진다 */}
+        {waiting && !away && (
+          <p className="writing" role="status">
+            <span className="sr">다음 장면을 쓰는 중이에요.</span>
+            <i />
+            <i />
+            <i />
+          </p>
+        )}
         {away && waiting && <p className="cut">시간이 흐르는 중</p>}
 
         {stuckHere && !waiting && (

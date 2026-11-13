@@ -293,8 +293,16 @@ button:disabled { opacity: 0.4; cursor: default; }
 .introme h2 { margin-top: 8px; font-family: var(--serif); font-size: 40px; font-weight: 700; letter-spacing: 0.3em; padding-left: 0.3em; line-height: 1.3; }
 .introme .l { margin: 14px auto 0; max-width: 300px; font-family: var(--serif); font-size: 14.5px; line-height: 1.85; color: var(--ink-2); white-space: pre-line; }
 .opening + .introme { margin-top: 34px; }
-/* 다음 대목을 쓰는 중 */
-.tell.wait { color: var(--ink-3); letter-spacing: 0.3em; }
+/* 다음 대목을 쓰는 중: 다음 지문이 올 자리에서 점 셋이 하나씩 밝아진다(2026-11-13 시안 A). 글자는 두지 않는다.
+   멈춘 「…」는 쓰는 중인지 멈춘 건지 알 수 없었다 */
+.writing { display: flex; align-items: center; gap: 10px; height: 28px; }
+.tell + .writing { margin-top: 12px; }
+.introme + .writing { margin-top: 24px; }
+.writing i { width: 5px; height: 5px; border-radius: 50%; background: var(--ink); opacity: 0.16; animation: writing 1.5s ease-in-out infinite; }
+.writing i:nth-of-type(2) { animation-delay: 0.22s; }
+.writing i:nth-of-type(3) { animation-delay: 0.44s; }
+@keyframes writing { 0%, 70%, 100% { opacity: 0.16; } 30% { opacity: 0.85; } }
+@media (prefers-reduced-motion: reduce) { .writing i { animation: none; opacity: 0.5; } }
 .say { margin: 24px 0; display: grid; grid-template-columns: 38px 1fr; column-gap: 14px; align-items: center; text-align: justify; width: 100%; }
 .say:first-child { margin-top: 0; }
 .say .face { width: 38px; height: 38px; font-size: 15px; }
