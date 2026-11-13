@@ -7,7 +7,7 @@ import type { MyPersona } from '../../shared/types';
 import { ApiFail, api } from '../api';
 import { FacePick } from '../crop';
 import { Back, Plus } from '../icons';
-import { useMe } from '../me';
+import { LinkPop, useMe } from '../me';
 import { Face } from '../poster';
 import { goBack } from '../router';
 import { Tabs } from '../tabs';
@@ -24,6 +24,8 @@ export function Personas({ go }: { go: (to: string) => void }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [asking, setAsking] = useState(false);
+  /** 다른 기기에서 이어 하기: 코드 받기(get), 코드 넣기(put) */
+  const [linking, setLinking] = useState<'get' | 'put' | null>(null);
 
   /** 필름 정보의 「고치기」로 왔으면 그 페르소나를 바로 열고, 다 고치면 그 필름으로 돌아간다 */
   const [ask] = useState(() => {
@@ -163,7 +165,19 @@ export function Personas({ go }: { go: (to: string) => void }) {
           )}
           {full && <p className="hint">페르소나는 {RULES.personas.max}개까지 만들 수 있어요.</p>}
         </Card>
+
+        <Card title="다른 기기" sub="코드를 넣으면 다른 기기에서도 같은 사람으로 이어져요.">
+          <div className="twobtn">
+            <button className="btn more" onClick={() => setLinking('get')}>
+              코드 받기
+            </button>
+            <button className="btn more" onClick={() => setLinking('put')}>
+              코드 넣기
+            </button>
+          </div>
+        </Card>
       </section>
+      {linking && <LinkPop mode={linking} onClose={() => setLinking(null)} />}
       <Tabs path="/personas" go={go} />
     </main>
   );

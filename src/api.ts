@@ -37,6 +37,8 @@ export function visitor(): string {
   return v;
 }
 
+/** 다른 기기에서 이어 하기: 이 기기를 그 방문자로 바꾼다 */
+export const setVisitor = (v: string): void => write(VISITOR, v);
 export const getKey = (): string | null => read(KEY);
 export const setKey = (k: string): void => write(KEY, k.trim());
 export const newId = (): string => crypto.randomUUID();
@@ -133,6 +135,8 @@ export const api = {
   chooseAs: (id: string, pick: { as: 'role'; role: number } | { as: 'persona'; id: string; role: number }) =>
     call<{ card: FilmCard; film: Film; mine: FilmMine }>('PUT', `/api/films/${id}/as`, pick),
   /** 내 페르소나 */
+  link: (drafts: string) => call<{ code: string; expiresAt: number }>('POST', '/api/link', { drafts }),
+  claim: (code: string) => call<{ visitor: string; name: string; drafts: string }>('POST', '/api/link/claim', { code }),
   personas: () => call<MyPersona[]>('GET', '/api/personas'),
   addPersona: (p: Omit<MyPersona, 'id'>) => call<MyPersona[]>('POST', '/api/personas', p),
   editPersona: (id: string, p: Omit<MyPersona, 'id'>) => call<MyPersona[]>('PUT', `/api/personas/${id}`, p),

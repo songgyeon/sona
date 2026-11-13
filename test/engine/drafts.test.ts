@@ -220,3 +220,28 @@ describe('임시저장: 한 편만 남기던 때의 것', () => {
     expect(store.getItem('sona.draft')).toBe('not json');
   });
 });
+
+describe('임시저장: 다른 기기로 옮기기', () => {
+  it('싸서 풀면 같은 필름이 선다. 같은 자리가 있으면 나중에 남긴 쪽을 둔다', () => {
+    const a = setup();
+    a.drafts.save('x', titled('한강'));
+    a.drafts.save('y', titled('수몰'));
+    const packed = a.drafts.pack();
+
+    const b = setup({ 'sona.draft.y': JSON.stringify({ draft: titled('폰에서 고친 수몰'), savedAt: 9_999_999 }) });
+    expect(b.drafts.unpack(packed)).toBe(1);
+    expect(b.drafts.list().map((d) => d.draft.title).sort()).toEqual(['폰에서 고친 수몰', '한강']);
+
+    const c = setup({ 'sona.draft.y': JSON.stringify({ draft: titled('예전 수몰'), savedAt: 1 }) });
+    expect(c.drafts.unpack(packed)).toBe(2);
+    expect(c.drafts.list().map((d) => d.draft.title).sort()).toEqual(['수몰', '한강']);
+  });
+
+  it('읽을 수 없는 짐과 이상한 자리 이름은 버린다', () => {
+    const b = setup();
+    expect(b.drafts.unpack('글자')).toBe(0);
+    expect(b.drafts.unpack(JSON.stringify({ id: 'x' }))).toBe(0);
+    expect(b.drafts.unpack(JSON.stringify([{ id: '../x', raw: JSON.stringify({ draft: titled('a'), savedAt: 1 }) }, { id: 'y', raw: '{' }]))).toBe(0);
+    expect(b.drafts.list()).toEqual([]);
+  });
+});

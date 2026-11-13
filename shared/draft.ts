@@ -515,5 +515,54 @@ export function shelf(store: () => Store, newId: () => string, now: () => number
         /* 무시 */
       }
     },
+
+    /** 다른 기기로 옮길 짐. 남겨 둔 필름을 저장된 모양 그대로 싼다 */
+    pack(): string {
+      const s = open();
+      if (!s) return '[]';
+      try {
+        const out: { id: string; raw: string }[] = [];
+        for (let i = 0; i < s.length; i++) {
+          const k = s.key(i);
+          if (!k || !k.startsWith(SLOT)) continue;
+          const id = k.slice(SLOT.length);
+          const raw = s.getItem(k);
+          if (raw !== null && readSaved(id, raw)) out.push({ id, raw });
+        }
+        return JSON.stringify(out);
+      } catch {
+        return '[]';
+      }
+    },
+
+    /** 다른 기기에서 온 짐을 푼다. 같은 자리가 이미 있으면 나중에 남긴 쪽을 둔다. 푼 편 수를 돌려준다 */
+    unpack(packed: string): number {
+      const s = open();
+      if (!s) return 0;
+      let items: unknown;
+      try {
+        items = JSON.parse(packed);
+      } catch {
+        return 0;
+      }
+      if (!Array.isArray(items)) return 0;
+      let n = 0;
+      for (const it of items) {
+        if (!it || typeof it !== 'object') continue;
+        const { id, raw } = it as { id?: unknown; raw?: unknown };
+        if (typeof id !== 'string' || typeof raw !== 'string' || !/^[A-Za-z0-9-]{1,64}$/.test(id)) continue;
+        const incoming = readSaved(id, raw);
+        if (!incoming) continue;
+        try {
+          const here = readSaved(id, s.getItem(SLOT + id));
+          if (here && here.savedAt >= incoming.savedAt) continue;
+          s.setItem(SLOT + id, raw);
+          n += 1;
+        } catch {
+          break;
+        }
+      }
+      return n;
+    },
   };
 }

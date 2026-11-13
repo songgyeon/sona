@@ -214,6 +214,16 @@ export const SCHEMA: string[] = [
     v TEXT NOT NULL
   )`,
 
+  // 다른 기기에서 이어 하기. 코드는 해시만 둔다. drafts는 코드를 받은 기기의 임시저장(넣은 기기로 옮겨 간다)
+  `CREATE TABLE IF NOT EXISTS links (
+    code_hash TEXT PRIMARY KEY,
+    visitor TEXT NOT NULL,
+    drafts TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL,
+    used_at INTEGER
+  )`,
+
   // 하루 호출 수
   `CREATE TABLE IF NOT EXISTS usage (
     day TEXT NOT NULL,
