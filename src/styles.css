@@ -312,16 +312,6 @@ button:disabled { opacity: 0.4; cursor: default; }
 .playing:has(form.box :focus) { padding-bottom: 0; }
 .playing:has(form.box :focus) .tabs { display: none; }
 .band { flex: none; height: 50px; padding: 0 8px; display: flex; align-items: center; justify-content: space-between; }
-.screen { position: relative; flex: none; height: min(224px, 30dvh); background: #050505; transition: height 0.45s ease; }
-.screen img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
-/* 세로 그림이면 칸이 세로로 길어진다(화면 높이의 56%까지). 가로 그림은 띠 그대로. 그림은 글 위에 따로 선 칸에 걸린다(`src/cutscreen.tsx`) */
-.screen.tall { height: min(56dvh, 133vw); }
-.screen.tall img { object-position: 50% 18%; }
-/* 컷이 바뀔 때: 앞 컷을 밑에 깔고 새 컷이 그 위로 올라온다 */
-.screen img.cutin { animation: cutin 320ms ease both; }
-@keyframes cutin { from { opacity: 0; } }
-.screen::before { content: ''; position: absolute; z-index: 1; inset: 0; background: radial-gradient(110% 120% at 50% 45%, rgba(0, 0, 0, 0) 52%, rgba(0, 0, 0, 0.5) 100%); }
-.screen.grain::after { z-index: 2; }
 /* 영화가 장소와 시각을 알릴 때처럼, 아래 띠 가운데에 한 줄 */
 .where { flex: none; min-height: 44px; padding: 6px var(--pad); display: flex; align-items: center; justify-content: center; text-align: center; font-family: var(--serif); font-size: 13px; font-weight: 500; letter-spacing: 0.08em; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .where i { font-style: normal; color: var(--ink-4); padding: 0 9px; }
@@ -408,11 +398,12 @@ button:disabled { opacity: 0.4; cursor: default; }
 /* 오프닝: 디렉터가 쌓은 순서대로 흐른다. 뒤에 오는 장면과는 여느 줄처럼 이어진다 */
 .opening + .tell { margin-top: 12px; }
 .opening + .say, .opening + .msg { margin-top: 22px; }
-.mark { display: block; height: 0; }
 /* 오프닝을 다 읽은 뒤: 디렉터가 컷을 넣은 자리에 그 그림이 흐름의 폭 가득 선다. 읽는 동안에는 위 화면에만 걸린다 */
 .still-in { margin: 22px calc(var(--pad) * -1); }
 .opening > .still-in:first-child { margin-top: 0; }
-.still-in img { display: block; width: 100%; height: auto; max-height: 80dvh; object-fit: cover; }
+/* 컷은 처음부터 글 사이 제자리에 선다. 그림이 오기 전에도 가로 그림만큼 자리를 잡아 둔다 —
+   글만 재면 한 화면에 다 드는 줄 알고 오프닝 읽기가 바로 끝나 버린다. 그림이 오면 그 비율이다 */
+.still-in img { display: block; width: 100%; height: auto; aspect-ratio: auto 16 / 9; max-height: 80dvh; object-fit: cover; }
 
 /* 한편: 내가 없는 자리에서 두 사람이 나눈 장면이 있다고 알리는 줄 */
 .aside { width: 100%; margin: 26px 0 6px; padding: 16px 0 17px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: 14px; text-align: left; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
@@ -465,7 +456,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 @keyframes cardin { from { opacity: 0; } }
 @keyframes cardout { 0%, 72% { opacity: 1; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .titlecard, .titlecard .title, .screen img.cutin, .credits { animation: none; }
+  .titlecard, .titlecard .title, .credits { animation: none; }
 }
 .safe { height: max(22px, env(safe-area-inset-bottom)); }
 

@@ -1,5 +1,4 @@
 import { type FormEvent, Fragment, type KeyboardEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { CutScreen } from '../cutscreen';
 import { type Clock, dayEnd, dayName, formatWorld, nextEvening, nextWake, worldAt } from '../../shared/clock';
 import { josa } from '../../shared/ko';
 import { splitLine } from '../../shared/line';
@@ -57,17 +56,15 @@ export const TITLE_MS = 1900;
 const CREDITS_AFTER_MS = 2600;
 
 /** 오프닝. 디렉터가 쌓은 순서대로 흐른다. 재생 중에는 컷 번호 같은 만드는 말을 보이지 않는다.
-    읽는 동안에는 컷을 글 사이에 끼우지 않는다 — 그 컷 바로 다음에 오는 줄에 표시(data-cut)만 달아 두고,
-    읽는 자리가 그 줄에 닿으면 위 화면의 그림이 바뀐다(영화처럼 흐른다).
-    다 읽은 뒤(inline)에는 디렉터가 컷을 넣은 자리에 그 그림이 선다. onPicture는 그 그림을 받았을 때.
-    onCast가 있으면 캐스트의 대사를 눌러 그 사람의 프로필로 간다(채팅과 같다) */
-export function Opening({ film, inline, onPicture, onCast }: { film: Film; inline?: boolean; onPicture?: () => void; onCast?: (key: string) => void }) {
+    컷은 처음 읽을 때부터 디렉터가 넣은 자리에 글 사이로 선다. 위에 따로 그림 칸을 두지 않는다.
+    (2026-11-13 사용자: 「상단에 사진 뜨는 거 그냥 평범하게 사진이 글 사이에 있는 걸로 바꾸고 싶어요」 —
+     전에는 읽는 동안 위 그림 칸의 그림이 컷 자리에서 바뀌고, 다 읽은 뒤에야 글 사이에 섰다)
+    onPicture는 그 그림을 받았을 때. onCast가 있으면 캐스트의 대사를 눌러 그 사람의 프로필로 간다(채팅과 같다) */
+export function Opening({ film, onPicture, onCast }: { film: Film; onPicture?: () => void; onCast?: (key: string) => void }) {
   const out: ReactNode[] = [];
-  let pending = '';
   film.firstScene.beats.forEach((b, i) => {
     if (b.kind === 'cut') {
-      pending = b.image;
-      if (inline && b.image) {
+      if (b.image) {
         out.push(
           <figure className="still-in" key={`cut-${i}`}>
             <img src={imgUrl(b.image)} alt="" onLoad={onPicture} />
@@ -76,15 +73,13 @@ export function Opening({ film, inline, onPicture, onCast }: { film: Film; inlin
       }
       return;
     }
-    const mark = pending ? { 'data-cut': pending } : {};
-    pending = '';
     if (b.kind === 'tell') {
       b.text
         .split('\n')
         .filter((line) => line.trim().length > 0)
         .forEach((line, j) =>
           out.push(
-            <p className="tell" key={`${i}-${j}`} {...(j === 0 ? mark : {})}>
+            <p className="tell" key={`${i}-${j}`}>
               {line}
             </p>,
           ),
@@ -103,18 +98,16 @@ export function Opening({ film, inline, onPicture, onCast }: { film: Film; inlin
     );
     out.push(
       onCast && who ? (
-        <button className="say" key={i} {...mark} onClick={() => onCast(who.key)} aria-label={`${who.name}의 프로필 보기`}>
+        <button className="say" key={i} onClick={() => onCast(who.key)} aria-label={`${who.name}의 프로필 보기`}>
           {line}
         </button>
       ) : (
-        <div className="say" key={i} {...mark}>
+        <div className="say" key={i}>
           {line}
         </div>
       ),
     );
   });
-  // 맨 끝에 건 컷: 오프닝을 다 읽으면 걸린다(다 읽은 뒤에는 그 자리에 그림이 이미 서 있다)
-  if (pending && !inline) out.push(<i className="mark" key="end" data-cut={pending} />);
   return <div className="opening">{out}</div>;
 }
 
@@ -234,8 +227,6 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
   }, [view, reading, playId]);
   /** 장면 저장 시트를 열어 두었나. 필름 정보의 「저장한 장면」에서 오면 열린 채로 온다(?saves) */
   const [saving, setSaving] = useState(() => new URLSearchParams(window.location.search).has('saves'));
-  /** 지금 화면에 걸린 컷과, 그 밑에 깔린 바로 앞 컷 */
-  const [shot, setShot] = useState('');
   const flow = useRef<HTMLElement>(null);
   /** 하루의 끝에 오르는 크레딧 */
   const [credits, setCredits] = useState(false);
@@ -243,7 +234,6 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
   /** 배경 음악. 오프닝 영상과 제목이 걷힌 뒤부터 흐른다 */
   const bgm = useBgm(view?.film.bgm ?? '', !!view && !reelOn && !card);
   const wasEnded = useRef<boolean | null>(null);
-  const tick = useRef(0);
   const still = useRef(0);
 
   useEffect(() => {
@@ -327,30 +317,8 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
     if (el && bottom.current && !reading) el.scrollTop = el.scrollHeight;
   };
 
-  /** 읽는 자리에 맞는 컷을 고른다. 표시가 달린 줄 가운데, 읽는 자리를 지난 마지막 줄의 컷이다.
-      읽는 자리는 보통 흐름의 위에서 2/5다. 끝이 가까워지면 아래로 내려가서, 맨 끝에서는 흐름의 바닥이 된다 —
-      그래야 마지막 화면에 든 줄들의 컷도 차례로 걸리고, 다 읽으면 마지막 컷이 남는다 */
-  const look = () => {
-    const el = flow.current;
-    if (!el) return;
-    const marks = [...el.querySelectorAll<HTMLElement>('[data-cut]')];
-    if (marks.length === 0) {
-      setShot('');
-      return;
-    }
-    const rest = restOf(el);
-    const reach = el.clientHeight * 0.6;
-    const at = rest >= reach ? 0.4 : 1 - 0.6 * (rest / reach);
-    const line = el.scrollTop + el.clientHeight * at;
-    let cur = marks[0]!;
-    for (const m of marks) if (m.offsetTop <= line) cur = m;
-    setShot(cur.dataset.cut ?? '');
-  };
-
   const onScroll = () => {
     bottom.current = atEnd();
-    cancelAnimationFrame(tick.current);
-    tick.current = requestAnimationFrame(look);
     // 끝에 닿아 멈추면 오프닝 읽기가 끝난다. 미끄러져 내려가는 중에는 기다린다
     window.clearTimeout(still.current);
     still.current = window.setTimeout(() => {
@@ -369,7 +337,6 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
       el.scrollTop = el.scrollHeight;
       bottom.current = true;
     }
-    look();
   }, [view, out, waiting, reading]);
 
   // 말하는 칸은 쓴 만큼 자란다. 너무 길어지면 그 안에서 굴린다
@@ -384,7 +351,6 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
     window.addEventListener('resize', onScroll);
     return () => {
       window.removeEventListener('resize', onScroll);
-      cancelAnimationFrame(tick.current);
       window.clearTimeout(still.current);
     };
   }, []);
@@ -515,8 +481,8 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
   const cuts = (i: number) => i > 0 && items[i]!.at - items[i - 1]!.at >= CUT_AFTER;
   const castOf = (key: string) => film.casts.find((c) => c.key === key);
   const fs = film.firstScene;
-  /** 화면에 거는 그림. 읽는 자리의 컷이 먼저고, 없으면 첫 컷, 그것도 없으면 포스터 */
-  const onScreen = shot || cutsOf(film)[0] || (film.stills ?? [])[0] || film.poster || '';
+  /** 크레딧 뒤에 까는 그림. 오프닝의 마지막 컷이고, 없으면 스틸, 그것도 없으면 포스터 */
+  const backdrop = cutsOf(film).at(-1) || (film.stills ?? [])[0] || film.poster || '';
   /** 지금 장면이 벌어지는 곳. 장면을 쓰는 작가가 대목마다 알려 준 것이다. 모르면 적지 않는다 */
   const place = view.place;
   const profile = (key: string) => go(`/play/${playId}/cast/${key}`);
@@ -564,8 +530,6 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
         />
       )}
 
-      {/* 그림은 오프닝을 읽는 동안에만 걸린다. 다 읽으면 치우고, 그 뒤로는 화면 전체가 오가는 말이다 */}
-      {onScreen && reading && <CutScreen id={onScreen} />}
       <p className="where">
         {formatWorld(clock)}
         {place && (
@@ -580,7 +544,7 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
       </div>
 
       <section className="flow" aria-live="polite" ref={flow} onScroll={onScroll}>
-        {fs.beats.length > 0 && <Opening film={film} inline={!reading} onPicture={keepBottom} onCast={profile} />}
+        {fs.beats.length > 0 && <Opening film={film} onPicture={keepBottom} onCast={profile} />}
         <MeCard me={film.persona} onEdit={() => go(`/play/${playId}/me`)} />
 
         {items.map(({ m, a }, i) =>
@@ -826,9 +790,9 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
 
       {credits && (
         <div className="credits" role="dialog" aria-label="엔드 크레딧">
-          {onScreen && (
+          {backdrop && (
             <div className="back grain">
-              <img src={imgUrl(onScreen)} alt="" />
+              <img src={imgUrl(backdrop)} alt="" />
             </div>
           )}
           <div className="band">

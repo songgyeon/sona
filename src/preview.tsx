@@ -2,11 +2,10 @@
    필름 정보(그림, 제목, 한 줄 소개, 캐스트)와 오프닝(영상 → 제목 → 컷·지문·대사 → 내 배역 카드).
    필름 정보 화면과 재생 화면을 그대로 빌려 그린다. 첫째 배역으로 들어간 것으로 본다. 아무것도 저장하지 않는다. */
 
-import { CutScreen } from './cutscreen';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { formatMin, formatWorld } from '../shared/clock';
-import { cutsOf, hasLines } from '../shared/opening';
+import { hasLines } from '../shared/opening';
 import { DOW_NAMES } from '../shared/rules';
 import type { Film } from '../shared/types';
 import { imgUrl } from './api';
@@ -165,15 +164,13 @@ function FilmPeek({ film, onEnter }: { film: Film; onEnter: () => void }) {
 }
 
 /** 오프닝. 들어가는 순간과 같다: 오프닝 영상(없으면 검은 화면에 제목), 컷·지문·대사, 내 배역 카드.
-    읽는 자리에 닿은 줄의 컷이 위 화면에 걸린다(재생 화면과 같은 셈) */
+    컷은 디렉터가 넣은 자리에 글 사이로 선다(재생 화면과 같다) */
 function OpeningPeek({ film, onAgain }: { film: Film; onAgain: () => void }) {
   // 오프닝 영상이 있으면 영상이 오프닝이다. 없으면 기본 오프닝(검은 화면에 제목)이 뜬다
   const [reelOn, setReelOn] = useState((film.reel?.clips.length ?? 0) > 0);
   const [card, setCard] = useState(!((film.reel?.clips.length ?? 0) > 0));
   const [reading, setReading] = useState(hasLines(film));
-  const [shot, setShot] = useState('');
   const flow = useRef<HTMLElement>(null);
-  const tick = useRef(0);
   const still = useRef(0);
   const bgm = useBgm(film.bgm ?? '', !reelOn && !card);
 
@@ -188,25 +185,7 @@ function OpeningPeek({ film, onAgain }: { film: Film; onAgain: () => void }) {
     const el = flow.current;
     return !el || restOf(el) <= 12;
   };
-  const look = () => {
-    const el = flow.current;
-    if (!el) return;
-    const marks = [...el.querySelectorAll<HTMLElement>('[data-cut]')];
-    if (marks.length === 0) {
-      setShot('');
-      return;
-    }
-    const rest = restOf(el);
-    const reach = el.clientHeight * 0.6;
-    const at = rest >= reach ? 0.4 : 1 - 0.6 * (rest / reach);
-    const line = el.scrollTop + el.clientHeight * at;
-    let cur = marks[0]!;
-    for (const m of marks) if (m.offsetTop <= line) cur = m;
-    setShot(cur.dataset.cut ?? '');
-  };
   const onScroll = () => {
-    cancelAnimationFrame(tick.current);
-    tick.current = requestAnimationFrame(look);
     window.clearTimeout(still.current);
     still.current = window.setTimeout(() => {
       if (atEnd()) setReading(false);
@@ -214,18 +193,10 @@ function OpeningPeek({ film, onAgain }: { film: Film; onAgain: () => void }) {
   };
   useLayoutEffect(() => {
     if (reading && atEnd()) setReading(false);
-    look();
   }, [reading, card]);
-  useEffect(
-    () => () => {
-      cancelAnimationFrame(tick.current);
-      window.clearTimeout(still.current);
-    },
-    [],
-  );
+  useEffect(() => () => window.clearTimeout(still.current), []);
 
   const clock = { startDow: film.startDow, startMin: film.startMin, elapsed: 0 };
-  const onScreen = shot || cutsOf(film)[0] || (film.stills ?? [])[0] || film.poster || '';
   const place = film.firstScene.place;
 
   return (
@@ -235,7 +206,6 @@ function OpeningPeek({ film, onAgain }: { film: Film; onAgain: () => void }) {
           {bgm.on ? <Sound /> : <SoundOff />}
         </button>
       )}
-      {onScreen && reading && <CutScreen id={onScreen} />}
       <p className="where">
         {formatWorld(clock)}
         {place && (
@@ -246,7 +216,7 @@ function OpeningPeek({ film, onAgain }: { film: Film; onAgain: () => void }) {
         )}
       </p>
       <section className="flow" ref={flow} onScroll={onScroll}>
-        {film.firstScene.beats.length > 0 && <Opening film={film} inline={!reading} />}
+        {film.firstScene.beats.length > 0 && <Opening film={film} />}
         <MeCard me={film.persona} />
         {!reading && (
           <div className="pvend">
