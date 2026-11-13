@@ -42,10 +42,24 @@ export function formatMin(min: number): string {
   return `${half} ${h12}:${String(m).padStart(2, '0')}`;
 }
 
+/** 요일과 시각. 「금요일 오후 4:03」.
+    자정부터 1시 전까지는 앞 요일의 밤으로 적는다 — 「목요일 오전 12:00」이 아니라 「수요일 밤 12:00」.
+    사람들이 그렇게 말하고, 「목요일 밤 12:00」으로 적으면 목요일이 끝나는 자정으로 읽힌다(2026-11-14 리뷰: 「목요일 오전 12:00」이 어색하다) */
+export function formatDowMin(dow: number, min: number): string {
+  if (min < 60) return `${DOW_NAMES[(dow + 6) % 7]} 밤 12:${String(min).padStart(2, '0')}`;
+  return `${DOW_NAMES[dow]} ${formatMin(min)}`;
+}
+
+/** 요일과 때. 「금요일 저녁」. 자정부터 1시 전까지는 시각과 같이 앞 요일의 밤이다(formatDowMin) */
+export function dowPart(dow: number, min: number): string {
+  if (min < 60) return `${DOW_NAMES[(dow + 6) % 7]} 밤`;
+  return `${DOW_NAMES[dow]} ${partOfDay(min)}`;
+}
+
 /** 「금요일 오후 4:03」 */
 export function formatWorld(c: Clock, elapsed = c.elapsed): string {
   const w = worldAt(c, elapsed);
-  return `${DOW_NAMES[w.dow]} ${formatMin(w.min)}`;
+  return formatDowMin(w.dow, w.min);
 }
 
 /** 프롬프트에는 분 단위를 안 준다 — 주면 「7시 42분이네요」가 나온다. 때만 준다 */

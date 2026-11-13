@@ -173,7 +173,7 @@ describe('먼저 오는 연락', () => {
     // 이도현은 7시 반에야 걸 수 있는데 유저는 7시에 돌아온다
     expect(pingSlots(clock(3), dohyun, 3, 900).map(at)).toEqual(['금요일 오후 7:30']);
     // 저녁도 아침도 아닌 두 시간이면 가운데
-    expect(pingSlots(clock(420), dohyun, 420, 540).map(at)).toEqual(['토요일 오전 12:00']);
+    expect(pingSlots(clock(420), dohyun, 420, 540).map(at)).toEqual(['금요일 밤 12:00']);
   });
 
   it('보내도 되는 때와 안 되는 때', () => {

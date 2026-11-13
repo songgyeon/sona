@@ -2,9 +2,9 @@
    지금 이 장면의 사실만 싣는다: 때, 누가 무엇을 아는가, 지금까지의 장면.
    본편은 작가가 나오는 사람들을 모두 맡아 쓴다(writerLayer). 먼저 거는 연락은 그 인물이 되어 쓴다(sceneLayer). */
 
-import { type Clock, formatMin, partOfDay, worldAt } from '../../shared/clock';
+import { type Clock, dowPart, formatDowMin, worldAt } from '../../shared/clock';
 import { wasThere } from '../../shared/opening';
-import { DOW_NAMES, RULES } from '../../shared/rules';
+import { RULES } from '../../shared/rules';
 import type { Cast, Film } from '../../shared/types';
 
 export interface SceneEvent {
@@ -29,7 +29,7 @@ export interface SceneLine {
 /** 프롬프트에 적는 때. 분 단위를 안 준다 — 주면 「7시 42분이네요」가 나온다 */
 export function when(clock: Clock, at: number): string {
   const w = worldAt(clock, at);
-  return `${DOW_NAMES[w.dow]} ${partOfDay(w.min)}`;
+  return dowPart(w.dow, w.min);
 }
 
 /** 지나간 장면의 한 줄을 적는 모양. 유저의 지문은 누가 한 행동인지 붙여서 적는다 */
@@ -47,7 +47,7 @@ const passed = (clock: Clock, at: number) => `(시간이 흘렀다. 지금은 ${
 function nowBlock(clock: Clock, out: string[], place = '', pose = ''): void {
   const now = worldAt(clock);
   out.push('[지금]');
-  out.push(`${DOW_NAMES[now.dow]} ${partOfDay(now.min)}.`);
+  out.push(`${dowPart(now.dow, now.min)}.`);
   // 「지금 있는 곳」이라고 적으면 자리를 옮긴 뒤에도 작가가 그 이름을 그대로 베껴 적는다
   if (place) out.push(`바로 앞 대목까지 있던 곳: ${place}`);
   if (pose) out.push(`바로 앞 대목이 끝났을 때의 모습: ${pose}`);
@@ -155,5 +155,5 @@ export function sceneLayer(s: SceneInput): string {
 /** 「금요일 오후 4:03」 */
 export function stamp(clock: Clock, at: number): string {
   const w = worldAt(clock, at);
-  return `${DOW_NAMES[w.dow]} ${formatMin(w.min)}`;
+  return formatDowMin(w.dow, w.min);
 }

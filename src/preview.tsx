@@ -4,9 +4,8 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { formatMin, formatWorld } from '../shared/clock';
+import { formatDowMin, formatWorld } from '../shared/clock';
 import { hasLines } from '../shared/opening';
-import { DOW_NAMES } from '../shared/rules';
 import type { Film } from '../shared/types';
 import { imgUrl } from './api';
 import { useBgm } from './bgm';
@@ -69,7 +68,7 @@ function FilmPeek({ film, onEnter }: { film: Film; onEnter: () => void }) {
   const stills = film.stills ?? [];
   const opening = fs.beats.flatMap((b) => (b.kind === 'tell' ? [b.text] : []))[0] ?? '';
   const still = stills[0] ?? film.poster ?? '';
-  const when = [`${DOW_NAMES[film.startDow]} ${formatMin(film.startMin)}`, fs.place].filter(Boolean).join(' · ');
+  const when = [formatDowMin(film.startDow, film.startMin), fs.place].filter(Boolean).join(' · ');
   const me = film.persona;
   return (
     <div className="app info pvfilm">

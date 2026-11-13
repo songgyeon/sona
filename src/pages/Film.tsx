@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { formatMin } from '../../shared/clock';
-import { DOW_NAMES } from '../../shared/rules';
+import { formatDowMin } from '../../shared/clock';
 import type { Film as FilmData, FilmCard, FilmMine, MyPersona, PlayCard } from '../../shared/types';
 import { ApiFail, api, imgUrl, newId } from '../api';
 import { Back, LinkIcon, Next, Pen, PlayFill } from '../icons';
@@ -136,7 +135,7 @@ export function Film({ filmId, go }: { filmId: string; go: Go }) {
   /** 첫 장면의 첫 지문. 필름이 어떻게 시작하는지 미리 보인다 */
   const opening = fs.beats.flatMap((b) => (b.kind === 'tell' ? [b.text] : []))[0] ?? '';
   const still = stills[0] ?? film.poster ?? '';
-  const when = [`${DOW_NAMES[film.startDow]} ${formatMin(film.startMin)}`, fs.place].filter(Boolean).join(' · ');
+  const when = [formatDowMin(film.startDow, film.startMin), fs.place].filter(Boolean).join(' · ');
   /** 살고 있는 삶이 있으면 그 삶의 프로필로 간다 — 피드가 거기 쌓인다 */
   const castPath = (key: string) => (living ? `/play/${living.id}/cast/${key}` : `/film/${filmId}/cast/${key}`);
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DAY, endOfToday, formatWorld, inSpan, nextWake, partOfDay, trialOver, worldAt } from '../../shared/clock';
+import { DAY, dowPart, endOfToday, formatWorld, inSpan, nextWake, partOfDay, trialOver, worldAt } from '../../shared/clock';
 
 // 금요일 오후 4시에 시작하는 필름
 const fri4pm = (elapsed: number) => ({ startDow: 5, startMin: 16 * 60, elapsed });
@@ -8,7 +8,14 @@ describe('작중 시계', () => {
   it('흐른 분만큼 간다', () => {
     expect(formatWorld(fri4pm(0))).toBe('금요일 오후 4:00');
     expect(formatWorld(fri4pm(3))).toBe('금요일 오후 4:03');
-    expect(formatWorld(fri4pm(8 * 60))).toBe('토요일 오전 12:00');
+    // 자정부터 1시 전까지는 앞 요일의 밤이다. 「토요일 오전 12:00」이 아니라 「금요일 밤 12:00」
+    expect(formatWorld(fri4pm(8 * 60))).toBe('금요일 밤 12:00');
+    expect(formatWorld(fri4pm(8 * 60 + 59))).toBe('금요일 밤 12:59');
+    expect(formatWorld(fri4pm(9 * 60))).toBe('토요일 오전 1:00');
+    expect(dowPart(6, 30)).toBe('금요일 밤');
+    expect(dowPart(6, 60)).toBe('토요일 새벽');
+    // 일요일 자정은 토요일 밤이다(요일이 한 바퀴 돈다)
+    expect(dowPart(0, 0)).toBe('토요일 밤');
     expect(worldAt(fri4pm(24 * 60))).toEqual({ dow: 6, min: 16 * 60, day: 1 });
     // 이야기 전으로 거슬러 가도 요일이 돈다: 월요일 아침 7시에 시작해 이틀 전 밤 11시는 토요일
     const mon7am = { startDow: 1, startMin: 7 * 60, elapsed: 0 };
