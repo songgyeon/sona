@@ -57,14 +57,23 @@ export const TITLE_MS = 1900;
 const CREDITS_AFTER_MS = 2600;
 
 /** 오프닝. 디렉터가 쌓은 순서대로 흐른다. 재생 중에는 컷 번호 같은 만드는 말을 보이지 않는다.
-    컷은 글 사이에 끼우지 않는다 — 그 컷 바로 다음에 오는 줄에 표시(data-cut)만 달아 두고,
-    읽는 자리가 그 줄에 닿으면 위 화면의 그림이 바뀐다 */
-export function Opening({ film }: { film: Film }) {
+    읽는 동안에는 컷을 글 사이에 끼우지 않는다 — 그 컷 바로 다음에 오는 줄에 표시(data-cut)만 달아 두고,
+    읽는 자리가 그 줄에 닿으면 위 화면의 그림이 바뀐다(영화처럼 흐른다).
+    다 읽은 뒤(inline)에는 디렉터가 컷을 넣은 자리에 그 그림이 선다. onPicture는 그 그림을 받았을 때.
+    onCast가 있으면 캐스트의 대사를 눌러 그 사람의 프로필로 간다(채팅과 같다) */
+export function Opening({ film, inline, onPicture, onCast }: { film: Film; inline?: boolean; onPicture?: () => void; onCast?: (key: string) => void }) {
   const out: ReactNode[] = [];
   let pending = '';
   film.firstScene.beats.forEach((b, i) => {
     if (b.kind === 'cut') {
       pending = b.image;
+      if (inline && b.image) {
+        out.push(
+          <figure className="still-in" key={`cut-${i}`}>
+            <img src={imgUrl(b.image)} alt="" onLoad={onPicture} />
+          </figure>,
+        );
+      }
       return;
     }
     const mark = pending ? { 'data-cut': pending } : {};
@@ -83,18 +92,29 @@ export function Opening({ film }: { film: Film }) {
       return;
     }
     const who = film.casts.find((c) => c.key === b.cast);
-    out.push(
-      <div className="say" key={i} {...mark}>
+    const line = (
+      <>
         <Face id={who?.face ?? ''} name={who?.name ?? ''} />
         <span>
           <small>{who?.name}</small>
           <p>{b.text}</p>
         </span>
-      </div>,
+      </>
+    );
+    out.push(
+      onCast && who ? (
+        <button className="say" key={i} {...mark} onClick={() => onCast(who.key)} aria-label={`${who.name}의 프로필 보기`}>
+          {line}
+        </button>
+      ) : (
+        <div className="say" key={i} {...mark}>
+          {line}
+        </div>
+      ),
     );
   });
-  // 맨 끝에 건 컷: 오프닝을 다 읽으면 걸린다
-  if (pending) out.push(<i className="mark" key="end" data-cut={pending} />);
+  // 맨 끝에 건 컷: 오프닝을 다 읽으면 걸린다(다 읽은 뒤에는 그 자리에 그림이 이미 서 있다)
+  if (pending && !inline) out.push(<i className="mark" key="end" data-cut={pending} />);
   return <div className="opening">{out}</div>;
 }
 
@@ -300,6 +320,13 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
     return !el || restOf(el) <= 12;
   };
 
+  /** 맨 아래를 보고 있었나. 다 읽은 오프닝의 그림이 늦게 와서 위가 길어져도 맨 아래를 지킨다 */
+  const bottom = useRef(true);
+  const keepBottom = () => {
+    const el = flow.current;
+    if (el && bottom.current && !reading) el.scrollTop = el.scrollHeight;
+  };
+
   /** 읽는 자리에 맞는 컷을 고른다. 표시가 달린 줄 가운데, 읽는 자리를 지난 마지막 줄의 컷이다.
       읽는 자리는 보통 흐름의 위에서 2/5다. 끝이 가까워지면 아래로 내려가서, 맨 끝에서는 흐름의 바닥이 된다 —
       그래야 마지막 화면에 든 줄들의 컷도 차례로 걸리고, 다 읽으면 마지막 컷이 남는다 */
@@ -321,6 +348,7 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
   };
 
   const onScroll = () => {
+    bottom.current = atEnd();
     cancelAnimationFrame(tick.current);
     tick.current = requestAnimationFrame(look);
     // 끝에 닿아 멈추면 오프닝 읽기가 끝난다. 미끄러져 내려가는 중에는 기다린다
@@ -337,7 +365,10 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
     if (reading && atEnd()) setReading(false);
     // 맨 아래 여백까지 내린다 — 마지막 줄이 말하는 칸 위로 올라와 가리지 않게
     const el = flow.current;
-    if (!reading && el) el.scrollTop = el.scrollHeight;
+    if (!reading && el) {
+      el.scrollTop = el.scrollHeight;
+      bottom.current = true;
+    }
     look();
   }, [view, out, waiting, reading]);
 
@@ -549,7 +580,7 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
       </div>
 
       <section className="flow" aria-live="polite" ref={flow} onScroll={onScroll}>
-        {fs.beats.length > 0 && <Opening film={film} />}
+        {fs.beats.length > 0 && <Opening film={film} inline={!reading} onPicture={keepBottom} onCast={profile} />}
         <MeCard me={film.persona} onEdit={() => go(`/play/${playId}/me`)} />
 
         {items.map(({ m, a }, i) =>

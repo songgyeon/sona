@@ -237,7 +237,7 @@ function OpeningPeek({ film, onAgain }: { film: Film; onAgain: () => void }) {
         )}
       </p>
       <section className="flow" ref={flow} onScroll={onScroll}>
-        {film.firstScene.beats.length > 0 && <Opening film={film} />}
+        {film.firstScene.beats.length > 0 && <Opening film={film} inline={!reading} />}
         <MeCard me={film.persona} />
         {!reading && (
           <div className="pvend">

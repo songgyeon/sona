@@ -362,6 +362,10 @@ button:disabled { opacity: 0.4; cursor: default; }
 .opening + .tell { margin-top: 12px; }
 .opening + .say, .opening + .msg { margin-top: 22px; }
 .mark { display: block; height: 0; }
+/* 오프닝을 다 읽은 뒤: 디렉터가 컷을 넣은 자리에 그 그림이 흐름의 폭 가득 선다. 읽는 동안에는 위 화면에만 걸린다 */
+.still-in { margin: 22px calc(var(--pad) * -1); }
+.opening > .still-in:first-child { margin-top: 0; }
+.still-in img { display: block; width: 100%; height: auto; max-height: 80dvh; object-fit: cover; }
 
 /* 한편: 내가 없는 자리에서 두 사람이 나눈 장면이 있다고 알리는 줄 */
 .aside { width: 100%; margin: 26px 0 6px; padding: 16px 0 17px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: 14px; text-align: left; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
