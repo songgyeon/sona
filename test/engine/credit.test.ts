@@ -80,6 +80,9 @@ describe('캐스트의 나이·직업·대표 대사', () => {
     const [hanseo, jihu] = of('reply').at(-1)!.split('\n\n이름: 지후') as [string, string];
     expect(hanseo).toContain(`- 나이: ${CREDIT.age}`);
     expect(hanseo).toContain(`- 직업: ${CREDIT.job}`);
+    // 관계 칸은 어느 쪽에서 본 말로든 적힌다 — 방향을 정해 말하지 않고 「○○과의 관계」로 건넨다
+    expect(hanseo).toContain(`- 수아와의 관계: ${DEV_FILM.casts[0]!.role}`);
+    expect(of('gap').find((c) => c.includes('이름: 한서'))).toContain(`수아와의 관계: ${DEV_FILM.casts[0]!.role}`);
     expect(jihu).not.toMatch(/- (나이|직업):/);
     // 혼자 보낸 시간과 먼저 거는 연락: 그 사람이 되어 쓴다
     expect(of('gap').find((c) => c.includes('이름: 한서'))).toContain(`나이: ${CREDIT.age}\n직업: ${CREDIT.job}`);

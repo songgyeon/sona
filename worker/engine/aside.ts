@@ -77,7 +77,7 @@ function card(film: Film, who: Cast, other: Cast): string {
   const out: string[] = [`이름: ${who.name}`];
   if (who.age) out.push(`- 나이: ${who.age}`);
   if (who.job) out.push(`- 직업: ${who.job}`);
-  if (who.role) out.push(`- ${me}에게는: ${who.role}`);
+  if (who.role) out.push(`- ${josa(me, '과', '와')}의 관계: ${who.role}`);
   if (who.speech) out.push(`- 말투: ${who.speech}`);
   if (who.nature) out.push(`- 성격: ${who.nature}`);
   if (who.habit) out.push(`- 습관: ${who.habit}`);

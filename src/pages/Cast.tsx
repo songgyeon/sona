@@ -64,8 +64,10 @@ export function Cast({ filmId, playId, castKey, go }: { filmId?: string; playId?
   /** 사진마다 필름 번호: 이 사람이 올린 사진 가운데 몇째인가 */
   const photoNo = new Map(data.posts.filter((p) => p.data.kind === 'photo').map((p, i) => [p.id, i + 1]));
   const back = playId ? `/play/${playId}` : `/film/${filmId}`;
-  // 나이와 직업이 생기기 전의 필름에는 그 칸이 없다
-  const credit = [cast.age, cast.job, cast.role].filter((s) => s && s.trim()).join(' · ');
+  // 배역 줄은 「나이 · 직업」만이다. 관계 칸은 디렉터가 문장으로, 어느 쪽에서 본 말로든 적는 칸이라 이 줄에 끼면 누구 얘기인지 흐려졌다
+  // (2026-11-13 사용자: 「애초에 관계가 왜 저기에 저런 식으로 나오나요」 — 「29세 · 배우 · 목숨을 구해 준 사람. 밥집 사장님.」).
+  // 나이·직업이 없는 예전 필름만 관계를 그 자리에 둔다
+  const credit = [cast.age, cast.job].filter((s) => s && s.trim()).join(' · ') || cast.role.trim();
   const quote = (cast.quote ?? '').trim();
 
   return (
@@ -81,7 +83,7 @@ export function Cast({ filmId, playId, castKey, go }: { filmId?: string; playId?
       <section className="who">
         <Face id={cast.face ?? ''} name={cast.name} />
         <h1 className="title">{cast.name}</h1>
-        {/* 영화의 배역 소개처럼: 나이 · 직업 · 나와의 관계, 그리고 대표 대사 */}
+        {/* 영화의 배역 소개처럼: 나이 · 직업, 그리고 대표 대사 */}
         {credit && <p className="credit">{credit}</p>}
         {/* 대표 대사는 프로필에만 선다. 디렉터가 따옴표를 쳐서 적었으면 그대로 둔다 */}
         {quote && <p className="quote">{/^[「『"“‘']/.test(quote) ? quote : `「${quote}」`}</p>}

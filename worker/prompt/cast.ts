@@ -32,7 +32,8 @@ export function castLayer(film: Film, cast: Cast): string {
   // 나이와 직업은 프로필에도 서는 칸이다. 대표 대사는 프로필에만 두고 여기에 싣지 않는다
   if (cast.age) out.push(`나이: ${cast.age}`);
   if (cast.job) out.push(`직업: ${cast.job}`);
-  if (cast.role) out.push(`${me}에게 너는: ${cast.role}`);
+  // 관계 칸은 디렉터가 어느 쪽에서 본 말로든 적는다. 방향을 정해 말하지 않고, 카드의 나머지와 같이 읽게 한다
+  if (cast.role) out.push(`${josa(me, '과', '와')}의 관계: ${cast.role}`);
   if (cast.callsUser) out.push(`${josa(me, '을', '를')} 부르는 말: ${cast.callsUser}`);
   if (cast.speech) out.push(`말투: ${cast.speech}`);
   if (cast.nature) out.push(`성격: ${cast.nature}`);
@@ -85,7 +86,7 @@ export function castsLayer(film: Film): string {
     out.push(`이름: ${cast.name}`);
     if (cast.age) out.push(`- 나이: ${cast.age}`);
     if (cast.job) out.push(`- 직업: ${cast.job}`);
-    if (cast.role) out.push(`- ${me}에게는: ${cast.role}`);
+    if (cast.role) out.push(`- ${josa(me, '과', '와')}의 관계: ${cast.role}`);
     if (cast.callsUser) out.push(`- ${josa(me, '을', '를')} 부르는 말: ${cast.callsUser}`);
     if (cast.aliases.length > 0) {
       const last = cast.aliases[cast.aliases.length - 1]!;

@@ -430,8 +430,8 @@ export function Create({ go, editId, draftId }: { go: Go; editId?: string; draft
                       <input value={c.job} maxLength={RULES.limits.job} placeholder="예) 방송부 부장" onChange={(e) => setCast(i, 'job', e.target.value)} />
                     </Field>
                   </div>
-                  {/* 이 사람이 내 배역에게 누구인지다. 거꾸로(내 배역이 이 사람에게 누구인지) 적으면 대사 모델에게도 거꾸로 간다 */}
-                  <Field label={`${josa(me, '과', '와')}의 관계`} hint={`${josa(c.name.trim() || '이 사람', '이', '가')} ${me}에게 어떤 사람인지 적어 주세요.`}>
+                  {/* 두 사람이 어떤 사이인지. 어느 쪽에서 본 말로 적어도 대사 모델은 「○○과의 관계」로 받아 카드와 같이 읽는다. 프로필에는 서지 않는다 */}
+                  <Field label={`${josa(me, '과', '와')}의 관계`} hint="두 사람이 어떤 사이인지 적어 주세요.">
                     <input value={c.role} maxLength={RULES.limits.short} placeholder="예) 같이 입학한 동기" onChange={(e) => setCast(i, 'role', e.target.value)} />
                   </Field>
                   <Field label="대표 대사" optional count={[c.quote.length, RULES.limits.quote]} hint="프로필에 영화 배역 소개처럼 서요.">
