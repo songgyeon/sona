@@ -60,14 +60,19 @@ export function castLayer(film: Film, cast: Cast): string {
     out.push('[네가 아는 사람들]');
     for (const o of others) {
       const tie = film.ties.find((t) => t.from === cast.key && t.to === o.key);
-      const bits: string[] = [];
-      if (tie?.relation) bits.push(tie.relation);
-      if (tie?.calls) bits.push(`너는 이 사람을 「${tie.calls}」${pick(tie.calls, '이라고', '라고')} 부른다`);
+      const back = film.ties.find((t) => t.from === o.key && t.to === cast.key);
+      // 그 사람의 나이·직업을 이름 옆에 둔다. 디렉터는 사이를 어느 쪽에서 본 말로든 적는다(「네 살 위」) —
+      // 이름 바로 뒤에 붙이면 그 사람 얘기로 읽혀서 방향 없이 「둘의 사이」로 건네고, 서로 부르는 말을 둘 다 둔다.
+      // (2026-11-14: 「PICK ME!」 차유결(26세)의 카드에 「유세온: 데뷔 동기, 네 살 위」로 갔고, 유결의 일기가 세온을 「세온 형」이라고 불렀다)
+      const credit = [o.age, o.job].filter((s) => s && s.trim()).join(' · ');
+      out.push(credit ? `- ${o.name} (${credit})` : `- ${o.name}`);
+      if (tie?.relation) out.push(`  - 둘의 사이: ${tie.relation}`);
+      if (tie?.calls) out.push(`  - 너는 이 사람을 「${tie.calls}」${pick(tie.calls, '이라고', '라고')} 부른다`);
+      if (back?.calls) out.push(`  - 이 사람은 너를 「${back.calls}」${pick(back.calls, '이라고', '라고')} 부른다`);
       if (o.aliases.length > 0) {
         const last = o.aliases[o.aliases.length - 1]!;
-        bits.push(`${josa(me, '은', '는')} 「${o.aliases.join('」, 「')}」${pick(last, '이라고도', '라고도')} 부른다`);
+        out.push(`  - ${josa(me, '은', '는')} 「${o.aliases.join('」, 「')}」${pick(last, '이라고도', '라고도')} 부른다`);
       }
-      out.push(`- ${o.name}${bits.length > 0 ? ': ' + bits.join('. ') : ''}`);
     }
   }
 
