@@ -109,6 +109,17 @@ describe('피드: 이야기 전 며칠 치', () => {
     expect(entered.posts.filter((p) => p.cast === 'c2')).toHaveLength(0);
   });
 
+  it('예에는 켜 둔 것 가운데 일기·노래·검색어의 예가 먼저 선다 — 이야기 전 일기가 마음을 그대로 말하던 때는 영화와 노래의 예뿐이었다', async () => {
+    const { calls } = await setup();
+    const sys = calls('past')[0]!.layers.system;
+    const examples = sys.split('[예]')[1]!.trim().split('\n');
+    expect(examples).toHaveLength(4);
+    expect(examples[0]).toMatch(/^4일 전 \| 일기 \| /);
+    expect(examples[1]).toMatch(/^3일 전 \| 노래 \| /);
+    expect(examples[2]).toMatch(/^2일 전 \| 검색 \| /);
+    expect(examples[3]).toBe('1일 전 | 없음');
+  });
+
   it('장면을 쓰는 작가에게 「아는 일」로 건네지 않는다', async () => {
     const { send, calls } = await setup();
     await send('안녕하세요.');

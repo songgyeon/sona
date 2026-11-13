@@ -29,7 +29,9 @@ export interface WorldNow {
 export function worldAt(c: Clock, elapsed = c.elapsed): WorldNow {
   const a = abs(c, elapsed);
   const day = Math.floor(a / DAY);
-  return { dow: (c.startDow + day) % 7, min: ((a % DAY) + DAY) % DAY, day };
+  // 이야기 전 며칠(흐른 분이 음수)은 시작 요일보다 앞 주로 넘어갈 수 있다. 음수 요일을 한 바퀴 돌린다
+  // (2026-11-13: 월요일에 시작하는 필름의 토요일 밤 피드가 「undefined 오후 11:07」로 떴고, 대사 모델에게도 「undefined 밤」으로 갔다)
+  return { dow: (((c.startDow + day) % 7) + 7) % 7, min: ((a % DAY) + DAY) % DAY, day };
 }
 
 export function formatMin(min: number): string {
