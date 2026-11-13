@@ -5,6 +5,7 @@ import { formatWorld } from '../../shared/clock';
 import { draftTitle } from '../../shared/draft';
 import { fillCard, fillUser } from '../../shared/roles';
 import type { FilmCard, PlayCard } from '../../shared/types';
+import { matches, topTags } from '../../shared/tags';
 import { ApiFail, api } from '../api';
 import { drafts, dropFilmFlow, syncDrafts } from '../drafts';
 import { Next, Search } from '../icons';
@@ -45,9 +46,16 @@ function useFilms(): [FilmCard[] | null, string] {
 /** 아카이브. 제목, 한 줄, 캐스트 이름으로 찾는다 */
 export function Find({ go }: { go: (to: string) => void }) {
   const [films, err] = useFilms();
-  const [word, setWord] = useState('');
+  // 필름 정보의 해시태그를 눌러 왔으면 그 해시태그로 찾는다
+  const [word, setWord] = useState(() => {
+    const tag = new URLSearchParams(window.location.search).get('tag');
+    return tag ? `#${tag}` : '';
+  });
   const w = word.trim();
-  const found = (films ?? []).filter((f) => !w || [f.title, f.logline, ...f.castNames].some((s) => s.includes(w)));
+  const found = (films ?? []).filter((f) => matches(f, w));
+  /** 많이 붙은 해시태그. 누르면 그 해시태그로 찾고, 다시 누르면 푼다 */
+  const tags = topTags(films ?? [], 12);
+  const picked = w.startsWith('#') ? w.replace(/^#+/, '').toLowerCase() : '';
 
   return (
     <main className="app tabbed page">
@@ -55,8 +63,20 @@ export function Find({ go }: { go: (to: string) => void }) {
       <label className="find">
         <Search />
         <span className="sr">찾을 말</span>
-        <input value={word} onChange={(e) => setWord(e.target.value)} placeholder="제목이나 캐스트 이름" autoComplete="off" />
+        <input value={word} onChange={(e) => setWord(e.target.value)} placeholder="제목, 캐스트 이름, #해시태그" autoComplete="off" />
       </label>
+      {tags.length > 0 && (
+        <div className="tagbar" aria-label="해시태그">
+          {tags.map((t) => {
+            const on = picked === t.toLowerCase();
+            return (
+              <button key={t} className={on ? 'tag on' : 'tag'} aria-pressed={on} onClick={() => setWord(on ? '' : `#${t}`)}>
+                #{t}
+              </button>
+            );
+          })}
+        </div>
+      )}
       {err && <p className="warn sect">{err}</p>}
       {films !== null && found.length === 0 && (
         <div className="empty">
@@ -68,6 +88,7 @@ export function Find({ go }: { go: (to: string) => void }) {
           <Row key={f.id} poster={f.poster} title={f.title} onClick={() => go(`/film/${f.id}`)}>
             {f.logline && <span>{f.logline}</span>}
             <em>{f.castNames.join(' · ')}</em>
+            {(f.tags ?? []).length > 0 && <small className="rowtags">{f.tags.map((t) => `#${t}`).join(' ')}</small>}
           </Row>
         ))}
       </ul>

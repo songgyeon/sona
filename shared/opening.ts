@@ -16,6 +16,8 @@ export function readFilm(saved: Film): Film {
     ...saved,
     opens: { ...saved.opens, aside: saved.opens?.aside === true },
     extras: saved.extras ?? [],
+    // 해시태그가 생기기 전의 필름. 없는 것으로 읽는다
+    tags: Array.isArray(saved.tags) ? saved.tags : [],
     // 배경 음악과 오프닝 영상이 생기기 전의 필름. 없는 것으로 읽는다
     bgm: saved.bgm ?? '',
     bgmName: saved.bgmName ?? '',

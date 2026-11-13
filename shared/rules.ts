@@ -201,6 +201,9 @@ export const RULES = {
     /** 말하는 칸 하나에 쓰는 글(대사와 지문을 합쳐) */
     say: 800,
     title: 40,
+    /** 해시태그: 개수와 하나의 길이 */
+    tags: 10,
+    tag: 12,
     logline: 80,
     setting: 600,
     short: 80,

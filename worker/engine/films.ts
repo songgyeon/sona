@@ -1,5 +1,6 @@
 /* 필름 — 디렉터가 쓴 것을 받아 확인하고 저장한다. */
 
+import { readTags } from '../../shared/tags';
 import { RULES } from '../../shared/rules';
 import { readFilm } from '../../shared/opening';
 import { FEED_KINDS } from '../../shared/feed';
@@ -33,6 +34,16 @@ function list(v: unknown, maxItems: number, maxLen: number, name: string): strin
   const out = v.map((x) => text(x, maxLen, name)).filter((s) => s.length > 0);
   if (out.length > maxItems) throw new Fail(400, 'film_invalid', `${name}: ${maxItems}개까지 넣을 수 있어요.`);
   return out;
+}
+
+/** 해시태그. #·빈칸·쉼표로 나눠 고르고, 같은 것은 한 번만. 개수와 길이를 넘으면 알린다 */
+function tagsOf(v: unknown): string[] {
+  if (v == null) return [];
+  if (!Array.isArray(v) || v.some((x) => typeof x !== 'string')) throw new Fail(400, 'film_invalid', '해시태그 칸이 올바르지 않아요.');
+  const tags = readTags((v as string[]).join(' '));
+  if (tags.length > RULES.limits.tags) throw new Fail(400, 'film_invalid', `해시태그는 ${RULES.limits.tags}개까지 넣을 수 있어요.`);
+  if (tags.some((t) => [...t].length > RULES.limits.tag)) throw new Fail(400, 'film_invalid', `해시태그는 하나에 ${RULES.limits.tag}자까지 쓸 수 있어요.`);
+  return tags;
 }
 
 /** 올려 둔 그림을 가리키는 값. 비어 있어도 된다 */
@@ -287,6 +298,7 @@ export function parseFilm(input: unknown): Film {
   return {
     title: text(f.title, L.title, '제목', true),
     logline: text(f.logline, L.logline, '한 줄 소개'),
+    tags: tagsOf(f.tags),
     poster: image(f.poster, '포스터'),
     stills,
     setting: text(f.setting, L.setting, '배경'),
@@ -368,6 +380,7 @@ function card(row: FilmRow, visitor: string): FilmCard {
     logline: row.logline,
     poster: film.poster ?? '',
     castNames: film.casts.map((c) => c.name),
+    tags: film.tags,
     personaName: film.persona.name,
     personaLine: film.persona.line,
     mine: row.owner === visitor,

@@ -141,6 +141,16 @@ export function Film({ filmId, go }: { filmId: string; go: Go }) {
       <section className="head">
         <h1 className={titleClass(film.title)}>{film.title}</h1>
         {film.logline && <p className="line1">{film.logline}</p>}
+        {/* 해시태그. 누르면 아카이브에서 그 해시태그로 찾는다 */}
+        {(film.tags ?? []).length > 0 && (
+          <p className="tags">
+            {film.tags.map((t) => (
+              <button key={t} className="tag" onClick={() => go(`/find?tag=${encodeURIComponent(t)}`)}>
+                #{t}
+              </button>
+            ))}
+          </p>
+        )}
         <div className="go">
           {/* 들어가는 사람: 지금 고른 사람 한 칸. 누르면 입장권 모양의 목록이 뜬다 */}
           <AsSlot

@@ -179,6 +179,17 @@ button:disabled { opacity: 0.4; cursor: default; }
 .info .head .title { font-size: clamp(32px, 11.8vw, 46px); }
 .info .head .title.long { font-size: clamp(24px, 8vw, 34px); }
 .info .line1 { margin-top: 10px; }
+/* 해시태그. 필름 정보에서는 누르면 아카이브에서 그 해시태그로 찾는다 */
+.tags { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.tags .tag { font-size: 13px; font-weight: 500; letter-spacing: 0.02em; color: var(--ink-2); }
+.tags button.tag { text-decoration: underline; text-decoration-color: var(--ink-4); text-underline-offset: 4px; }
+.tags .tag.over { opacity: 0.45; }
+/* 아카이브: 많이 붙은 해시태그. 옆으로 밀어 본다. 누르면 그 해시태그로 찾고, 다시 누르면 푼다 */
+.tagbar { display: flex; gap: 8px; margin: 14px 0 4px; padding: 0 var(--pad); scroll-padding: 0 var(--pad); overflow-x: auto; scrollbar-width: none; }
+.tagbar::-webkit-scrollbar { display: none; }
+.tagbar .tag { flex: none; height: 32px; padding: 0 13px; border: 1px solid var(--ink-4); border-radius: 16px; font-size: 13px; font-weight: 500; color: var(--ink-2); }
+.tagbar .tag.on { background: var(--ink); border-color: var(--ink); color: #000; }
+.filmrow .rowtags { display: block; margin-top: 4px; font-size: 12px; letter-spacing: 0.02em; color: var(--ink-3); }
 .go { margin-top: 24px; display: grid; gap: 14px; justify-items: center; }
 /* 만든 사람에게만 보이는 단추들 */
 .own { display: flex; gap: 24px; }

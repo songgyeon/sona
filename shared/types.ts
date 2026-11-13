@@ -4,6 +4,8 @@
 export interface Film {
   title: string;
   logline: string;
+  /** 해시태그. #은 빼고 둔다. 해시태그가 생기기 전의 필름은 비어 있다(readFilm) */
+  tags: string[];
   /** 포스터 그림. 없으면 빈 글자 */
   poster: string;
   /** 장면의 컷들 */
@@ -319,6 +321,7 @@ export interface FilmCard {
   logline: string;
   poster: string;
   castNames: string[];
+  tags: string[];
   personaName: string;
   personaLine: string;
   mine: boolean;

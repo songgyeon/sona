@@ -2,6 +2,7 @@
    계산뿐이라 화면 없이도 돌려 볼 수 있다 — 고치기는 필름을 칸으로 되돌려 놓는 데서 시작한다. */
 
 import { FEED_KINDS } from './feed';
+import { readTags } from './tags';
 import { RULES } from './rules';
 import { renameIn } from './ko';
 import { fillFilm, standIn } from './roles';
@@ -76,6 +77,8 @@ export interface DraftBeat {
 export interface Draft {
   title: string;
   logline: string;
+  /** 해시태그를 적은 그대로(「#집착 #재벌」). 필름으로 갈 때 고른다 */
+  tags: string;
   poster: string;
   setting: string;
   startDow: number;
@@ -138,6 +141,7 @@ export const blankCast = (): DraftCast => ({
 export const blankDraft = (): Draft => ({
   title: '',
   logline: '',
+  tags: '',
   poster: '',
   setting: '',
   startDow: 5,
@@ -189,6 +193,7 @@ export function toFilm(d: Draft): unknown {
     private: d.private,
     title: d.title,
     logline: d.logline,
+    tags: readTags(d.tags),
     poster: d.poster,
     setting: d.setting,
     startDow: d.startDow,
@@ -297,6 +302,7 @@ export function fromFilm(f: Film): Draft {
   return {
     title: f.title,
     logline: f.logline,
+    tags: f.tags.map((t) => `#${t}`).join(' '),
     poster: f.poster ?? '',
     setting: f.setting,
     startDow: f.startDow,
@@ -415,6 +421,7 @@ export function isBlank(d: Draft): boolean {
   const written = [
     d.title,
     d.logline,
+    d.tags,
     d.poster,
     d.setting,
     d.personaName,

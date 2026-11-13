@@ -6,6 +6,7 @@ import { lengthOf } from '../../shared/reel';
 import { josa, pick as pickJosa } from '../../shared/ko';
 import { standIn } from '../../shared/roles';
 import { DOW_NAMES, RULES } from '../../shared/rules';
+import { readTags } from '../../shared/tags';
 import type { FeedKind, FeedPhoto } from '../../shared/types';
 import { ApiFail, api, imgUrl, newId, uploadImage } from '../api';
 import { FacePick } from '../crop';
@@ -349,6 +350,18 @@ export function Create({ go, editId, draftId }: { go: Go; editId?: string; draft
                   onChange={(e) => set('logline', e.target.value)}
                 />
               </Field>
+              <Field label="해시태그" count={[readTags(d.tags).length, RULES.limits.tags]} hint={`띄어 쓰거나 #으로 나눠서 ${RULES.limits.tags}개까지 적을 수 있어요.`}>
+                <input value={d.tags} placeholder="예) #집착 #재벌 #혐관" autoComplete="off" onChange={(e) => set('tags', e.target.value)} />
+              </Field>
+              {readTags(d.tags).length > 0 && (
+                <p className="tags">
+                  {readTags(d.tags).map((t) => (
+                    <span key={t} className={[...t].length > RULES.limits.tag ? 'tag over' : 'tag'}>
+                      #{t}
+                    </span>
+                  ))}
+                </p>
+              )}
             </Card>
           </>
         )}

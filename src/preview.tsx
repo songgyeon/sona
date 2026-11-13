@@ -79,6 +79,15 @@ function FilmPeek({ film, onEnter }: { film: Film; onEnter: () => void }) {
       <section className="head">
         <h1 className={titleClass(film.title)}>{film.title}</h1>
         {film.logline && <p className="line1">{film.logline}</p>}
+        {(film.tags ?? []).length > 0 && (
+          <p className="tags">
+            {film.tags.map((t) => (
+              <span key={t} className="tag">
+                #{t}
+              </span>
+            ))}
+          </p>
+        )}
         <div className="go">
           <div className="asme">
             <p>들어가는 사람</p>
