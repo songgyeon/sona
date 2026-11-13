@@ -20,6 +20,9 @@ export function castLayer(film: Film, cast: Cast): string {
 
   out.push('[너]');
   out.push(`이름: ${cast.name}`);
+  // 나이와 직업은 프로필에도 서는 칸이다. 대표 대사는 프로필에만 두고 여기에 싣지 않는다
+  if (cast.age) out.push(`나이: ${cast.age}`);
+  if (cast.job) out.push(`직업: ${cast.job}`);
   if (cast.role) out.push(`${me}에게 너는: ${cast.role}`);
   if (cast.callsUser) out.push(`${josa(me, '을', '를')} 부르는 말: ${cast.callsUser}`);
   if (cast.speech) out.push(`말투: ${cast.speech}`);
@@ -72,6 +75,8 @@ export function castsLayer(film: Film): string {
   film.casts.forEach((cast, i) => {
     if (i > 0) out.push('');
     out.push(`이름: ${cast.name}`);
+    if (cast.age) out.push(`- 나이: ${cast.age}`);
+    if (cast.job) out.push(`- 직업: ${cast.job}`);
     if (cast.role) out.push(`- ${me}에게는: ${cast.role}`);
     if (cast.callsUser) out.push(`- ${josa(me, '을', '를')} 부르는 말: ${cast.callsUser}`);
     if (cast.aliases.length > 0) {

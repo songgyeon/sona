@@ -408,17 +408,29 @@ export function Create({ go, editId, draftId }: { go: Go; editId?: string; draft
                     </Field>
                   </div>
 
+                  {/* 나이·직업·관계는 프로필에서 배역 줄 하나로 선다(「27세 · 회사원 · 동기」) */}
+                  <div className="two lean">
+                    <Field label="나이" optional>
+                      <input value={c.age} maxLength={RULES.limits.age} placeholder="예) 18세" onChange={(e) => setCast(i, 'age', e.target.value)} />
+                    </Field>
+                    <Field label="직업" optional>
+                      <input value={c.job} maxLength={RULES.limits.job} placeholder="예) 방송부 부장" onChange={(e) => setCast(i, 'job', e.target.value)} />
+                    </Field>
+                  </div>
+                  <Field label={`${josa(me, '과', '와')}의 관계`}>
+                    <input value={c.role} maxLength={RULES.limits.short} placeholder="예) 같이 입학한 동기" onChange={(e) => setCast(i, 'role', e.target.value)} />
+                  </Field>
+                  <Field label="대표 대사" optional count={[c.quote.length, RULES.limits.quote]} hint="프로필에 영화 배역 소개처럼 서요.">
+                    <input value={c.quote} maxLength={RULES.limits.quote} placeholder="예) 큐 사인은 내가 줄게." onChange={(e) => setCast(i, 'quote', e.target.value)} />
+                  </Field>
                   <Field label="소개" optional count={[c.intro.length, RULES.limits.intro]} hint="프로필에 보이는 첫인상이에요.">
                     <textarea
                       rows={3}
                       value={c.intro}
                       maxLength={RULES.limits.intro}
-                      placeholder="예) 방송부 부장. 무뚝뚝해 보여도 부원들의 생일은 다 외운다."
+                      placeholder="예) 무뚝뚝해 보여도 부원들의 생일은 다 외운다."
                       onChange={(e) => setCast(i, 'intro', e.target.value)}
                     />
-                  </Field>
-                  <Field label={`${josa(me, '과', '와')}의 관계`}>
-                    <input value={c.role} maxLength={RULES.limits.short} placeholder="예) 방송부 부장. 같이 입학한 동기" onChange={(e) => setCast(i, 'role', e.target.value)} />
                   </Field>
                   <Field label={`${josa(me, '을', '를')} 부르는 말`}>
                     <input value={c.callsUser} maxLength={20} placeholder="예) 다온아" onChange={(e) => setCast(i, 'callsUser', e.target.value)} />

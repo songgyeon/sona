@@ -40,6 +40,11 @@ export interface DraftCast {
   face: string;
   aliases: string;
   role: string;
+  /** 나이와 직업 — 프로필의 배역 줄에 서고 대사 모델도 읽는다 */
+  age: string;
+  job: string;
+  /** 대표 대사 — 프로필에만 선다 */
+  quote: string;
   /** 소개 — 프로필에 보여 주기만 한다 */
   intro: string;
   callsUser: string;
@@ -121,6 +126,9 @@ export const blankCast = (): DraftCast => ({
   face: '',
   aliases: '',
   role: '',
+  age: '',
+  job: '',
+  quote: '',
   callsUser: '',
   speech: '',
   nature: '',
@@ -210,6 +218,9 @@ export function toFilm(d: Draft): unknown {
       face: c.face,
       aliases: split(c.aliases, /[,，\n]/),
       role: c.role,
+      age: c.age,
+      job: c.job,
+      quote: c.quote,
       callsUser: c.callsUser,
       speech: c.speech,
       nature: c.nature,
@@ -326,6 +337,9 @@ export function fromFilm(f: Film): Draft {
       face: c.face ?? '',
       aliases: c.aliases.join(', '),
       role: c.role,
+      age: c.age ?? '',
+      job: c.job ?? '',
+      quote: c.quote ?? '',
       callsUser: c.callsUser,
       speech: c.speech,
       nature: c.nature ?? '',
@@ -429,7 +443,7 @@ export function isBlank(d: Draft): boolean {
     d.personaFace,
     ...(d.roles ?? []).flatMap((r) => [r.name, r.line, r.face, ...r.extras.flatMap((e) => [e.label, e.text])]),
     d.place,
-    ...d.casts.flatMap((c) => [c.name, c.face, c.aliases, c.role, c.intro, c.callsUser, c.speech, c.nature, c.habit, c.trauma, c.lack, c.secret, c.samples, c.dayPlace]),
+    ...d.casts.flatMap((c) => [c.name, c.face, c.aliases, c.role, c.age, c.job, c.quote, c.intro, c.callsUser, c.speech, c.nature, c.habit, c.trauma, c.lack, c.secret, c.samples, c.dayPlace]),
     ...Object.values(d.ties).flatMap((t) => [t.relation, t.calls]),
     ...[...(d.extras ?? []), ...(d.personaExtras ?? []), ...d.casts.flatMap((c) => c.extras ?? [])].flatMap((e) => [e.label, e.text]),
     ...d.casts.flatMap((c) => (c.photos ?? []).map((ph) => ph.id)),

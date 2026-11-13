@@ -30,6 +30,10 @@ export function readFilm(saved: Film): Film {
       ...c,
       nature: c.nature ?? '',
       intro: c.intro ?? '',
+      // 나이·직업·대표 대사가 생기기 전의 캐스트(2026-11-13). 비어 있는 것으로 읽는다
+      age: c.age ?? '',
+      job: c.job ?? '',
+      quote: c.quote ?? '',
       habit: c.habit ?? '',
       trauma: c.trauma ?? '',
       lack: c.lack ?? '',

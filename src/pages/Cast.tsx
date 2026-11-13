@@ -64,6 +64,9 @@ export function Cast({ filmId, playId, castKey, go }: { filmId?: string; playId?
   /** 사진마다 필름 번호: 이 사람이 올린 사진 가운데 몇째인가 */
   const photoNo = new Map(data.posts.filter((p) => p.data.kind === 'photo').map((p, i) => [p.id, i + 1]));
   const back = playId ? `/play/${playId}` : `/film/${filmId}`;
+  // 나이와 직업이 생기기 전의 필름에는 그 칸이 없다
+  const credit = [cast.age, cast.job, cast.role].filter((s) => s && s.trim()).join(' · ');
+  const quote = (cast.quote ?? '').trim();
 
   return (
     <main className="app tabbed">
@@ -78,7 +81,10 @@ export function Cast({ filmId, playId, castKey, go }: { filmId?: string; playId?
       <section className="who">
         <Face id={cast.face ?? ''} name={cast.name} />
         <h1 className="title">{cast.name}</h1>
-        {cast.role && <p className="role">{cast.role}</p>}
+        {/* 영화의 배역 소개처럼: 나이 · 직업 · 나와의 관계, 그리고 대표 대사 */}
+        {credit && <p className="credit">{credit}</p>}
+        {/* 대표 대사는 프로필에만 선다. 디렉터가 따옴표를 쳐서 적었으면 그대로 둔다 */}
+        {quote && <p className="quote">{/^[「『"“‘']/.test(quote) ? quote : `「${quote}」`}</p>}
         {/* 디렉터가 프로필에 보여 주려고 쓴 소개. 대사 모델은 읽지 않는다 */}
         {cast.intro && <p className="intro">{cast.intro}</p>}
         {playId && (
