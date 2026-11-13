@@ -58,7 +58,9 @@ export function Cast({ filmId, playId, castKey, go }: { filmId?: string; playId?
   const cast = film.casts.find((c) => c.key === castKey);
   if (!cast) return <p className="center">이 필름에 없는 인물이에요.</p>;
 
-  const cover = (film.stills ?? [])[0] ?? film.poster ?? '';
+  // 맨 위 그림. 혼자 나오는 필름은 필름의 첫 스틸(없으면 포스터)이다. 여럿이 나오는 필름은 그 사람의 얼굴이다 —
+  // 필름의 스틸에는 다른 캐스트가 있을 수 있다(2026-11-14 리뷰: 「PICK ME!」 차유결의 프로필 위에 유세온 그림이 걸려 있었다)
+  const cover = film.casts.length > 1 ? (cast.face ?? '') : ((film.stills ?? [])[0] ?? film.poster ?? '');
   const clock = { startDow: film.startDow, startMin: film.startMin, elapsed: data.elapsed ?? 0 };
   const posts = [...data.posts].reverse();
   /** 사진마다 필름 번호: 이 사람이 올린 사진 가운데 몇째인가 */
