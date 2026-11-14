@@ -9,6 +9,7 @@ import type { Cast, Film } from '../../shared/types';
 import type { Layers } from '../model/index';
 import { castLayer } from '../prompt/cast';
 import { stamp, when, type SceneEvent, type SceneLine } from '../prompt/scene';
+import { RATING } from '../prompt/system';
 
 export const GAP_SYSTEM = `너는 필름 속 한 사람이 보낸 시간을 적는 기록자다. 대화를 쓰는 자리가 아니다.
 
@@ -25,6 +26,8 @@ export const GAP_SYSTEM = `너는 필름 속 한 사람이 보낸 시간을 적�
 - 큰 사건을 만들지 않는다. 평범한 하루의 조각이면 된다.
 - [너]에 트라우마, 결핍, 비밀이 적혀 있으면 그것은 그 사람의 속사정이다. 말거리에는 그 내용을 적지 않는다.
 - 줄만 쓴다. 다른 말을 붙이지 않는다.
+
+${RATING}
 
 [예]
 19:20 | 일상 | 퇴근길에 편의점에서 컵라면을 샀다.

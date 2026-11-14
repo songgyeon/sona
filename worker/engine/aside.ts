@@ -9,6 +9,7 @@ import { RULES } from '../../shared/rules';
 import type { Cast, Film } from '../../shared/types';
 import type { Layers } from '../model/index';
 import { type SceneEvent, when } from '../prompt/scene';
+import { RATING } from '../prompt/system';
 import { labelOf, PERSONA, speakerOf, unquote } from './speakers';
 
 export const ASIDE_SYSTEM = `너는 「소나」의 필름 속 한 장면을 쓰는 작가다. [두 사람]이 [때]에 만나 나누는 짧은 장면을 쓴다.
@@ -20,6 +21,8 @@ export const ASIDE_SYSTEM = `너는 「소나」의 필름 속 한 장면을 쓰
 - 두 사람의 사이, 서로를 부르는 말, 말투는 [두 사람]에 적힌 그대로 쓴다.
 - [두 사람]에 트라우마, 결핍, 비밀이 적혀 있으면 그것은 그 사람의 속사정이다. 장면에서 풀어 설명하거나 털어놓지 않는다. 말과 행동에 묻어날 뿐이다. 비밀은 적힌 사람만 안다. 상대가 안다고 적혀 있지 않으면 상대는 모르는 일이다.
 - 큰 사건을 만들지 않는다. 평범한 하루의 한 토막이면 된다. 시간을 건너뛰지 않는다.
+
+${RATING}
 
 [쓰는 법]
 - 첫 줄은 반드시 이 모양: 장소 | 두 사람이 있는 곳
