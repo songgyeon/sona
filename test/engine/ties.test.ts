@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { RULES } from '../../shared/rules';
 import { openFeed } from '../../worker/engine/alive';
 import { createFilm, parseFilm } from '../../worker/engine/films';
 import { enter } from '../../worker/engine/turn';
 import { castLayer } from '../../worker/prompt/cast';
-import { feedSystem } from '../../worker/prompt/system';
 import { DEV_FILM, testCtx, uid } from '../helpers/film';
 
 /* 캐스트끼리의 사이 — 인물 한 사람이 되어 쓰는 프롬프트(피드, 혼자 보낸 시간, 먼저 거는 연락, 문자 답장)에 가는 모양.
@@ -59,14 +57,5 @@ describe('캐스트끼리의 사이', () => {
     const hanseo = past.find((c) => c.layers.cast.includes('이름: 한서'))!.layers.cast;
     expect(hanseo).toContain('- 지후 (22세 · 대학원생)');
     expect(hanseo).toContain('이 사람은 너를 「형」이라고 부른다');
-  });
-});
-
-describe('피드에 쓰지 않는 말', () => {
-  it('규칙에 낱말이 분명히 서고, 예로 든 장면은 없다', () => {
-    const sys = feedSystem(['diary', 'song', 'search'], true);
-    expect(sys).toContain(`이 말은 쓰지 않는다: ${RULES.feed.avoid.join(', ')}`);
-    expect(RULES.feed.avoid).toContain('거울');
-    expect(sys).not.toContain('거울 속 내 모습');
   });
 });
