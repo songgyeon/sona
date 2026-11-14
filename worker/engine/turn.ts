@@ -15,8 +15,9 @@ import { applyMine, roleMine, savedMine } from './persona';
 import { fillFilm, withRole } from '../../shared/roles';
 import { lastTurn, loadPlay, SCENE, viewOf } from './store';
 import { settle } from './skip';
-import { answer } from './talk';
+import { answer, errText } from './talk';
 import { finishText } from './text';
+import { happen } from './incident';
 
 /** 필름에 들어간다. 같은 playId로 두 번 불러도 삶은 하나다 */
 export async function enter(ctx: Ctx, filmId: string, playId: unknown): Promise<PlayView> {
@@ -231,7 +232,16 @@ export async function say(ctx: Ctx, playId: string, input: SayInput): Promise<Pl
     끝나지 않은 삶에는 아무 일도 하지 않는다 — 두 번 눌러도 하루만 는다 */
 export async function nextDay(ctx: Ctx, playId: string): Promise<PlayView> {
   const play = await loadPlay(ctx, playId);
-  if (play.ended) await ctx.db.run('UPDATE plays SET ended = 0, days = days + 1 WHERE id = ? AND ended = 1', playId);
+  if (play.ended) {
+    await ctx.db.run('UPDATE plays SET ended = 0, days = days + 1 WHERE id = ? AND ended = 1', playId);
+    // 새 날이 열릴 때도 바깥 사건이 하나 일어날 수 있다 — 다음 날이 아무 일 없이 시작되지 않게(2026-11-14 테스터)
+    const opened = await loadPlay(ctx, playId);
+    try {
+      await happen(ctx, opened, `incident-${playId}-day${opened.days}`, `day-${opened.days}`, null);
+    } catch (e) {
+      console.warn('바깥 사건', errText(e));
+    }
+  }
   return viewOf(ctx, playId);
 }
 

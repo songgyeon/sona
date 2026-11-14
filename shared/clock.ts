@@ -113,3 +113,32 @@ const DAY_NAMES = ['첫 하루', '둘째 날', '셋째 날', '넷째 날', '다�
 
 /** 몇째 날인지 부르는 말. 「첫 하루」, 「둘째 날」 … */
 export const dayName = (days: number): string => DAY_NAMES[days - 1] ?? `${days}일째`;
+
+/** 화면이 띄우는 넘기기. 서버는 short·errand도 받지만 화면에는 이 둘만 선다 */
+export type SkipChoice = 'evening' | 'sleep';
+
+/** 시간을 넘기는 단추. 넘긴 사이에도 캐스트는 자기 하루를 보낸다.
+    낮에는 저녁과 다음 날 아침으로, 저녁이 지나면 아침으로만 갈 수 있다.
+    가려는 때가 열어 둔 날의 끝(`end`)을 넘으면 서버는 날의 끝에서 멈추고 크레딧이 오른다 — 그 단추는 「하루 마치기」다.
+    (2026-11-13 플레이에서: 저녁 7시에 「다음 날 아침으로」를 누르니 아침이 아니라 날이 끝나는 새벽 1:08로 갔다)
+    저녁까지 한 시간이 안 남았으면 「저녁으로」를 띄우지 않는다(2026-11-14 테스터: 6시 39분에 누르니 21분만 넘어갔다) */
+export function skipsAt(c: Clock, end: number): { kind: SkipChoice; label: string }[] {
+  const min = worldAt(c).min;
+  const all: { kind: SkipChoice; label: string }[] =
+    min < RULES.skip.wakeMin
+      ? [{ kind: 'sleep', label: '아침으로' }]
+      : min < RULES.skip.eveningMin
+        ? [
+            // 저녁이 코앞이면 「저녁으로」는 몇 분만 넘긴다. 그때는 띄우지 않는다
+            ...(nextEvening(c) - c.elapsed >= RULES.skip.eveningLeadMin ? [{ kind: 'evening' as const, label: '저녁으로' }] : []),
+            { kind: 'sleep', label: '다음 날 아침으로' },
+          ]
+        : [{ kind: 'sleep', label: '다음 날 아침으로' }];
+  const out: { kind: SkipChoice; label: string }[] = [];
+  for (const s of all) {
+    const to = s.kind === 'evening' ? nextEvening(c) : nextWake(c);
+    if (to < end) out.push(s);
+    else if (!out.some((o) => o.label === '하루 마치기')) out.push({ kind: s.kind, label: '하루 마치기' });
+  }
+  return out;
+}

@@ -20,6 +20,7 @@ import { asNow } from './persona';
 import { pingHeld, pingSlots } from './ping';
 import { lastTurn, loadPlay, type Play, sceneMessages, viewOf } from './store';
 import { ask, bubbles, errText, eventsFor, heardBy, logStmt, recent, toLines } from './talk';
+import { happen } from './incident';
 
 export type SkipKind = 'short' | 'errand' | 'evening' | 'sleep';
 
@@ -100,6 +101,13 @@ export async function settle(ctx: Ctx, play: Play, turnId: string, from: number,
 }
 
 async function between(ctx: Ctx, play: Play, turnId: string, from: number, to: number, stmts: Stmt[]): Promise<void> {
+  // 바깥 사건: 디렉터가 적어 둔 일 가운데 지금 맞는 하나. 먼저 적어 두어야 그 사이 캐스트가 알고 움직인다.
+  // 못 만들어도 그 사이의 다른 일은 그대로 간다
+  try {
+    await happen(ctx, play, `incident-${turnId}`, turnId, { from, to });
+  } catch (e) {
+    console.warn('바깥 사건', errText(e));
+  }
   // 자는 동안 온 문자: 그 사이에 깨어 있게 된 사람이 답한다. 먼저 거는 연락보다 먼저다
   const replied = await answerTexts(ctx, play, turnId, from, to, stmts);
   await alone(ctx, play, turnId, from, to, stmts, replied);

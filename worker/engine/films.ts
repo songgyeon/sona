@@ -5,7 +5,7 @@ import { RULES } from '../../shared/rules';
 import { readFilm } from '../../shared/opening';
 import { FEED_KINDS } from '../../shared/feed';
 import { fontOf } from '../../shared/fonts';
-import type { Beat, Cast, Extra, FeedKind, FeedPhoto, Film, FilmCard, Persona, Reel, ReelClip, ReelText, Tie } from '../../shared/types';
+import type { Beat, Cast, Extra, FeedKind, FeedPhoto, Film, FilmCard, Incident, Persona, Reel, ReelClip, ReelText, Tie } from '../../shared/types';
 import { newId, q } from '../db';
 import { isUuid } from '../guard';
 import { type Ctx, Fail } from './ctx';
@@ -178,6 +178,20 @@ function feedPhotos(v: unknown): FeedPhoto[] {
   return out;
 }
 
+/** 바깥 사건들. 글이 빈 것은 버린다 */
+function incidentsOf(v: unknown): Incident[] {
+  if (v == null) return [];
+  if (!Array.isArray(v)) throw new Fail(400, 'film_invalid', '바깥 사건이 올바르지 않아요.');
+  const out = v
+    .map((x) => {
+      const o = obj(x);
+      return { text: text(o.text, L.incident, '바깥 사건'), secret: o.secret === true };
+    })
+    .filter((e) => e.text.length > 0);
+  if (out.length > L.incidents) throw new Fail(400, 'film_invalid', `바깥 사건은 ${L.incidents}개까지 적을 수 있어요.`);
+  return out;
+}
+
 /** 내 배역 하나. 「유저 이름」 배역은 이름 칸을 비워도 된다 — 그때는 글에 대신 쓰는 이름(RULES.playerName)이다 */
 function role(v: unknown, i: number): Persona {
   const p = obj(v);
@@ -320,6 +334,7 @@ export function parseFilm(input: unknown): Film {
     bgm: media(f.bgm, '배경 음악'),
     bgmName: text(f.bgmName, 80, '배경 음악 이름'),
     reel: reelOf(f.reel),
+    incidents: incidentsOf(f.incidents),
     firstScene: {
       place: text(fs.place, 40, '첫 장면의 장소'),
       beats,
@@ -401,6 +416,8 @@ export function forScreen(film: Film): Film {
   return {
     ...film,
     extras: [],
+    // 바깥 사건은 디렉터가 적어 둔 앞일이다. 플레이하는 사람에게 미리 보이지 않는다
+    incidents: [],
     persona: { ...film.persona, extras: [] },
     roles: (film.roles ?? []).map((r) => ({ ...r, extras: [] })),
     casts: film.casts.map((c) => ({ ...c, nature: '', habit: '', trauma: '', lack: '', secret: '', extras: [], photos: [] })),

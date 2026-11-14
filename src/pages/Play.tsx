@@ -1,10 +1,10 @@
 import { type FormEvent, Fragment, type KeyboardEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { type Clock, dayEnd, dayName, formatWorld, nextEvening, nextWake, worldAt } from '../../shared/clock';
+import { type Clock, dayEnd, dayName, formatWorld, type SkipChoice as SkipKind, skipsAt, worldAt } from '../../shared/clock';
 import { josa } from '../../shared/ko';
 import { splitLine } from '../../shared/line';
 import { cutsOf, hasLines } from '../../shared/opening';
 import { RULES } from '../../shared/rules';
-import type { AsideView, Film, MessageView, Persona, PlayView } from '../../shared/types';
+import type { AsideView, Film, IncidentView, MessageView, Persona, PlayView } from '../../shared/types';
 import { ApiFail, api, imgUrl, newId } from '../api';
 import { useBgm } from '../bgm';
 import { Arrow, Back, Bookmark, Down, Mail, PlayFill, SkipFill, Sound, SoundOff } from '../icons';
@@ -14,8 +14,6 @@ import { Face, titleClass } from '../poster';
 import { Tabs } from '../tabs';
 import { type Go, goBack, replaceUrl } from '../router';
 
-type SkipKind = 'evening' | 'sleep';
-
 /** 한 번에 보내는 것. 지문과 대사 가운데 하나는 있다 */
 interface Outgoing {
   /** 쓴 글 그대로. 지문은 *별표* 사이에 있다 */
@@ -23,29 +21,6 @@ interface Outgoing {
   requestId: string;
 }
 
-/** 시간을 넘기는 단추. 넘긴 사이에도 캐스트는 자기 하루를 보낸다.
-    낮에는 저녁과 다음 날 아침으로, 저녁이 지나면 아침으로만 갈 수 있다.
-    가려는 때가 열어 둔 날의 끝(`end`)을 넘으면 서버는 날의 끝에서 멈추고 크레딧이 오른다 — 그 단추는 「하루 마치기」다.
-    (2026-11-13 플레이에서: 저녁 7시에 「다음 날 아침으로」를 누르니 아침이 아니라 날이 끝나는 새벽 1:08로 갔다) */
-function skipsAt(c: Clock, end: number): { kind: SkipKind; label: string }[] {
-  const min = worldAt(c).min;
-  const all: { kind: SkipKind; label: string }[] =
-    min < RULES.skip.wakeMin
-      ? [{ kind: 'sleep', label: '아침으로' }]
-      : min < RULES.skip.eveningMin
-        ? [
-            { kind: 'evening', label: '저녁으로' },
-            { kind: 'sleep', label: '다음 날 아침으로' },
-          ]
-        : [{ kind: 'sleep', label: '다음 날 아침으로' }];
-  const out: { kind: SkipKind; label: string }[] = [];
-  for (const s of all) {
-    const to = s.kind === 'evening' ? nextEvening(c) : nextWake(c);
-    if (to < end) out.push(s);
-    else if (!out.some((o) => o.label === '하루 마치기')) out.push({ kind: s.kind, label: '하루 마치기' });
-  }
-  return out;
-}
 
 /** 앞 대사와 이만큼 벌어지면 그 사이에 시각을 적는다(작중 분) */
 const CUT_AFTER = 30;
@@ -521,6 +496,7 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
     setNewFeed(null);
     const seenMessages = new Set(view.messages.map((m) => m.id));
     const seenPosts = new Set(view.posts.map((p) => p.id));
+    const seenIncidents = new Set((view.incidents ?? []).map((x) => x.id));
     try {
       const next = await api.skip(playId, a.kind, a.requestId);
       setView(next);
@@ -530,9 +506,11 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
       const from = [...new Set(next.messages.filter((m) => !seenMessages.has(m.id) && m.kind === 'ping' && m.speaker !== 'persona').map((m) => m.speaker))];
       const names = from.map((key) => next.film.casts.find((c) => c.key === key)?.name ?? key);
       const fresh = next.posts.filter((p) => !seenPosts.has(p.id));
+      // 바깥 사건은 흐름에 카드로 선다. 그것만 왔어도 별일이 있었던 것이다
+      const outside = (next.incidents ?? []).some((x) => !seenIncidents.has(x.id));
       // 아무 일도 오지 않았을 때: 「연락이 없어요」는 같은 자리에 있다가 넘긴 때(같이 밤을 보낸 때)에 어색하다.
       // 떨어져 있었든 같이 있었든 맞는 말로 둔다(2026-11-13 플레이에서)
-      setNotice(names.length > 0 ? `${names.join(', ')}의 메시지` : fresh.length > 0 ? '' : '그 사이 별일 없었어요.');
+      setNotice(names.length > 0 ? `${names.join(', ')}의 메시지` : fresh.length > 0 || outside ? '' : '그 사이 별일 없었어요.');
       setNewFeed(fresh.length > 0 ? { cast: fresh[fresh.length - 1]!.cast, count: fresh.length } : null);
     } catch (e) {
       if (e instanceof ApiFail && e.status !== 0 && e.status < 500) {
@@ -558,11 +536,18 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
   const locked = waiting || view.ended || !!view.stuck || !!out || !!outText || !!away;
   /** 흐름에 놓이는 것들: 오간 말, 그리고 그 사이사이에 있었던 한편. 작중 시각 순.
       피드 글은 흐름에 놓지 않는다 — 피드는 프로필에서 본다(2026-11-12 사용자 지시) */
-  const items: ({ at: number; m: MessageView; a?: undefined } | { at: number; a: AsideView; m?: undefined })[] = [
+  const items: (
+    | { at: number; m: MessageView; a?: undefined; x?: undefined }
+    | { at: number; a: AsideView; m?: undefined; x?: undefined }
+    | { at: number; x: IncidentView; m?: undefined; a?: undefined }
+  )[] = [
     ...messages.map((m) => ({ at: m.at, m })),
     ...view.asides.map((a) => ({ at: a.at, a })),
-  ].sort((x, y) => x.at - y.at);
-  const cuts = (i: number) => i > 0 && items[i]!.at - items[i - 1]!.at >= CUT_AFTER;
+    // 바깥 사건: 내가 시간을 넘긴 사이 바깥에서 온 일. 인서트 컷처럼 틀 안에 한 장 선다
+    ...(view.incidents ?? []).map((x) => ({ at: x.at, x })),
+  ].sort((p, q) => p.at - q.at);
+  // 바깥 사건의 카드는 제 시각을 달고 선다. 그 앞에 시각 줄을 또 긋지 않는다
+  const cuts = (i: number) => i > 0 && !items[i]!.x && items[i]!.at - items[i - 1]!.at >= CUT_AFTER;
   /** 캐스트마다 마지막으로 온 메시지. 그 아래에만 「답장」을 둔다 — 지난 메시지마다 두면 흐름이 단추로 덮인다 */
   const lastPing = new Map<string, string>();
   for (const x of messages) if (x.kind === 'ping' && x.speaker !== 'persona') lastPing.set(x.speaker, x.id);
@@ -634,8 +619,17 @@ export function Play({ playId, go }: { playId: string; go: Go }) {
         {fs.beats.length > 0 && <Opening film={film} onPicture={keepBottom} onCast={profile} />}
         <MeCard me={film.persona} onEdit={() => go(`/play/${playId}/me`)} />
 
-        {items.map(({ m, a }, i) =>
-          a ? (
+        {items.map(({ m, a, x }, i) =>
+          x ? (
+            // 바깥 사건. 나만 아는 일은 점선 틀과 표시 — 캐스트는 내가 말하기 전까지 모른다
+            <div className={x.secret ? 'world private' : 'world'} key={x.id}>
+              <small>
+                그 사이 · {formatWorld(clock, x.at)}
+                {x.secret && <span className="only">나만 아는 일</span>}
+              </small>
+              <p>{x.text}</p>
+            </div>
+          ) : a ? (
             // 한편: 내가 없는 자리에서 두 사람이 나눈 장면. 누르면 읽기만 하는 화면이 열린다
             <button className="aside" key={a.id} onClick={() => go(`/play/${playId}/aside/${a.id}`)}>
               <span className="duo">

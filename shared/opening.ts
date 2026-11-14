@@ -25,6 +25,8 @@ export function readFilm(saved: Film): Film {
     bgm: saved.bgm ?? '',
     bgmName: saved.bgmName ?? '',
     reel: saved.reel ?? null,
+    // 바깥 사건이 생기기 전의 필름(2026-11-14). 없는 것으로 읽는다
+    incidents: saved.incidents ?? [],
     // 배역의 나이·직업·대표 대사가 생기기 전의 필름(2026-11-13)도 빈 칸으로 읽는다
     persona: { ...saved.persona, face: saved.persona?.face ?? '', extras: saved.persona?.extras ?? [], ...credit(saved.persona) },
     // 내 배역이 하나뿐이던 때의 필름. 둘째 배역은 없다

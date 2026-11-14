@@ -395,6 +395,12 @@ svg.mail { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-w
 .tell + .say, .tell + .msg { margin-top: 22px; }
 .say + .tell, .msg + .tell { margin-top: 0; }
 .cut { margin: 22px 0; display: flex; align-items: center; gap: 14px; font-family: var(--serif); font-size: 12.5px; letter-spacing: 0.1em; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+/* 바깥 사건. 영화의 인서트 컷처럼 틀 안에 한 장 선다. 나만 아는 일은 점선 틀에 「나만 아는 일」 */
+.world { margin: 26px 0; padding: 14px 16px 15px; border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 4px; background: #0f0f0f; }
+.world small { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.12em; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.world p { font-family: var(--serif); font-size: 15px; line-height: 1.75; color: rgba(255, 255, 255, 0.88); text-align: justify; white-space: pre-line; }
+.world.private { border-style: dashed; }
+.world .only { padding: 1px 6px; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; font-size: 10px; letter-spacing: 0.06em; color: rgba(255, 255, 255, 0.75); }
 .cut::before, .cut::after { content: ''; flex: 1; height: 1px; background: var(--hair); }
 .flow .note { margin: 18px 0; text-align: center; }
 .flow .note .feedlink { font: inherit; color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; }

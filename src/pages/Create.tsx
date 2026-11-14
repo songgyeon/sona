@@ -7,7 +7,7 @@ import { josa, pick as pickJosa } from '../../shared/ko';
 import { standIn } from '../../shared/roles';
 import { DOW_NAMES, RULES } from '../../shared/rules';
 import { readTags } from '../../shared/tags';
-import type { FeedKind, FeedPhoto } from '../../shared/types';
+import type { FeedKind, FeedPhoto, Incident } from '../../shared/types';
 import { ApiFail, api, imgUrl, newId, uploadImage } from '../api';
 import { FacePick } from '../crop';
 import { drafts } from '../drafts';
@@ -608,6 +608,10 @@ export function Create({ go, editId, draftId }: { go: Go; editId?: string; draft
                 </>
               )}
             </Card>
+
+            <Card title="바깥 사건" count={`${(d.incidents ?? []).length} / ${RULES.limits.incidents}`} sub="시간을 넘기면 이야기에 맞는 사건이 하나씩 일어나요.">
+              <Incidents value={d.incidents ?? []} onChange={(v) => set('incidents', v)} />
+            </Card>
           </>
         )}
 
@@ -1032,6 +1036,39 @@ function CastFeed({
           <p className="hint">사진은 여기 붙인 것만 올라와요.</p>
         </>
       )}
+    </div>
+  );
+}
+
+/** 바깥 사건. 캐스트도 내 인물도 아닌 바깥에서 일어날 일을 디렉터가 적는다. 처음에는 비어 있고 「사건 추가」로 늘린다.
+    사건마다 「플레이하는 사람만 알아요」를 켤 수 있다 — 켜면 캐스트는 그 사람이 말하기 전까지 모른다.
+    글이 빈 사건은 저장하지 않는다. 플레이하는 사람에게 목록은 보이지 않는다(일어난 것만 채팅에 선다) */
+function Incidents({ value, onChange }: { value: Incident[]; onChange: (v: Incident[]) => void }) {
+  const edit = (i: number, v: Partial<Incident>) => onChange(value.map((e, j) => (j === i ? { ...e, ...v } : e)));
+  return (
+    <div className="extras">
+      {value.map((e, i) => (
+        <div className="extra" key={i}>
+          <Field label="무슨 일" count={[e.text.length, RULES.limits.incident]}>
+            <textarea
+              rows={2}
+              value={e.text}
+              maxLength={RULES.limits.incident}
+              placeholder="예) 방송부 단톡방에 폐부 공지가 올라온다."
+              onChange={(ev) => edit(i, { text: ev.target.value })}
+            />
+          </Field>
+          <Toggle checked={e.secret} onChange={(v) => edit(i, { secret: v })} label="플레이하는 사람만 알아요" desc="캐스트는 그 사람이 말하기 전까지 몰라요." />
+          <button className="textbtn exdel" onClick={() => onChange(value.filter((_, j) => j !== i))}>
+            이 사건 지우기
+          </button>
+        </div>
+      ))}
+      <button className="btn more wide" disabled={value.length >= RULES.limits.incidents} onClick={() => onChange([...value, { text: '', secret: false }])}>
+        <Plus />사건 추가
+      </button>
+      <p className="hint">적어 둔 사건만 일어나고, 한 번 일어난 사건은 다시 일어나지 않아요.</p>
+      <p className="hint">지금 이야기에 맞는 사건이 없으면 그냥 지나가요.</p>
     </div>
   );
 }

@@ -97,6 +97,7 @@ export function applyMine(base: Film, mine: Mine, fresh = false): Film {
       photos: (c.photos ?? []).map((ph) => ({ ...ph, about: fix(ph.about) })),
     })),
     ties: film.ties.map((t) => ({ ...t, relation: fix(t.relation) })),
+    incidents: (film.incidents ?? []).map((e) => ({ ...e, text: fix(e.text) })),
     firstScene: {
       ...film.firstScene,
       beats: film.firstScene.beats.map((b) => (b.kind === 'cut' ? b : { ...b, text: fix(b.text) })),

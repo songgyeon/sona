@@ -8,6 +8,7 @@ import { type Db, q } from '../db';
 import { type Ctx, Fail } from './ctx';
 import { forScreen } from './films';
 import { relabel } from './speakers';
+import { incidentsOf } from './incident';
 
 export interface Play extends Clock {
   id: string;
@@ -165,10 +166,11 @@ export async function asidesOf(db: Db, playId: string): Promise<AsideView[]> {
 
 export async function viewOf(ctx: Ctx, playId: string): Promise<PlayView> {
   const play = await loadPlay(ctx, playId);
-  const [messages, posts, asides, last, maker] = await Promise.all([
+  const [messages, posts, asides, incidents, last, maker] = await Promise.all([
     messagesOf(ctx.db, playId),
     postsOf(ctx.db, playId),
     asidesOf(ctx.db, playId),
+    incidentsOf(ctx.db, playId),
     lastTurn(ctx.db, playId),
     ctx.db.first<{ owner: string }>('SELECT owner FROM films WHERE id = ?', play.filmId),
   ]);
@@ -186,6 +188,7 @@ export async function viewOf(ctx: Ctx, playId: string): Promise<PlayView> {
     messages: relabel(messages, play.film),
     posts,
     asides,
+    incidents,
     stuck: last && last.status !== 'done' ? last : null,
   };
 }

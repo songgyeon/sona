@@ -35,6 +35,15 @@ export interface Film {
   bgmName?: string;
   /** 오프닝 영상. 들어가면 맨 먼저 흐른다. 없으면 null */
   reel?: Reel | null;
+  /** 바깥 사건. 디렉터가 적어 둔, 캐스트도 내 인물도 아닌 바깥에서 일어날 일. 없으면 빈 목록 */
+  incidents?: Incident[];
+}
+
+/** 바깥 사건 하나. 시간을 넘길 때와 새 날을 열 때, 남은 것 가운데 이야기에 맞는 하나를 대사 모델이 골라 지금에 맞게 쓴다 */
+export interface Incident {
+  text: string;
+  /** 플레이하는 사람만 아는 일. 캐스트는 그 사람이 말하기 전까지 모른다 */
+  secret: boolean;
 }
 
 /** 오프닝 영상의 화면비: 세로(9:16), 가로(16:9), 시네마(2.39:1) */
@@ -289,8 +298,20 @@ export interface PlayView {
   messages: MessageView[];
   posts: PostView[];
   asides: AsideView[];
+  /** 이 삶에서 일어난 바깥 사건. 채팅 흐름에 인서트 카드로 선다 */
+  incidents: IncidentView[];
   /** 답을 못 받은 턴이 있으면 그 턴. 화면은 '다시 받기'를 보여준다 */
   stuck: TurnView | null;
+}
+
+/** 삶에서 일어난 바깥 사건 하나 */
+export interface IncidentView {
+  id: string;
+  /** 일어난 때(작중 분) */
+  at: number;
+  text: string;
+  /** 플레이하는 사람만 아는 일 */
+  secret: boolean;
 }
 
 /** 필름 정보 화면에서 보는 내 배역 — 이 필름에 들어가면 이 사람이 된다.

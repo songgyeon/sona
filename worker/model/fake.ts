@@ -16,6 +16,7 @@ export const FAKE_DEFAULTS: Record<ModelCall['purpose'], string> = {
   aside: '',
   post: '노래 | 밤편지 | 아이유 | 문 닫고 한 번 더.',
   past: '3일 전 | 영화 | 이터널 선샤인 | 세 번째. 이번엔 끝까지 봤다.\n2일 전 | 없음\n1일 전 | 일기 | 비가 왔다. 손님이 둘뿐이었다.',
+  incident: '없음',
 };
 
 /** 건네받은 인물 카드에 적힌 이름들. 차례대로 */
@@ -57,6 +58,20 @@ function demoScene(call: ModelCall): string {
   return out.join('\n');
 }
 
-/** 로컬 화면에서 대화와 자리 비우기, 피드, 한편을 눌러 볼 수 있게 하는 흉내 */
+/** 대역이 고르는 바깥 사건: 남은 것 가운데 첫째를 그대로 쓴다 */
+function demoIncident(call: ModelCall): string {
+  const first = /^(\d+)\. (?:\(유저의 인물만 아는 일\) )?(.+)$/m.exec(call.layers.scene.split('[남은 사건]')[1] ?? '');
+  return first ? `${first[1]} | ${first[2]}` : '없음';
+}
+
+/** 로컬 화면에서 대화와 자리 비우기, 피드, 한편, 바깥 사건을 눌러 볼 수 있게 하는 흉내 */
 export const demoScript: Script = (call) =>
-  call.purpose === 'gap' ? DEMO_DAY : call.purpose === 'aside' ? demoAside(call) : call.purpose === 'reply' ? demoScene(call) : FAKE_DEFAULTS[call.purpose];
+  call.purpose === 'gap'
+    ? DEMO_DAY
+    : call.purpose === 'aside'
+      ? demoAside(call)
+      : call.purpose === 'reply'
+        ? demoScene(call)
+        : call.purpose === 'incident'
+          ? demoIncident(call)
+          : FAKE_DEFAULTS[call.purpose];

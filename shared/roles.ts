@@ -76,6 +76,7 @@ export function fillFilm(film: Film, name: string = film.persona.name): Film {
       beats: film.firstScene.beats.map((b) => (b.kind === 'cut' ? b : { ...b, text: f(b.text) })),
       firstLine: f(film.firstScene.firstLine),
     },
+    ...(film.incidents ? { incidents: film.incidents.map((e) => ({ ...e, text: f(e.text) })) } : {}),
     ...(film.reel ? { reel: { ...film.reel, clips: film.reel.clips.map((c) => ({ ...c, text: f(c.text), ...(c.texts ? { texts: c.texts.map((t) => ({ ...t, text: f(t.text) })) } : {}) })) } } : {}),
   };
 }
