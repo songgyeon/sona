@@ -183,13 +183,14 @@ button:disabled { opacity: 0.4; cursor: default; }
 .cell .blank { padding: 8px; }
 .cell .blank b { font-size: 11px; letter-spacing: 0.08em; }
 /* 필름 가장자리 글자 자리에 제목을 찍는다 */
-.strip.named { padding-bottom: 28px; }
-.strip.named::after { bottom: 18.5px; }
+.strip.named { padding-bottom: 34px; }
+.strip.named::after { bottom: 24.5px; }
 .cellwrap { position: relative; flex: none; width: var(--w); }
 .cellwrap small { position: absolute; left: 1px; right: 0; top: calc(var(--h) + 13.5px); font-size: 9.5px; letter-spacing: 0.05em; color: rgba(255, 255, 255, 0.62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* 포스터 비율(2:3). 한 화면에 두 편 반쯤 보이고 나머지는 밀어서 본다(2026-11-12 사용자: 「필름 목록이 너무 작게 나와」) */
 .strip.posters { --w: 136px; --h: 204px; --gap: 8px; --n: 6; }
-.strip.posters .cellwrap small { top: calc(var(--h) + 13px); font-size: 10.5px; }
+/* 포스터 아래 제목은 13px로, 희고 굵게(2026-11-14 사용자: 「하단의 제목 부분이 너무 작아서 안 보여」 — 10.5px 흐린 회색이었다) */
+.strip.posters .cellwrap small { top: calc(var(--h) + 13px); font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: rgba(255, 255, 255, 0.92); }
 .strip.stills { --w: 158px; --h: 105px; --gap: 6px; --n: 8; }
 
 /* ── 필름 정보 ── */
